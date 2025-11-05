@@ -1,0 +1,22 @@
+[
+  {
+    "hebrew_index": 0,
+    "russian_translation": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
+    "imageName": "ChatOn image-1.jpg",
+    "voice": null
+  },
+  {
+    "hebrew_index": 1,
+    "russian_translation": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
+    "imageName": "ChatOn image-2.jpg",
+    "voice": null
+  }
+]

@@ -1,0 +1,22 @@
+# === Файлы IDE (Android Studio / IntelliJ) ===
+.idea/
+*.iml
+*.hprof
+.gradle/
+
+# === Файлы сборки (Build outputs) ===
+build/
+*/build/
+
+# === Локальные настройки ===
+local.properties
+
+# === Файлы Python (.venv и кэш) ===
+# (Мы не хотим хранить 'venv' в Git)
+/source_files/.venv/
+/source_files/_temp_audio/
+__pycache__/
+*.pyc
+
+# === Файлы macOS ===
+.DS_Store
