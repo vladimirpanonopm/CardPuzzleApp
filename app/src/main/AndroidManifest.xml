@@ -12,7 +12,8 @@
         android:label="@string/app_name_variant"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CardPuzzleApp">
+        android:theme="@style/Theme.CardPuzzleApp"
+        android:enableOnBackInvokedCallback="true">
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"
