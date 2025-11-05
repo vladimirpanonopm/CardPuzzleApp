@@ -12,8 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.* import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,15 +56,13 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-// --- Наши импорты для картинки ---
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import java.io.IOException
-// ------------------------------------
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun GameScreen(
     viewModel: CardViewModel,
@@ -99,7 +96,6 @@ fun GameScreen(
         }
     }
 
-    // --- БЛОК 1: ДЛЯ НАВИГАЦИИ (Исправлено) ---
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collectLatest { route ->
             if (route.startsWith("round_track/")) {
@@ -111,7 +107,6 @@ fun GameScreen(
         }
     }
 
-    // --- БЛОК 2: ДЛЯ ВИБРАЦИИ (Исправлено) ---
     LaunchedEffect(Unit) {
         val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
@@ -125,17 +120,14 @@ fun GameScreen(
             Log.d("VIBRATE_DEBUG", "GameScreen received event: $event")
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                // API 29+ (Android 10+)
                 val vibrationEffect = android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK)
                 vibrator.vibrate(vibrationEffect)
 
             } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                // API 26-28 (Android 8-9)
                 val vibrationEffect = android.os.VibrationEffect.createOneShot(20, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
                 vibrator.vibrate(vibrationEffect)
 
             } else {
-                // API 24-25 (Android 7.0-7.1)
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(20)
             }
@@ -183,8 +175,6 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
-
-                // --- Кнопка "Пропустить" -> "Показать перевод" ---
                 if (viewModel.isRoundWon) {
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
@@ -214,7 +204,7 @@ fun GameScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.4f), // 40% экрана под "стикер"
+                    .weight(0.4f),
                 color = StickyNoteYellow,
             ) {
                 Column(
@@ -223,7 +213,6 @@ fun GameScreen(
                         .padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 1. ЗАГРУЗЧИК КАРТИНКИ
                     val imageBitmap = remember(viewModel.currentImageName) {
                         viewModel.currentImageName?.let {
                             try {
@@ -232,27 +221,24 @@ fun GameScreen(
                                 inputStream.close()
                                 bitmap?.asImageBitmap()
                             } catch (e: IOException) {
-                                null // Файл не найден
+                                null
                             }
                         }
                     }
 
-                    // 2. КАРТИНКА (если есть)
                     if (imageBitmap != null) {
                         Image(
                             bitmap = imageBitmap,
-                            contentDescription = null, // Декоративное
+                            contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // --- ВОЗВРАЩЕНО: 60% МЕСТА КАРТИНКЕ ---
                                 .weight(0.6f)
                                 .padding(bottom = 8.dp)
                                 .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Fit // "Сжимаем"
+                            contentScale = ContentScale.Fit
                         )
                     }
 
-                    // 3. ТЕКСТ (который собираем)
                     val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
                     val styleConfig = CardStyles.getStyle(fontStyle)
 
@@ -291,44 +277,49 @@ fun GameScreen(
                         style = hebrewTextStyle,
                         modifier = Modifier
                             .fillMaxWidth()
-                            // --- ВОЗВРАЩЕНО: 40% МЕСТА ТЕКСТУ ---
                             .weight(0.4f)
-                            .verticalScroll(rememberScrollState()) // Скроллинг
+                            .verticalScroll(rememberScrollState())
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // --- НАЧАЛО БОЛЬШОГО ИЗМЕНЕНИЯ ---
             AnimatedVisibility(
                 visible = !isRoundWon,
                 exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
-                modifier = Modifier.weight(0.6f) // 60% экрана под карточки
+                modifier = Modifier.weight(0.6f)
             ) {
-                LazyColumn(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .background(Color.White)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    // --- ИЗМЕНЕНИЕ: Упрощаем выравнивание ---
+                    horizontalArrangement = Arrangement.Center, // <-- СТАЛО (Центрирует все карточки)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(viewModel.availableCards, key = { it.id }) { card ->
-                        Shakeable(
-                            trigger = viewModel.errorCount,
-                            errorCardId = viewModel.errorCardId,
-                            currentCardId = card.id
-                        ) { shakeModifier ->
-                            SelectableCard(
-                                modifier = shakeModifier,
-                                card = card,
-                                onSelect = { viewModel.selectCard(card) },
-                                fontStyle = fontStyle
-                            )
+                    viewModel.availableCards.forEach { card ->
+                        key(card.id) {
+                            Shakeable(
+                                trigger = viewModel.errorCount,
+                                errorCardId = viewModel.errorCardId,
+                                currentCardId = card.id
+                            ) { shakeModifier ->
+                                SelectableCard(
+                                    modifier = shakeModifier,
+                                    card = card,
+                                    onSelect = { viewModel.selectCard(card) },
+                                    fontStyle = fontStyle
+                                )
+                            }
                         }
                     }
                 }
             }
+            // --- КОНЕЦ БОЛЬШОГО ИЗМЕНЕНИЯ ---
         }
     }
 
@@ -360,7 +351,6 @@ fun GameScreen(
     }
 }
 
-// (Здесь была FontToggleIcon, но мы ее удалили, т.к. она в SharedUI.kt)
 
 @OptIn(ExperimentalTextApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -406,7 +396,9 @@ fun SelectableCard(
 
     Card(
         modifier = modifier
-            .fillMaxWidth(0.95f)
+            // --- ИЗМЕНЕНИЕ: Используем wrapContentWidth ---
+            .wrapContentWidth() // <-- Явно говорим "не растягиваться"
+            .widthIn(min = 64.dp) // <-- Но иметь минимальную ширину
             .graphicsLayer { rotationX = rotation }
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -474,8 +466,6 @@ private fun ResultSheetContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Мы удалили отсюда картинку
-        // И удалили ограничение .height() отсюда
         Box(
             modifier = Modifier
                 .fillMaxWidth(),
