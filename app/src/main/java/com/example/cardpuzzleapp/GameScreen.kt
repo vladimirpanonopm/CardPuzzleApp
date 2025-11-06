@@ -90,7 +90,8 @@ fun GameScreen(
         }
     }
 
-    // Ждем окончания анимации шрифта (600мс)
+    // --- ИСПРАВЛЕНИЕ 1: Анимации "по очереди" ---
+    // (Ждем, пока шрифт закончит анимацию 600мс, потом показываем шторку)
     LaunchedEffect(isRoundWon) {
         if (isRoundWon) {
             delay(650)
@@ -285,6 +286,10 @@ fun GameScreen(
                             style = hebrewTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        // Добавляем Spacer в конце скролла, чтобы
+                        // шторка не перекрывала текст
+                        Spacer(modifier = Modifier.height(150.dp))
                     }
                 }
             }
@@ -407,7 +412,7 @@ fun GameScreen(
             sheetState = sheetState,
             scrimColor = Color.Transparent,
             dragHandle = null
-            // --- ИСПРАВЛЕНИЕ: УБРАЛИ fillMaxSize() ---
+            // --- ИСПРАВЛЕНИЕ: УБРАЛИ fillMaxSize() (исправляет "100% шторка") ---
         ) {
             ResultSheetContent(
                 snapshot = snapshot,
