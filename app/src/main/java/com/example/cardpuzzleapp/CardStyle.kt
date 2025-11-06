@@ -19,22 +19,22 @@ data class CardStyleConfig(
 
 object CardStyles {
     private val regularStyle = CardStyleConfig(
-        fontSize = 28.sp,
-        horizontalPadding = 10.dp,
-        verticalPadding = 3.dp,
-        cornerRadius = 12.dp,
-        borderWidth = 1.4.dp,
+        fontSize = 22.sp, // Было 28.sp
+        horizontalPadding = 8.dp, // Было 10.dp
+        verticalPadding = 2.dp, // Было 3.dp
+        cornerRadius = 10.dp, // Было 12.dp
+        borderWidth = 1.1.dp, // Было 1.4.dp
         fontWeight = 520f,
         fontWidth = 110f,
         borderColor = StickyNoteText.copy(alpha = 0.6f)
     )
 
     private val cursiveStyle = CardStyleConfig(
-        fontSize = 28.sp,
-        horizontalPadding = 12.dp,
-        verticalPadding = 5.dp,
-        cornerRadius = 12.dp,
-        borderWidth = 1.4.dp,
+        fontSize = 22.sp, // Было 28.sp
+        horizontalPadding = 10.dp, // Было 12.dp
+        verticalPadding = 4.dp, // Было 5.dp
+        cornerRadius = 10.dp, // Было 12.dp
+        borderWidth = 1.1.dp, // Было 1.4.dp
         fontWeight = 400f,
         fontWidth = 100f,
         borderColor = StickyNoteText.copy(alpha = 0.6f)

@@ -26,18 +26,7 @@ android {
 
     // ИЗМЕНЕНИЕ: Этот блок теперь находится в правильном месте - ПОСЛЕ defaultConfig
     flavorDimensions += "version"
-    productFlavors {
-        create("prod") {
-            dimension = "version"
-            applicationIdSuffix = null
-            resValue("string", "app_name_variant", "Card Puzzle")
-        }
-        create("sandbox") {
-            dimension = "version"
-            applicationIdSuffix = ".sandbox"
-            resValue("string", "app_name_variant", "Puzzle Sandbox")
-        }
-    }
+    
 
     buildTypes {
         release {

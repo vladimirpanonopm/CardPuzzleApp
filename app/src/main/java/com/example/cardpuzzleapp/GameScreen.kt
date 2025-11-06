@@ -12,7 +12,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.* import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -89,9 +90,10 @@ fun GameScreen(
         }
     }
 
+    // Ждем окончания анимации шрифта (600мс)
     LaunchedEffect(isRoundWon) {
         if (isRoundWon) {
-            delay(800)
+            delay(650)
             viewModel.onVictoryAnimationFinished()
         }
     }
@@ -201,104 +203,180 @@ fun GameScreen(
         ) {
             val fontStyle = viewModel.gameFontStyle
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.4f),
-                color = StickyNoteYellow,
-            ) {
-                Column(
+            // --- НАЧАЛО БОЛЬШОГО ИЗМЕНЕНИЯ (ПЛАН "ТАК ТОЧНО!") ---
+
+            // Мы анимируем только шрифт
+            val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
+            val animatedFontSize by animateFloatAsState(
+                targetValue = if (isRoundWon) 36f else initialFontSize.value,
+                animationSpec = tween(600),
+                label = "FontSizeAnimation"
+            )
+
+            // ЕСЛИ РАУНД ВЫИГРАН ("Фон Победы")
+            if (isRoundWon) {
+                Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxWidth()
+                        .weight(1.0f), // <-- 100% Экрана
+                    color = StickyNoteYellow,
                 ) {
-                    val imageBitmap = remember(viewModel.currentImageName) {
-                        viewModel.currentImageName?.let {
-                            try {
-                                val inputStream = context.assets.open("images/$it")
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                                inputStream.close()
-                                bitmap?.asImageBitmap()
-                            } catch (e: IOException) {
-                                null
+                    // Используем НОВУЮ разметку (с .verticalScroll наверху)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()), // <-- Скролл на всё
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val imageBitmap = remember(viewModel.currentImageName) {
+                            viewModel.currentImageName?.let {
+                                try {
+                                    val inputStream = context.assets.open("images/$it")
+                                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    inputStream.close()
+                                    bitmap?.asImageBitmap()
+                                } catch (e: IOException) { null }
                             }
                         }
-                    }
 
-                    if (imageBitmap != null) {
-                        Image(
-                            bitmap = imageBitmap,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.6f)
-                                .padding(bottom = 8.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Fit
+                        // 1. Картинка (без weight)
+                        if (imageBitmap != null) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+
+                        // 2. Текст (без weight)
+                        val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
+                        val styleConfig = CardStyles.getStyle(fontStyle)
+                        val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
+                            TextStyle(
+                                fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                                    FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                                    FontVariation.width(styleConfig.fontWidth)
+                                ))),
+                                fontSize = animatedFontSize.sp, // <-- Анимированный
+                                textAlign = TextAlign.Right,
+                                lineHeight = (animatedFontSize * 1.4f).sp,
+                                color = StickyNoteText,
+                                textDirection = TextDirection.Rtl
+                            )
+                        } else {
+                            TextStyle(
+                                fontFamily = fontStyle.fontFamily,
+                                fontSize = animatedFontSize.sp, // <-- Анимированный
+                                textAlign = TextAlign.Right,
+                                lineHeight = (animatedFontSize * 1.4f).sp,
+                                fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
+                                color = StickyNoteText,
+                                textDirection = TextDirection.Rtl
+                            )
+                        }
+
+                        Text(
+                            text = assembledText,
+                            style = hebrewTextStyle,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-
-                    val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
-                    val styleConfig = CardStyles.getStyle(fontStyle)
-
-                    val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
-                    val animatedFontSize by animateFloatAsState(
-                        targetValue = if (isRoundWon) 36f else initialFontSize.value,
-                        animationSpec = tween(600),
-                        label = "FontSizeAnimation"
-                    )
-                    val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
-                        TextStyle(
-                            fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                                FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                                FontVariation.width(styleConfig.fontWidth)
-                            ))),
-                            fontSize = animatedFontSize.sp,
-                            textAlign = TextAlign.Right,
-                            lineHeight = (animatedFontSize * 1.4f).sp,
-                            color = StickyNoteText,
-                            textDirection = TextDirection.Rtl
-                        )
-                    } else {
-                        TextStyle(
-                            fontFamily = fontStyle.fontFamily,
-                            fontSize = animatedFontSize.sp,
-                            textAlign = TextAlign.Right,
-                            lineHeight = (animatedFontSize * 1.4f).sp,
-                            fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
-                            color = StickyNoteText,
-                            textDirection = TextDirection.Rtl
-                        )
-                    }
-
-                    Text(
-                        text = assembledText,
-                        style = hebrewTextStyle,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(0.4f)
-                            .verticalScroll(rememberScrollState())
-                    )
                 }
             }
+            // ЕСЛИ РАУНД ИДЕТ
+            else {
+                // Используем СТАРУЮ разметку (70/30)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.7f), // 70%
+                    color = StickyNoteYellow,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val imageBitmap = remember(viewModel.currentImageName) {
+                            viewModel.currentImageName?.let {
+                                try {
+                                    val inputStream = context.assets.open("images/$it")
+                                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    inputStream.close()
+                                    bitmap?.asImageBitmap()
+                                } catch (e: IOException) { null }
+                            }
+                        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                        if (imageBitmap != null) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(0.6f)
+                                    .padding(bottom = 8.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
 
-            // --- НАЧАЛО БОЛЬШОГО ИЗМЕНЕНИЯ ---
-            AnimatedVisibility(
-                visible = !isRoundWon,
-                exit = fadeOut(tween(300)) + shrinkVertically(tween(300)),
-                modifier = Modifier.weight(0.6f)
-            ) {
+                        val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
+                        val styleConfig = CardStyles.getStyle(fontStyle)
+                        val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
+                            TextStyle(
+                                fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                                    FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                                    FontVariation.width(styleConfig.fontWidth)
+                                ))),
+                                fontSize = animatedFontSize.sp,
+                                textAlign = TextAlign.Right,
+                                lineHeight = (animatedFontSize * 1.4f).sp,
+                                color = StickyNoteText,
+                                textDirection = TextDirection.Rtl
+                            )
+                        } else {
+                            TextStyle(
+                                fontFamily = fontStyle.fontFamily,
+                                fontSize = animatedFontSize.sp,
+                                textAlign = TextAlign.Right,
+                                lineHeight = (animatedFontSize * 1.4f).sp,
+                                fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
+                                color = StickyNoteText,
+                                textDirection = TextDirection.Rtl
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.4f)
+                        ) {
+                            Text(
+                                text = assembledText,
+                                style = hebrewTextStyle,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                            )
+                        }
+                    }
+                }
+
                 FlowRow(
                     modifier = Modifier
+                        .weight(0.3f) // 30%
                         .fillMaxSize()
                         .background(Color.White)
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    // --- ИЗМЕНЕНИЕ: Упрощаем выравнивание ---
-                    horizontalArrangement = Arrangement.Center, // <-- СТАЛО (Центрирует все карточки)
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     viewModel.availableCards.forEach { card ->
@@ -329,6 +407,7 @@ fun GameScreen(
             sheetState = sheetState,
             scrimColor = Color.Transparent,
             dragHandle = null
+            // --- ИСПРАВЛЕНИЕ: УБРАЛИ fillMaxSize() ---
         ) {
             ResultSheetContent(
                 snapshot = snapshot,
@@ -374,20 +453,21 @@ fun SelectableCard(
     }
 
     val styleConfig = CardStyles.getStyle(fontStyle)
+
     val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
         TextStyle(
             fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
                 FontVariation.weight(styleConfig.fontWeight.roundToInt()),
                 FontVariation.width(styleConfig.fontWidth)
             ))),
-            fontSize = 36.sp,
+            fontSize = 29.sp,
             textAlign = TextAlign.Right,
             textDirection = TextDirection.Rtl
         )
     } else {
         TextStyle(
             fontFamily = fontStyle.fontFamily,
-            fontSize = 36.sp,
+            fontSize = 29.sp,
             textAlign = TextAlign.Right,
             fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
             textDirection = TextDirection.Rtl
@@ -396,9 +476,6 @@ fun SelectableCard(
 
     Card(
         modifier = modifier
-            // --- ИЗМЕНЕНИЕ: Используем wrapContentWidth ---
-            .wrapContentWidth() // <-- Явно говорим "не растягиваться"
-            .widthIn(min = 64.dp) // <-- Но иметь минимальную ширину
             .graphicsLayer { rotationX = rotation }
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -412,8 +489,8 @@ fun SelectableCard(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = styleConfig.verticalPadding, horizontal = styleConfig.horizontalPadding),
+                .padding(vertical = styleConfig.verticalPadding, horizontal = styleConfig.horizontalPadding)
+                .widthIn(min = 51.dp),
             contentAlignment = Alignment.Center
         ) {
             if (rotation < 90f) {
@@ -432,7 +509,7 @@ fun SelectableCard(
                 ) {
                     Text(
                         text = card.translation.ifEmpty { stringResource(R.string.result_translation_not_found) },
-                        fontSize = 32.sp,
+                        fontSize = 26.sp,
                         textAlign = TextAlign.Center,
                         color = StickyNoteText
                     )
@@ -458,17 +535,18 @@ private fun ResultSheetContent(
         }
     }
 
+    // --- ИСПРАВЛЕНИЕ: Исправляем Скролл (чтобы кнопки "прилипли" к низу) ---
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
+            // --- УБРАЛИ fillMaxSize() ---
             .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .weight(1f, fill = false) // <-- (1) Текст занимает место, но НЕ "растягивается"
+                .verticalScroll(scrollState), // <-- (2) И ТОЛЬКО он скроллится
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
@@ -478,10 +556,12 @@ private fun ResultSheetContent(
             )
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding(),
+                .navigationBarsPadding(), // <-- (3) Кнопки "прилипают" к низу
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -511,4 +591,5 @@ private fun ResultSheetContent(
             }
         }
     }
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 }
