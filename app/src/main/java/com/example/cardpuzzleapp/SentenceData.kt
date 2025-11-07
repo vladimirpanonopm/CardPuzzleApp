@@ -4,12 +4,7 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlin.OptIn
 
-/**
- * Этот класс представляет структуру одной записи (одного предложения)
- * в JSON-файле уровня. Аннотация @Serializable говорит библиотеке,
- * как преобразовывать JSON в этот объект.
- */
-@OptIn(InternalSerializationApi::class) // <-- Добавьте эту аннотацию
+@OptIn(InternalSerializationApi::class)
 @Serializable
 data class SentenceData(
     val hebrew: String,
@@ -18,5 +13,6 @@ data class SentenceData(
     val spanish_translation: String? = null,
     val french_translation: String? = null,
     val audioFilename: String,
-    val imageName: String? = null // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
+    val imageName: String? = null,
+    val voice: String? = null // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
 )

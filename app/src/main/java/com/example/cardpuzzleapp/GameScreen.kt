@@ -284,7 +284,9 @@ fun GameScreen(
                         Text(
                             text = assembledText,
                             style = hebrewTextStyle,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp) // <-- ИСПРАВЛЕНИЕ "ПОДРЕЗКИ"
                         )
 
                         // Добавляем Spacer в конце скролла, чтобы
@@ -369,6 +371,7 @@ fun GameScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .verticalScroll(rememberScrollState())
+                                    .padding(bottom = 8.dp) // <-- ИСПРАВЛЕНИЕ "ПОДРЕЗКИ"
                             )
                         }
                     }
@@ -412,7 +415,6 @@ fun GameScreen(
             sheetState = sheetState,
             scrimColor = Color.Transparent,
             dragHandle = null
-            // --- ИСПРАВЛЕНИЕ: УБРАЛИ fillMaxSize() (исправляет "100% шторка") ---
         ) {
             ResultSheetContent(
                 snapshot = snapshot,
@@ -540,18 +542,16 @@ private fun ResultSheetContent(
         }
     }
 
-    // --- ИСПРАВЛЕНИЕ: Исправляем Скролл (чтобы кнопки "прилипли" к низу) ---
     Column(
         modifier = Modifier
-            // --- УБРАЛИ fillMaxSize() ---
             .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false) // <-- (1) Текст занимает место, но НЕ "растягивается"
-                .verticalScroll(scrollState), // <-- (2) И ТОЛЬКО он скроллится
+                .weight(1f, fill = false)
+                .verticalScroll(scrollState),
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
@@ -566,7 +566,7 @@ private fun ResultSheetContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding(), // <-- (3) Кнопки "прилипают" к низу
+                .navigationBarsPadding(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -596,5 +596,4 @@ private fun ResultSheetContent(
             }
         }
     }
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 }

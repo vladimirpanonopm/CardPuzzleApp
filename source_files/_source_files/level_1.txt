@@ -3,7 +3,8 @@
 # 1. Текст для UI (RTL)
 HEBREW:
 מִי אַתְ?
-אֲנִי אַנָה. מִי אַתְ?
+אֲנִי אַנָה.
+מִי אַתְ?
 אֲנִי נִינָה.
 
 # 2. Текст для перевода (LTR)
@@ -29,7 +30,8 @@ female_a
 
 HEBREW:
 מִי אַתָה?
-אֲנִי נַתִי. מִי אַתָה?
+אֲנִי נַתִי. 
+מִי אַתָה?
 אֲנִי מַתִי.
 RUSSIAN:
 Как тебя зовут?
@@ -37,7 +39,7 @@ RUSSIAN:
 Как тебя зовут?
 Я Мати.
 
-IMAGE: ChatOn image-1.jpg
+IMAGE: ChatOn image-2.jpg
 
 # Порядок = порядок строк в HEBREW
 VOICES:
@@ -46,4 +48,67 @@ male_d
 male_d
 male_b
 
+===
+# --- Карточка 3 ---
+
+HEBREW:
+מִי אַת?
+אֲנִי תַמִי.
+אַת אִמָא?
+אֲנִי אִמָא.
+RUSSIAN:
+Как тебя зовут?
+Я Тами.
+Ты мама?
+Я мама.
+IMAGE: ChatOn image-3.png
+# Порядок = порядок строк в HEBREW
+VOICES:
+male_b
+female_c
+male_b
+female_c
+===
+# --- Карточка 4 ---
+HEBREW:
+מָה תַמִי?
+תַמִי אִמָא.
+RUSSIAN:
+Тами — это кто?
+Тами это мама.
+
+IMAGE: ChatOn image-3.png
+VOICES:
+male_b
+male_d
+===
+# --- Карточка 5 ---
+HEBREW:
+מִי אַתְ?
+אֲנִי מִירִי.
+אַת מוֹרָה?
+אֲנִי מוֹרָה.
+RUSSIAN:
+Как тебя зовут?
+Я Мири. 
+Ты учительница?
+Я учительница. 
+IMAGE: ChatOn image-5.png
+VOICES:
+female_a
+female_c
+female_a
+female_c
+===
+# --- Карточка 6 ---
+HEBREW:
+מַתִי, אַתָה מוֹרֶה?
+אֲנִי מוֹרֶה.
+RUSSIAN:
+Мати, ты учитель?
+Я учитель. 
+IMAGE: ChatOn image-6.png
+VOICES:
+male_b
+male_d
 ===
