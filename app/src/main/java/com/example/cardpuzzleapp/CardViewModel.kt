@@ -6,23 +6,25 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import javax.inject.Inject
 
-class CardViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class CardViewModel @Inject constructor(
+    val progressManager: GameProgressManager,
+    private val audioPlayer: AudioPlayer
+) : ViewModel() {
 
-    // --- НАШЕ ИЗМЕНЕНИЕ (1/2) ---
-    // Добавляем новый State, чтобы UI знал, какую картинку показывать
-    var currentImageName by mutableStateOf<String?>(null)
+    var currentTaskPrompt by mutableStateOf<String?>("")
         private set
-    // ---------------------------
-
-    val progressManager = GameProgressManager(application)
     var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
         private set
     var currentLevelSentences = listOf<SentenceData>()
@@ -39,7 +41,7 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var errorCount by mutableStateOf(0)
         private set
-    var availableCards = mutableStateListOf<Card>()
+    var availableCards = mutableStateListOf<AvailableCardSlot>()
         private set
     var selectedCards = mutableStateListOf<Card>()
         private set
@@ -68,13 +70,8 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
         if (currentLevelId == 1) {
             val newStyle = if (gameFontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
             gameFontStyle = newStyle
-            // Сохраняем выбор пользователя
             progressManager.saveLevel1FontStyle(newStyle)
         }
-    }
-
-    fun onVictoryAnimationFinished() {
-        showResultSheet = true
     }
 
     fun resetAllProgress() {
@@ -85,7 +82,16 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
         showResultSheet = false
     }
 
-    fun selectCard(card: Card) {
+    fun showResultSheet() {
+        if (isRoundWon) {
+            showResultSheet = true
+        }
+    }
+
+    fun selectCard(slot: AvailableCardSlot) {
+        if (!slot.isVisible) return
+
+        val card = slot.card
         val isCorrect = selectedCards.size < targetCards.size && card.text == targetCards[selectedCards.size].text
 
         viewModelScope.launch {
@@ -98,7 +104,12 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
 
         if (isCorrect) {
             selectedCards.add(card)
-            availableCards.remove(card)
+
+            val index = availableCards.indexOfFirst { it.id == slot.id }
+            if (index != -1) {
+                availableCards[index] = slot.copy(isVisible = false)
+            }
+
             if (selectedCards.size == targetCards.size) {
                 endRound(GameResult.WIN)
             }
@@ -113,7 +124,6 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
         this.currentLevelSentences = levelData
         this.currentLevelId = levelId
 
-        // Загружаем сохраненный шрифт или устанавливаем по умолчанию
         gameFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
 
         val userLanguage = progressManager.getUserLanguage()
@@ -125,7 +135,7 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
                     "fr" -> it.french_translation
                     "es" -> it.spanish_translation
                     else -> it.russian_translation
-                } ?: "") // <-- ВОТ ИСПРАВЛЕНИЕ
+                } ?: "")
             }
 
         val completedRounds = progressManager.getCompletedRounds(levelId)
@@ -158,14 +168,26 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
             val roundData = currentLevelSentences[roundIndex]
             this.targetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
 
-            // --- НАШЕ ИЗМЕНЕНИЕ (2/2) ---
-            // Обновляем State с картинкой для текущего раунда
-            this.currentImageName = roundData.imageName
-            // ---------------------------
+            if (roundData.taskType == "ASSEMBLE_TRANSLATION") {
+                val userLanguage = progressManager.getUserLanguage()
+                this.currentTaskPrompt = when (userLanguage) {
+                    "en" -> roundData.english_translation
+                    "fr" -> roundData.french_translation
+                    "es" -> roundData.spanish_translation
+                    else -> roundData.russian_translation
+                }
+            } else {
+                this.currentTaskPrompt = "Тип задания не поддерживается: ${roundData.taskType}"
+            }
 
             selectedCards.clear()
+
             availableCards.clear()
-            availableCards.addAll(targetCards.shuffled())
+            availableCards.addAll(
+                targetCards.shuffled().map {
+                    AvailableCardSlot(card = it, isVisible = true)
+                }
+            )
 
             val allCompleted = progressManager.getCompletedRounds(currentLevelId)
             val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -216,9 +238,16 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
             hasMoreRounds = hasMoreRounds,
-            audioFilename = if (result == GameResult.WIN) currentLevelSentences.getOrNull(currentRoundIndex)?.audioFilename else null,
-            imageName = if (result == GameResult.WIN) currentLevelSentences.getOrNull(currentRoundIndex)?.imageName else null
+            audioFilename = if (result == GameResult.WIN) currentLevelSentences.getOrNull(currentRoundIndex)?.audioFilename else null
         )
+
+        viewModelScope.launch {
+            delay(650)
+            showResultSheet = true
+            if (result == GameResult.WIN) {
+                resultSnapshot?.audioFilename?.let { audioPlayer.play(it) }
+            }
+        }
     }
 
     fun restartCurrentRound() {
@@ -258,7 +287,12 @@ class CardViewModel(application: Application) : AndroidViewModel(application) {
     fun skipToNextAvailableRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
-        val activeRounds = currentLevelSentences.indices.filter { !completedRounds.contains(it) && !archivedRounds.contains(it) }
+
+        // --- ВОТ ИСПРАВЛЕНИЕ ---
+        // val activeRounds = currentLevelSentences.indices.filter { completedRounds.contains(it) && allArchived.contains(it) } // <-- БЫЛО (ОПЕЧАТКА)
+        val activeRounds = currentLevelSentences.indices.filter { completedRounds.contains(it) && archivedRounds.contains(it) } // <-- СТАЛО
+        // ---------------------
+
         if (activeRounds.isEmpty()) return
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0

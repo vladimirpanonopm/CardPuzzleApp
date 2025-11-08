@@ -34,16 +34,17 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
-// --- НОВЫЕ ИМПОРТЫ (добавьте вверху файла, если их нет) ---
-import androidx.compose.foundation.Image
+// --- УДАЛЯЕМ ИМПОРТЫ IMAGE ---
+// import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.graphics.asImageBitmap
+// import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.graphics.drawable.toBitmap
-import java.io.IOException
-import androidx.compose.ui.draw.clip
+// import java.io.IOException
+// import androidx.compose.ui.draw.clip
 // ----------------------------------------------------
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
@@ -54,7 +55,6 @@ fun JournalScreen(
     initialRoundIndex: Int
 ) {
     val context = LocalContext.current
-    val audioPlayer = remember { AudioPlayer(context) }
     val journalSentences = journalViewModel.journalSentences
     val coroutineScope = rememberCoroutineScope()
     val progressManager = remember { GameProgressManager(context) }
@@ -95,8 +95,7 @@ fun JournalScreen(
     LaunchedEffect(pagerState.isScrollInProgress, isFlipped) {
         if (!pagerState.isScrollInProgress && !isFlipped && !isLooping && journalSentences.isNotEmpty()) {
             val currentPage = pagerState.currentPage.coerceIn(0, journalSentences.size - 1)
-            val sentence = journalSentences[currentPage]
-            audioPlayer.play(sentence.audioFilename)
+            journalViewModel.playSoundForPage(currentPage)
         }
     }
 
@@ -114,9 +113,8 @@ fun JournalScreen(
 
             while (isLooping) {
                 val currentPage = pagerState.currentPage
-                val sentence = journalSentences[currentPage]
 
-                audioPlayer.playAndAwaitCompletion(sentence.audioFilename, playbackSpeed)
+                journalViewModel.playAndAwait(currentPage, playbackSpeed)
                 if (!isLooping) break
 
                 kotlinx.coroutines.delay((pauseDuration * 1000).toLong())
@@ -130,7 +128,7 @@ fun JournalScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            audioPlayer.release()
+            journalViewModel.releaseAudio()
         }
     }
 
@@ -257,7 +255,7 @@ fun JournalScreen(
                         imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = stringResource(R.string.button_listen),
                         onClick = {
-                            if (!isLooping) audioPlayer.play(currentSentence.audioFilename)
+                            if (!isLooping) journalViewModel.playSoundForPage(currentPage)
                         }
                     )
                     AppBottomBarIcon(
@@ -297,12 +295,11 @@ fun JournalScreen(
             }
         }
     ) { paddingValues ->
-        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            color = MaterialTheme.colorScheme.surfaceContainer // Устанавливаем серый фон
+            color = MaterialTheme.colorScheme.surfaceContainer
         ) {
             if (showDeleteDialog && cardToDelete != null) {
                 AlertDialog(
@@ -343,9 +340,7 @@ fun JournalScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(vertical = 16.dp),
-                    // --- ИЗМЕНЕНИЕ 1: ВНЕШНИЙ КОНТЕЙНЕР ---
-                    // contentAlignment = Alignment.Center <-- БЫЛО
-                    contentAlignment = Alignment.TopCenter // <-- СТАЛО
+                    contentAlignment = Alignment.TopCenter
                 ) {
                     HorizontalPager(
                         state = pagerState,
@@ -443,48 +438,22 @@ private fun JournalPageContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-                contentAlignment = Alignment.TopStart // <-- Мы это уже чинили
+                contentAlignment = Alignment.TopStart
             ) {
                 val context = LocalContext.current
                 val scrollState = rememberScrollState()
 
-                val imageBitmap = remember(sentence.imageName) {
-                    sentence.imageName?.let {
-                        try {
-                            val inputStream = context.assets.open("images/$it")
-                            // --- Мы чинили "деградацию" ---
-                            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                            inputStream.close()
-                            bitmap?.asImageBitmap()
-                        } catch (e: IOException) {
-                            null // Файл не найден
-                        }
-                    }
-                }
+                // --- ИЗМЕНЕНИЕ: Вся логика Image/Bitmap УДАЛЕНА ---
+                // val imageBitmap = remember... <-- УДАЛЕНО
 
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(scrollState), // Делаем контент прокручиваемым
+                        .verticalScroll(scrollState),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 1. ИЗОБРАЖЕНИЕ (если оно есть)
-                    // --- ВОТ ИСПРАВЛЕНИЕ ---
-                    // Мы убрали 'isHebrewSide' из условия,
-                    // чтобы картинка была видна и на переводе.
-                    if (imageBitmap != null) {
-                        Image(
-                            bitmap = imageBitmap,
-                            contentDescription = null, // Декоративное
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(0.5f) // Занимает до 50% высоты
-                                .padding(bottom = 16.dp)
-                                .clip(RoundedCornerShape(12.dp)), // Скругляем углы
-                            contentScale = ContentScale.Fit // <-- Мы чинили "сжатие"
-                        )
-                    }
-                    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+                    // --- ИЗМЕНЕНИЕ: Блок Image УДАЛЕН ---
+                    // if (imageBitmap != null) { ... } <-- УДАЛЕНО
 
                     // 2. ТЕКСТ (Иврит)
                     if (isHebrewSide) {
@@ -538,8 +507,8 @@ private fun JournalPageContent(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                } // <-- Вот '}' от Column
-            } // <-- Вот '}' от Inner Box
-        } // <-- Вот '}' от Surface
-    } // <-- Вот '}' от Outer Box
-} // <-- Вот '}' от JournalPageContent (которую вы, вероятно, потеряли)
+                }
+            }
+        }
+    }
+}

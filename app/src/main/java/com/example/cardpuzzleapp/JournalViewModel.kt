@@ -4,14 +4,18 @@ import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 /**
  * Этот ViewModel отвечает исключительно за логику и данные экрана "Журнал".
  */
-class JournalViewModel(application: Application) : AndroidViewModel(application) {
-
-    // Менеджер прогресса для сохранения и загрузки данных.
-    private val progressManager = GameProgressManager(application)
+@HiltViewModel
+class JournalViewModel @Inject constructor(
+    private val progressManager: GameProgressManager,
+    private val audioPlayer: AudioPlayer
+) : ViewModel() {
 
     // Список предложений, которые отображаются в журнале.
     // Jetpack Compose будет автоматически следить за его изменениями.
@@ -75,5 +79,27 @@ class JournalViewModel(application: Application) : AndroidViewModel(application)
         progressManager.archiveRound(currentLevelId, roundIndex)
         // Перезагружаем список, чтобы архивированная карточка исчезла из UI.
         loadJournalSentences()
+    }
+
+    // --- НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ AUDIO ---
+
+    fun playSoundForPage(pageIndex: Int) {
+        journalSentences.getOrNull(pageIndex)?.audioFilename?.let {
+            audioPlayer.play(it)
+        }
+    }
+
+    suspend fun playAndAwait(pageIndex: Int, speed: Float) {
+        journalSentences.getOrNull(pageIndex)?.audioFilename?.let {
+            audioPlayer.playAndAwaitCompletion(it, speed)
+        }
+    }
+
+    fun stopAudio() {
+        audioPlayer.stop()
+    }
+
+    fun releaseAudio() {
+        audioPlayer.release()
     }
 }

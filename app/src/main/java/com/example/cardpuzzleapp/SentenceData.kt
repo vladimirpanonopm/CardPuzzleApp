@@ -13,6 +13,7 @@ data class SentenceData(
     val spanish_translation: String? = null,
     val french_translation: String? = null,
     val audioFilename: String,
-    val imageName: String? = null,
-    val voice: String? = null // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
+    // val imageName: String? = null, // <-- УДАЛЕНО
+    val taskType: String? = null, // <-- ДОБАВЛЕНО
+    val voice: String? = null
 )

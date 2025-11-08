@@ -5,18 +5,18 @@
     "english_translation": null,
     "french_translation": null,
     "spanish_translation": null,
-    "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
-    "imageName": "ChatOn image-1.jpg",
+    "audioFilename": "0b67bee1cb5f73be360ea92bcc78a570.mp3",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   },
   {
     "hebrew_index": 1,
-    "russian_translation": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
+    "russian_translation": "Как тебя зовут?\nЯ Нати. Как тебя зовут?\nЯ Мати.",
     "english_translation": null,
     "french_translation": null,
     "spanish_translation": null,
-    "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
-    "imageName": "ChatOn image-2.jpg",
+    "audioFilename": "bff51296cf77347e2280b014cc7c753e.mp3",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   },
   {
@@ -26,7 +26,7 @@
     "french_translation": null,
     "spanish_translation": null,
     "audioFilename": "c53d940d781fa7127985fda049ca8ae3.mp3",
-    "imageName": "ChatOn image-3.png",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   },
   {
@@ -36,7 +36,7 @@
     "french_translation": null,
     "spanish_translation": null,
     "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
-    "imageName": "ChatOn image-3.png",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   },
   {
@@ -46,7 +46,7 @@
     "french_translation": null,
     "spanish_translation": null,
     "audioFilename": "dc49a0a8103530d98e7ac1e0b6301d6e.mp3",
-    "imageName": "ChatOn image-5.png",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   },
   {
@@ -56,7 +56,17 @@
     "french_translation": null,
     "spanish_translation": null,
     "audioFilename": "4006ea283efd438b8df26a08b575b8da.mp3",
-    "imageName": "ChatOn image-6.png",
+    "taskType": "ASSEMBLE_TRANSLATION",
+    "voice": null
+  },
+  {
+    "hebrew_index": 6,
+    "russian_translation": "Лили учительница?\nЛили учительница. Эла учительница?\nЭла не учительница.",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": "3e5a5d33cd374ec4551143c9cf0ea3ea.mp3",
+    "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
   }
 ]

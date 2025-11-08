@@ -1,10 +1,10 @@
 # --- Карточка 1 ---
 
 # 1. Текст для UI (RTL)
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַתְ?
-אֲנִי אַנָה.
-מִי אַתְ?
+אֲנִי אַנָה. מִי אַתְ?
 אֲנִי נִינָה.
 
 # 2. Текст для перевода (LTR)
@@ -13,44 +13,36 @@ RUSSIAN:
 Я Анна. Как тебя зовут?
 Я Нина.
 
-# 3. Картинка (LTR)
-IMAGE: ChatOn image-1.jpg
-
 # 5. Список голосов (100% LTR)
 # Порядок = порядок строк в HEBREW
 VOICES:
 female_a
-female_c
 female_c
 female_a
 
 ===
 
 # --- Карточка 2 ---
-
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַתָה?
-אֲנִי נַתִי. 
-מִי אַתָה?
+אֲנִי נַתִי. מִי אַתָה?
 אֲנִי מַתִי.
 RUSSIAN:
 Как тебя зовут?
-Я Нати.
-Как тебя зовут?
+Я Нати. Как тебя зовут?
 Я Мати.
 
-IMAGE: ChatOn image-2.jpg
 
 # Порядок = порядок строк в HEBREW
 VOICES:
 male_b
 male_d
-male_d
 male_b
 
 ===
 # --- Карточка 3 ---
-
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַת?
 אֲנִי תַמִי.
@@ -61,7 +53,7 @@ RUSSIAN:
 Я Тами.
 Ты мама?
 Я мама.
-IMAGE: ChatOn image-3.png
+
 # Порядок = порядок строк в HEBREW
 VOICES:
 male_b
@@ -70,6 +62,7 @@ male_b
 female_c
 ===
 # --- Карточка 4 ---
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מָה תַמִי?
 תַמִי אִמָא.
@@ -77,12 +70,12 @@ RUSSIAN:
 Тами — это кто?
 Тами это мама.
 
-IMAGE: ChatOn image-3.png
 VOICES:
 male_b
 male_d
 ===
 # --- Карточка 5 ---
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַתְ?
 אֲנִי מִירִי.
@@ -93,7 +86,7 @@ RUSSIAN:
 Я Мири. 
 Ты учительница?
 Я учительница. 
-IMAGE: ChatOn image-5.png
+
 VOICES:
 female_a
 female_c
@@ -101,14 +94,31 @@ female_a
 female_c
 ===
 # --- Карточка 6 ---
+TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מַתִי, אַתָה מוֹרֶה?
 אֲנִי מוֹרֶה.
 RUSSIAN:
 Мати, ты учитель?
 Я учитель. 
-IMAGE: ChatOn image-6.png
+
 VOICES:
 male_b
 male_d
+===
+# --- Карточка 7 ---
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+לִילִי מוֹרָה?
+לִילִי מוֹרָה. אֶלָה מוֹרָה?
+אֶלָה לֹא מוֹרָה.
+RUSSIAN:
+Лили учительница?
+Лили учительница. Эла учительница?
+Эла не учительница. 
+
+VOICES:
+female_a
+female_c
+female_a
 ===

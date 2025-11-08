@@ -6,16 +6,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import javax.inject.Inject
 import kotlin.math.min
 
-class AlefbetViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val progressManager = GameProgressManager(application)
+@HiltViewModel
+class AlefbetViewModel @Inject constructor(
+    private val progressManager: GameProgressManager,
+    private val audioPlayer: AudioPlayer
+) : ViewModel() {
 
     val selectedLetters = androidx.compose.runtime.mutableStateListOf<HebrewLetter>()
 
@@ -87,6 +92,9 @@ class AlefbetViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectLetter(letter: HebrewLetter) {
+        // Логика проигрывания аудио теперь внутри ViewModel
+        audioPlayer.play(letter.audioFilename)
+
         if (isGameWon || selectedLetters.any { it.id == letter.id }) {
             return
         }
@@ -118,6 +126,8 @@ class AlefbetViewModel(application: Application) : AndroidViewModel(application)
         availableLetters = hebrewAlphabet.shuffled()
         resetGame()
     }
+
+
 
     fun toggleFont() {
         currentFontStyle = if (currentFontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE

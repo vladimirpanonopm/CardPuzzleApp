@@ -1,17 +1,17 @@
 import os
 import json
-import hashlib  # <-- НОВЫЙ ИМПОРТ
+import hashlib
 from google.cloud import texttospeech
 from pydub import AudioSegment
 import glob
 
-# --- 1. Настройки (без изменений) ---
+# --- 1. Настройки ---
 BASE_PROJECT_PATH = "/Users/vladimirrapoport/Copy-projects/attempt4/attempt4/CardPuzzleAppCopy"
 SOURCE_DIR = os.path.join(BASE_PROJECT_PATH, "source_files/_source_files")
 ASSETS_DIR = os.path.join(BASE_PROJECT_PATH, "app/src/main/assets")
 TEMP_DIR = os.path.join(BASE_PROJECT_PATH, "source_files/_temp_audio")
 
-# --- 2. Голоса (исправлено) ---
+# --- 2. Голоса ---
 VOICE_MAP = {
     "female_a": "he-IL-Wavenet-A",
     "male_b": "he-IL-Wavenet-B",
@@ -48,7 +48,7 @@ def synthesize_speech(text_to_speak, voice_name, output_filename):
         return False  # Провал
 
 
-# --- 4. Парсер (Поле AUDIO: теперь игнорируется) ---
+# --- 4. Парсер (ОБНОВЛЕН) ---
 def parse_entry_block(block_text):
     """Парсит один блок (одну карточку) из .txt файла V9.0"""
     data = {}
@@ -76,11 +76,16 @@ def parse_entry_block(block_text):
             if line_content:
                 lines_map[current_key].append(line_content)
 
-        elif line.startswith("IMAGE:"):
-            data['imageName'] = line.split(":", 1)[1].strip()
+        # --- ИЗМЕНЕНИЕ: Добавляем TASK ---
+        elif line.startswith("TASK:"):
+            data['taskType'] = line.split(":", 1)[1].strip()
             current_key = None
 
-        # Мы больше не читаем AUDIO:, оно будет сгенерировано
+        # --- ИЗМЕНЕНИЕ: Удаляем IMAGE ---
+        elif line.startswith("IMAGE:"):
+            # data['imageName'] = line.split(":", 1)[1].strip() <-- УДАЛЕНО
+            current_key = None
+
         elif line.startswith("AUDIO:"):
             current_key = None
 
@@ -101,7 +106,7 @@ def parse_entry_block(block_text):
     return data
 
 
-# --- 5. Основная функция (Используем ХЕШ) ---
+# --- 5. Основная функция (ОБНОВЛЕНА) ---
 def process_level_file(txt_filepath, assets_path):
     """Читает .txt и генерирует два .json файла + склеенное аудио"""
 
@@ -140,29 +145,33 @@ def process_level_file(txt_filepath, assets_path):
         hebrew_text_for_json = data.get('hebrew_display', '')
         hebrew_list.append(hebrew_text_for_json)
 
-        # --- ИЗМЕНЕНИЕ: ГЕНЕРАЦИЯ ИМЕНИ ФАЙЛА ---
-        # Мы хешируем полный текст на иврите, чтобы получить уникальное имя
+        # --- Генерация имени файла (без изменений) ---
         text_to_hash = hebrew_text_for_json.strip()
         hash_object = hashlib.md5(text_to_hash.encode('utf-8'))
         file_hash = hash_object.hexdigest()
         final_audio_filename = f"{file_hash}.mp3"
         # ---------------------------------------
 
-        # 2. Готовим level_X.json
+        # --- ИЗМЕНЕНИЕ: 2. Готовим level_X.json ---
         entry = {
             "hebrew_index": hebrew_index_counter,
             "russian_translation": data.get('russian_translation', ''),
             "english_translation": None,
             "french_translation": None,
             "spanish_translation": None,
-            "audioFilename": final_audio_filename,  # <-- Используем хеш-имя
-            "imageName": data.get('imageName', None),
-            "voice": None
+            "audioFilename": final_audio_filename,
+            # "imageName": data.get('imageName', None), <-- УДАЛЕНО
+
+            # --- ДОБАВЛЕНО ---
+            # Устанавливаем тип задания. Если в .txt не указан TASK,
+            # по умолчанию ставим 'ASSEMBLE_TRANSLATION'.
+            "taskType": data.get('taskType', 'ASSEMBLE_TRANSLATION'),
+
+            "voice": None  # (Это поле было в оригинале, оставляем как None)
         }
         level_entry_list.append(entry)
 
         # --- 6. Логика склейки MP3 (без изменений) ---
-
         final_mp3_path = os.path.join(audio_output_dir, final_audio_filename)
 
         if not os.path.exists(final_mp3_path):

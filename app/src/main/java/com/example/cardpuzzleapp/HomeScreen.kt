@@ -1,5 +1,6 @@
 package com.example.cardpuzzleapp
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -27,8 +28,12 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onAlefbetClick: () -> Unit
 ) {
+    Log.d(AppDebug.TAG, "HomeScreen: Composing")
     val context = LocalContext.current
-    val progressManager = remember { GameProgressManager(context) }
+    val progressManager = remember {
+        Log.d(AppDebug.TAG, "HomeScreen: Creating GameProgressManager")
+        GameProgressManager(context)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -63,10 +68,16 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 maxItemsInEachRow = 3
             ) {
+                Log.d(AppDebug.TAG, "HomeScreen: Calling LevelRepository.getLevelCount...")
+                // --- ЭТО КРИТИЧЕСКАЯ ТОЧКА ---
+                // Если крэш происходит, он будет здесь, т.к. 'context' может быть невалидным
                 val levelCount = LevelRepository.getLevelCount(context)
+                Log.d(AppDebug.TAG, "HomeScreen: LevelRepository.getLevelCount returned: $levelCount")
+
                 for (levelId in 1..levelCount) {
                     Button(
                         onClick = {
+                            Log.d(AppDebug.TAG, "HomeScreen: Level button $levelId clicked")
                             val levelData = LevelRepository.getLevelData(context, levelId)
                             val completedRounds = progressManager.getCompletedRounds(levelId)
 

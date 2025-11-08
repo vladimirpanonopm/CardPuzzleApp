@@ -27,9 +27,8 @@ data class RoundResultSnapshot(
     val timeSpent: Int,
     val levelId: Int,
     val hasMoreRounds: Boolean,
-    val audioFilename: String?,
-    // --- ИЗМЕНЕНИЕ: Добавлено для картинок ---
-    val imageName: String?
+    val audioFilename: String?
+    // val imageName: String? // <-- УДАЛЕНО
 )
 
 data class Card(
@@ -61,22 +60,25 @@ data class HebrewLetter(
     val audioFilename: String
 )
 
-// --- ИЗМЕНЕНИЕ: ОБНОВЛЕННЫЙ SENTENCEDATA ДЛЯ MVP ---
-// Этот класс используется ВНУТРИ приложения (ViewModel, UI)
-
-
 // --- ИЗМЕНЕНИЕ: НОВЫЙ LEVELENTRY ДЛЯ ПАРСИНГА JSON ---
-// Этот класс используется ТОЛЬКО для чтения level_X.json
 
 @OptIn(InternalSerializationApi::class)
 @Serializable
 data class LevelEntry(
     val hebrew_index: Int,
     val russian_translation: String,
-    // --- Остальные языки необязательные (nullable) ---
     val english_translation: String? = null,
     val french_translation: String? = null,
     val spanish_translation: String? = null,
     val audioFilename: String,
-    val imageName: String? = null
+    // val imageName: String? = null, // <-- УДАЛЕНО
+    val taskType: String? = null, // <-- ДОБАВЛЕНО
+    val voice: String? = null // <-- Поле из скрипта
+)
+
+// --- Класс-обертка для "Эффекта Duolingo" ---
+data class AvailableCardSlot(
+    val id: UUID = UUID.randomUUID(),
+    val card: Card,
+    val isVisible: Boolean = true
 )

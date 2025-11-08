@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -57,10 +58,7 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import java.io.IOException
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
@@ -82,22 +80,6 @@ fun GameScreen(
 
     val showResultSheet = viewModel.showResultSheet
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    val audioPlayer = remember { AudioPlayer(context) }
-    DisposableEffect(Unit) {
-        onDispose {
-            audioPlayer.release()
-        }
-    }
-
-    // --- ИСПРАВЛЕНИЕ 1: Анимации "по очереди" ---
-    // (Ждем, пока шрифт закончит анимацию 600мс, потом показываем шторку)
-    LaunchedEffect(isRoundWon) {
-        if (isRoundWon) {
-            delay(650)
-            viewModel.onVictoryAnimationFinished()
-        }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collectLatest { route ->
@@ -182,7 +164,10 @@ fun GameScreen(
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.button_show_translation),
-                        onClick = { viewModel.onVictoryAnimationFinished() }
+                        // --- ВОТ ИСПРАВЛЕНИЕ (2/2) ---
+                        // onClick = { viewModel.hideResultSheet() } // <-- БЫЛО (ОШИБКА)
+                        onClick = { viewModel.showResultSheet() } // <-- СТАЛО
+                        // ----------------------------
                     )
                 } else {
                     IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
@@ -204,9 +189,6 @@ fun GameScreen(
         ) {
             val fontStyle = viewModel.gameFontStyle
 
-            // --- НАЧАЛО БОЛЬШОГО ИЗМЕНЕНИЯ (ПЛАН "ТАК ТОЧНО!") ---
-
-            // Мы анимируем только шрифт
             val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
             val animatedFontSize by animateFloatAsState(
                 targetValue = if (isRoundWon) 36f else initialFontSize.value,
@@ -214,47 +196,31 @@ fun GameScreen(
                 label = "FontSizeAnimation"
             )
 
-            // ЕСЛИ РАУНД ВЫИГРАН ("Фон Победы")
             if (isRoundWon) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1.0f), // <-- 100% Экрана
+                        .weight(1.0f),
                     color = StickyNoteYellow,
                 ) {
-                    // Используем НОВУЮ разметку (с .verticalScroll наверху)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp)
-                            .verticalScroll(rememberScrollState()), // <-- Скролл на всё
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        val imageBitmap = remember(viewModel.currentImageName) {
-                            viewModel.currentImageName?.let {
-                                try {
-                                    val inputStream = context.assets.open("images/$it")
-                                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                                    inputStream.close()
-                                    bitmap?.asImageBitmap()
-                                } catch (e: IOException) { null }
-                            }
-                        }
+                        Text(
+                            text = viewModel.currentTaskPrompt ?: "",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                color = StickyNoteText.copy(alpha = 0.7f),
+                                textAlign = TextAlign.Start
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                        )
 
-                        // 1. Картинка (без weight)
-                        if (imageBitmap != null) {
-                            Image(
-                                bitmap = imageBitmap,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
-
-                        // 2. Текст (без weight)
                         val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
                         val styleConfig = CardStyles.getStyle(fontStyle)
                         val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
@@ -263,7 +229,7 @@ fun GameScreen(
                                     FontVariation.weight(styleConfig.fontWeight.roundToInt()),
                                     FontVariation.width(styleConfig.fontWidth)
                                 ))),
-                                fontSize = animatedFontSize.sp, // <-- Анимированный
+                                fontSize = animatedFontSize.sp,
                                 textAlign = TextAlign.Right,
                                 lineHeight = (animatedFontSize * 1.4f).sp,
                                 color = StickyNoteText,
@@ -272,7 +238,7 @@ fun GameScreen(
                         } else {
                             TextStyle(
                                 fontFamily = fontStyle.fontFamily,
-                                fontSize = animatedFontSize.sp, // <-- Анимированный
+                                fontSize = animatedFontSize.sp,
                                 textAlign = TextAlign.Right,
                                 lineHeight = (animatedFontSize * 1.4f).sp,
                                 fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
@@ -286,18 +252,15 @@ fun GameScreen(
                             style = hebrewTextStyle,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 8.dp) // <-- ИСПРАВЛЕНИЕ "ПОДРЕЗКИ"
+                                .padding(bottom = 8.dp)
                         )
 
-                        // Добавляем Spacer в конце скролла, чтобы
-                        // шторка не перекрывала текст
                         Spacer(modifier = Modifier.height(150.dp))
                     }
                 }
             }
             // ЕСЛИ РАУНД ИДЕТ
             else {
-                // Используем СТАРУЮ разметку (70/30)
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -308,31 +271,18 @@ fun GameScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        val imageBitmap = remember(viewModel.currentImageName) {
-                            viewModel.currentImageName?.let {
-                                try {
-                                    val inputStream = context.assets.open("images/$it")
-                                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
-                                    inputStream.close()
-                                    bitmap?.asImageBitmap()
-                                } catch (e: IOException) { null }
-                            }
-                        }
-
-                        if (imageBitmap != null) {
-                            Image(
-                                bitmap = imageBitmap,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(0.6f)
-                                    .padding(bottom = 8.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
+                        Text(
+                            text = viewModel.currentTaskPrompt ?: "",
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                color = StickyNoteText.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Start
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.4f)
+                                .verticalScroll(rememberScrollState())
+                        )
 
                         val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
                         val styleConfig = CardStyles.getStyle(fontStyle)
@@ -363,7 +313,7 @@ fun GameScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(0.4f)
+                                .weight(0.6f)
                         ) {
                             Text(
                                 text = assembledText,
@@ -371,7 +321,7 @@ fun GameScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .verticalScroll(rememberScrollState())
-                                    .padding(bottom = 8.dp) // <-- ИСПРАВЛЕНИЕ "ПОДРЕЗКИ"
+                                    .padding(bottom = 8.dp)
                             )
                         }
                     }
@@ -383,21 +333,29 @@ fun GameScreen(
                         .fillMaxSize()
                         .background(Color.White)
                         .verticalScroll(rememberScrollState())
-                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        .animateContentSize(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    viewModel.availableCards.forEach { card ->
-                        key(card.id) {
+                    viewModel.availableCards.forEach { slot ->
+                        key(slot.id) {
                             Shakeable(
                                 trigger = viewModel.errorCount,
                                 errorCardId = viewModel.errorCardId,
-                                currentCardId = card.id
+                                currentCardId = slot.card.id
                             ) { shakeModifier ->
                                 SelectableCard(
-                                    modifier = shakeModifier,
-                                    card = card,
-                                    onSelect = { viewModel.selectCard(card) },
+                                    modifier = shakeModifier
+                                        .graphicsLayer {
+                                            alpha = if (slot.isVisible) 1f else 0f
+                                        },
+                                    card = slot.card,
+                                    onSelect = {
+                                        if (slot.isVisible) {
+                                            viewModel.selectCard(slot)
+                                        }
+                                    },
                                     fontStyle = fontStyle
                                 )
                             }
@@ -405,7 +363,6 @@ fun GameScreen(
                     }
                 }
             }
-            // --- КОНЕЦ БОЛЬШОГО ИЗМЕНЕНИЯ ---
         }
     }
 
@@ -418,7 +375,6 @@ fun GameScreen(
         ) {
             ResultSheetContent(
                 snapshot = snapshot,
-                audioPlayer = audioPlayer,
                 onContinueClick = {
                     coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                         viewModel.hideResultSheet()
@@ -531,16 +487,9 @@ private fun ResultSheetContent(
     snapshot: RoundResultSnapshot,
     onContinueClick: () -> Unit,
     onRepeatClick: () -> Unit,
-    audioPlayer: AudioPlayer,
     onTrackClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
-    LaunchedEffect(snapshot.audioFilename) {
-        snapshot.audioFilename?.let {
-            delay(300)
-            audioPlayer.play(it)
-        }
-    }
 
     Column(
         modifier = Modifier

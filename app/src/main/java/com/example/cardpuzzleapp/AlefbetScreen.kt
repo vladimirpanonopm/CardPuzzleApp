@@ -53,7 +53,7 @@ fun AlefbetScreen(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
-    val audioPlayer = remember { AudioPlayer(context) }
+    // AudioPlayer больше здесь не создается
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
@@ -211,7 +211,7 @@ fun AlefbetScreen(
                                         letterName = letterName,
                                         fontStyle = viewModel.currentFontStyle,
                                         onSelect = {
-                                            audioPlayer.play(letter.audioFilename)
+                                            // audioPlayer.play(letter.audioFilename) <-- УДАЛЕНО
                                             viewModel.selectLetter(letter)
                                         }
                                     )

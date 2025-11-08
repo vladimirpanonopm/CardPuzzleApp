@@ -1,11 +1,14 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-// Файл сборки верхнего уровня, где можно добавить опции конфигурации,
-// общие для всех подпроектов/модулей.
+// build.gradle.kts (Project Level)
 
 plugins {
-    // Используем alias из файла libs.versions.toml для версионирования
-    // 'apply false' означает, что плагин здесь только объявляется, но не применяется
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23" apply false
+    // Android
+    id("com.android.application") version "8.4.1" apply false
+
+    // Kotlin
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+    id("org.jetbrains.kotlin.jvm") version "1.9.22" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.22" apply false
+
+    // Hilt
+    id("com.google.dagger.hilt.android") version "2.51.1" apply false
 }
