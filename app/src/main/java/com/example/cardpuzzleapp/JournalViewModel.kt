@@ -1,17 +1,18 @@
 package com.example.cardpuzzleapp
 
-import android.app.Application
-import android.content.Context
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-// --- НОВЫЕ ИМПОРТЫ ---
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.unit.sp
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 /**
  * Этот ViewModel отвечает исключительно за логику и данные экрана "Журнал".
@@ -20,7 +21,6 @@ import javax.inject.Inject
 class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
     private val audioPlayer: AudioPlayer,
-    // --- ИЗМЕНЕНИЕ 1: Внедряем Репозиторий ---
     private val levelRepository: LevelRepository
 ) : ViewModel() {
 
@@ -30,11 +30,44 @@ class JournalViewModel @Inject constructor(
     var currentLevelSentences = listOf<SentenceData>()
         private set
 
+    // --- НОВЫЕ STATE ДЛЯ ШРИФТА (1) ---
+    var currentFontStyle by mutableStateOf(FontStyle.REGULAR)
+        private set
+    var currentFontSizeSp by mutableStateOf(32.sp) // Используем TextUnit
+        private set
+    // ---------------------------------
+
+    // Блок инициализации для загрузки настроек при создании ViewModel
+    init {
+        loadPreferences()
+    }
+
+    // Метод для загрузки шрифта из GameProgressManager
+    private fun loadPreferences() {
+        currentFontStyle = progressManager.getJournalFontStyle()
+        val sizeFloat = progressManager.getJournalFontSize() // Предполагается, что возвращает Float
+        currentFontSizeSp = sizeFloat.sp
+    }
+
+    // --- Методы для УПРАВЛЕНИЯ ШРИФТОМ (2) ---
+    fun toggleFontStyle() {
+        currentFontStyle = if (currentFontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
+        progressManager.saveJournalFontStyle(currentFontStyle)
+    }
+
+    fun saveNewFontSize(newSize: Float) {
+        // Минимальный размер, чтобы избежать проблем
+        if (newSize > 0f) {
+            currentFontSizeSp = newSize.sp
+            progressManager.saveJournalFontSize(newSize)
+        }
+    }
+    // ------------------------------------------
+
     /**
      * Главный метод инициализации.
      * Загружает данные для конкретного уровня и обновляет список карточек в журнале.
      */
-    // --- ИЗМЕНЕНИЕ 2: Убираем Context, добавляем Coroutine ---
     fun loadJournalForLevel(levelId: Int) {
         if (levelId == -1) return
         this.currentLevelId = levelId
@@ -69,7 +102,6 @@ class JournalViewModel @Inject constructor(
         journalSentences.clear()
         journalSentences.addAll(completedSentences)
     }
-    // -----------------------------------------------------------
 
     /**
      * "Забывает" карточку, возвращая ее из журнала обратно в игру.

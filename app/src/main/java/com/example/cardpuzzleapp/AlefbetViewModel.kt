@@ -1,11 +1,9 @@
 package com.example.cardpuzzleapp
 
-import android.app.Application
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +36,11 @@ class AlefbetViewModel @Inject constructor(
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
     var completionCount by mutableStateOf(0)
         private set
+
+    // --- ДОБАВЛЕНО: Язык пользователя ---
+    val userLanguage: String
+        get() = progressManager.getUserLanguage() ?: "ru"
+    // ------------------------------------
 
     val line1 by derivedStateOf {
         val letters = selectedLetters.map { it.letter }

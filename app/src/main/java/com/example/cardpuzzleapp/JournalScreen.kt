@@ -39,7 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.graphics.drawable.toBitmap
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
 @Composable
 fun JournalScreen(
     levelId: Int,
@@ -51,11 +51,14 @@ fun JournalScreen(
     val context = LocalContext.current
     val journalSentences = journalViewModel.journalSentences
     val coroutineScope = rememberCoroutineScope()
-    val progressManager = remember { GameProgressManager(context) }
+
+    // --- ИСПРАВЛЕНИЕ: Прямой доступ к наблюдаемым свойствам ViewModel без 'by' ---
+    // Нам не нужно делегирование, т.к. ViewModel уже использует 'by' для своих переменных
+    val journalFontSize = journalViewModel.currentFontSizeSp
+    val journalFontStyle = journalViewModel.currentFontStyle
+    // -----------------------------------------------------------------------------
 
     var isFlipped by remember { mutableStateOf(false) }
-    var journalFontSize by remember { mutableStateOf(progressManager.getJournalFontSize().sp) }
-    var journalFontStyle by remember { mutableStateOf(progressManager.getJournalFontStyle()) }
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var cardToDelete by remember { mutableStateOf<SentenceData?>(null) }
@@ -79,8 +82,8 @@ fun JournalScreen(
 
     LaunchedEffect(journalSentences, initialRoundIndex) {
         if (journalSentences.isNotEmpty()) {
-            val page = if (initialRoundIndex != -1) {
-                val sentenceToShow = journalViewModel.currentLevelSentences.getOrNull(initialRoundIndex)
+            val sentenceToShow = journalViewModel.currentLevelSentences.getOrNull(initialRoundIndex)
+            val page = if (initialRoundIndex != -1 && sentenceToShow != null) {
                 journalSentences.indexOf(sentenceToShow).coerceAtLeast(0)
             } else 0
             pagerState.scrollToPage(page)
@@ -210,8 +213,9 @@ fun JournalScreen(
                                         SegmentedButton(
                                             shape = RoundedCornerShape(16.dp),
                                             onClick = {
-                                                journalFontStyle = style
-                                                progressManager.saveJournalFontStyle(style)
+                                                if (journalFontStyle != style) {
+                                                    journalViewModel.toggleFontStyle()
+                                                }
                                             },
                                             selected = journalFontStyle == style
                                         ) {
@@ -227,10 +231,10 @@ fun JournalScreen(
                                     Slider(
                                         modifier = Modifier.weight(1f),
                                         value = journalFontSize.value,
-                                        onValueChange = { journalFontSize = it.sp },
+                                        onValueChange = { journalViewModel.saveNewFontSize(it) },
                                         valueRange = 28f..56f,
                                         onValueChangeFinished = {
-                                            progressManager.saveJournalFontSize(journalFontSize.value)
+                                            // Сохранение уже происходит в onValueChange
                                         }
                                     )
                                     Text("A", fontSize = 32.sp)
@@ -437,6 +441,10 @@ private fun JournalPageContent(
             ) {
                 val context = LocalContext.current
                 val scrollState = rememberScrollState()
+                // --- ИЗМЕНЕНИЕ 4: Здесь по-прежнему нужен прогресс-менеджер для userLanguage ---
+                // Создаем синглтон, поскольку Hilt не может внедрять его здесь
+                val progressManager = remember { GameProgressManager(context) }
+                // ------------------------------------------------------------------------------
 
                 Column(
                     modifier = Modifier
@@ -478,7 +486,9 @@ private fun JournalPageContent(
 
                         // 3. ТЕКСТ (Перевод)
                     } else {
-                        val userLanguage = GameProgressManager(LocalContext.current).getUserLanguage()
+                        // --- ИЗМЕНЕНИЕ 5: Язык берется из progressManager, который мы сохранили выше ---
+                        val userLanguage = progressManager.getUserLanguage()
+                        // -----------------------------------------------------------------------------
                         val textToShow = when (userLanguage) {
                             "en" -> sentence.english_translation
                             "fr" -> sentence.french_translation

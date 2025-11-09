@@ -16,7 +16,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,8 +57,9 @@ fun AlefbetScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    val progressManager = remember { GameProgressManager(context) }
-    val userLanguage = progressManager.getUserLanguage()
+    // --- ИЗМЕНЕНИЕ 1: Язык пользователя берется из ViewModel ---
+    val userLanguage = viewModel.userLanguage
+    // ----------------------------------------------------------
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -199,19 +199,20 @@ fun AlefbetScreen(
                                     errorCardId = viewModel.errorCardId,
                                     currentCardId = letter.id,
                                 ) { shakeModifier ->
+                                    // --- ИЗМЕНЕНИЕ 2: Язык используется из ViewModel ---
                                     val letterName = when (userLanguage) {
                                         "en" -> letter.nameEN
                                         "fr" -> letter.nameFR
                                         "es" -> letter.nameES
                                         else -> letter.nameRU
                                     }
+                                    // ----------------------------------------------------
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,
                                         letterName = letterName,
                                         fontStyle = viewModel.currentFontStyle,
                                         onSelect = {
-                                            // audioPlayer.play(letter.audioFilename) <-- УДАЛЕНО
                                             viewModel.selectLetter(letter)
                                         }
                                     )

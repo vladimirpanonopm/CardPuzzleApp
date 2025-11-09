@@ -33,6 +33,7 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import androidx.compose.ui.geometry.Offset // <-- ДОБАВЛЕНО ДЛЯ КОРРЕКТНОГО ТИПА
 
 @OptIn(ExperimentalTextApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -79,12 +80,25 @@ fun SelectableCard(
         )
     }
 
+    // --- ИСПРАВЛЕННАЯ ЛОГИКА ТАПА (Function1<Offset, Unit>) ---
+    val tapHandler: (Offset) -> Unit = remember(taskType, isAssembledCard, onSelect) {
+        // Если это карта в слоте FILL_IN_BLANK, отключаем onTap
+        if (isAssembledCard && taskType == TaskType.FILL_IN_BLANK) {
+            // Возврат заблокирован, т.к. неверная карта не должна двигаться
+            return@remember {}
+        }
+        // В остальных случаях (банк карт, или сборочная линия ASSEMBLE_TRANSLATION) разрешаем тапать
+        // Мы игнорируем аргумент 'Offset'
+        return@remember { offset -> onSelect() }
+    }
+
+
     Card(
         modifier = modifier
             .graphicsLayer { rotationX = rotation }
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { onSelect() },
+                    onTap = tapHandler, // <-- ИСПРАВЛЕНО
                     onLongPress = { isFlipped = true }
                 )
             },
