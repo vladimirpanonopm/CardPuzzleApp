@@ -1,6 +1,7 @@
 package com.example.cardpuzzleapp
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,14 +17,34 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+
+data class AssemblySlot(
+    val id: UUID = UUID.randomUUID(),
+    val text: String,
+    val isBlank: Boolean,
+    var filledCard: Card? = null,
+    val targetCard: Card? = null
+)
+
 
 @HiltViewModel
 class CardViewModel @Inject constructor(
     val progressManager: GameProgressManager,
-    private val audioPlayer: AudioPlayer
+    private val audioPlayer: AudioPlayer,
+    private val levelRepository: LevelRepository
 ) : ViewModel() {
 
     var currentTaskPrompt by mutableStateOf<String?>("")
+        private set
+
+    var currentHebrewPrompt by mutableStateOf<String?>("")
+        private set
+
+    var currentTaskTitleResId by mutableStateOf(R.string.game_task_unknown)
+        private set
+
+    var levelCount by mutableStateOf(0)
         private set
     var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
         private set
@@ -43,20 +64,21 @@ class CardViewModel @Inject constructor(
         private set
     var availableCards = mutableStateListOf<AvailableCardSlot>()
         private set
+    var assemblyLine = mutableStateListOf<AssemblySlot>()
+        private set
     var selectedCards = mutableStateListOf<Card>()
         private set
     var isLastRoundAvailable by mutableStateOf(false)
         private set
-
-    // Состояния для UI
     var showResultSheet by mutableStateOf(false)
         private set
     var errorCardId by mutableStateOf<UUID?>(null)
         private set
     var isRoundWon by mutableStateOf(false)
         private set
-
     var gameFontStyle by mutableStateOf(FontStyle.REGULAR)
+        private set
+    var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
         private set
 
     private var wordDictionary = mapOf<String, String>()
@@ -65,6 +87,12 @@ class CardViewModel @Inject constructor(
     private var timerJob: Job? = null
     private val _navigationEvent = Channel<String>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
+
+    fun loadLevelCount() {
+        viewModelScope.launch(Dispatchers.IO) {
+            levelCount = levelRepository.getLevelCount()
+        }
+    }
 
     fun toggleGameFontStyle() {
         if (currentLevelId == 1) {
@@ -90,9 +118,28 @@ class CardViewModel @Inject constructor(
 
     fun selectCard(slot: AvailableCardSlot) {
         if (!slot.isVisible) return
-
         val card = slot.card
-        val isCorrect = selectedCards.size < targetCards.size && card.text == targetCards[selectedCards.size].text
+
+        var isCorrect = false
+        var targetSlotIndex = -1
+
+        when (currentTaskType) {
+            TaskType.ASSEMBLE_TRANSLATION -> {
+                val nextExpectedCard = targetCards.getOrNull(selectedCards.size)
+                isCorrect = (nextExpectedCard != null && card.text.trim() == nextExpectedCard.text.trim())
+            }
+            TaskType.FILL_IN_BLANK -> {
+                targetSlotIndex = assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
+                if (targetSlotIndex != -1) {
+                    val targetSlot = assemblyLine[targetSlotIndex]
+                    isCorrect = (targetSlot.targetCard?.text?.trim() == card.text.trim())
+                }
+            }
+            // --- ИСПРАВЛЕНИЕ 1: Добавлена недостающая ветка ---
+            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+            // ---------------------------------------------
+        }
+
 
         viewModelScope.launch {
             if (isCorrect) {
@@ -103,24 +150,94 @@ class CardViewModel @Inject constructor(
         }
 
         if (isCorrect) {
-            selectedCards.add(card)
-
-            val index = availableCards.indexOfFirst { it.id == slot.id }
-            if (index != -1) {
-                availableCards[index] = slot.copy(isVisible = false)
+            val indexInAvailable = availableCards.indexOfFirst { it.id == slot.id }
+            if (indexInAvailable != -1) {
+                availableCards[indexInAvailable] = slot.copy(isVisible = false)
             }
 
-            if (selectedCards.size == targetCards.size) {
-                endRound(GameResult.WIN)
+            when (currentTaskType) {
+                TaskType.ASSEMBLE_TRANSLATION -> {
+                    selectedCards.add(card)
+                }
+                TaskType.FILL_IN_BLANK -> {
+                    if (targetSlotIndex != -1) {
+                        assemblyLine[targetSlotIndex] = assemblyLine[targetSlotIndex].copy(filledCard = card)
+                    }
+                }
+                // --- ИСПРАВЛЕНИЕ 2: Добавлена недостающая ветка ---
+                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+                // ---------------------------------------------
             }
+
+            checkWinCondition()
+
         } else {
             errorCount++
             errorCardId = card.id
         }
     }
 
-    fun loadLevel(context: android.content.Context, levelId: Int): Boolean {
-        val levelData = LevelRepository.getLevelData(context, levelId) ?: return false
+    fun returnCardFromSlot(slot: AssemblySlot) {
+        if (isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return
+
+        val card = slot.filledCard ?: return
+
+        when (currentTaskType) {
+            TaskType.ASSEMBLE_TRANSLATION -> {
+                // (Этот код никогда не вызовется, т.к. мы проверяем FILL_IN_BLANK выше,
+                // но оставляем для полноты)
+            }
+            TaskType.FILL_IN_BLANK -> {
+                val index = assemblyLine.indexOfFirst { it.id == slot.id }
+                if (index != -1) {
+                    assemblyLine[index] = slot.copy(filledCard = null)
+                }
+            }
+            // --- ИСПРАВЛЕНИЕ 3: Добавлена недостающая ветка ---
+            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+            // ---------------------------------------------
+        }
+
+        val indexInAvailable = availableCards.indexOfFirst { it.card.id == card.id }
+        if (indexInAvailable != -1) {
+            availableCards[indexInAvailable] = availableCards[indexInAvailable].copy(isVisible = true)
+        }
+    }
+
+    fun returnLastSelectedCard() {
+        if (isRoundWon || currentTaskType != TaskType.ASSEMBLE_TRANSLATION) return
+
+        val cardToReturn = selectedCards.lastOrNull() ?: return
+
+        selectedCards.remove(cardToReturn)
+
+        val indexInAvailable = availableCards.indexOfFirst { it.card.id == cardToReturn.id }
+        if (indexInAvailable != -1) {
+            availableCards[indexInAvailable] = availableCards[indexInAvailable].copy(isVisible = true)
+        }
+    }
+
+    private fun checkWinCondition() {
+        val didWin = when (currentTaskType) {
+            TaskType.ASSEMBLE_TRANSLATION -> {
+                selectedCards.size == targetCards.size
+            }
+            TaskType.FILL_IN_BLANK -> {
+                assemblyLine.none { it.isBlank && it.filledCard == null }
+            }
+            // --- ИСПРАВЛЕНИЕ 4: Добавлена недостающая ветка ---
+            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> false
+            // ---------------------------------------------
+        }
+
+        if (didWin) {
+            endRound(GameResult.WIN)
+        }
+    }
+
+    suspend fun loadLevel(levelId: Int): Boolean {
+        val levelData = levelRepository.getLevelData(levelId) ?: return false
+
         this.currentLevelSentences = levelData
         this.currentLevelId = levelId
 
@@ -165,29 +282,90 @@ class CardViewModel @Inject constructor(
         if (roundIndex < currentLevelSentences.size) {
             this.currentRoundIndex = roundIndex
             resetAndStartCounters()
-            val roundData = currentLevelSentences[roundIndex]
-            this.targetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
 
-            if (roundData.taskType == "ASSEMBLE_TRANSLATION") {
-                val userLanguage = progressManager.getUserLanguage()
-                this.currentTaskPrompt = when (userLanguage) {
-                    "en" -> roundData.english_translation
-                    "fr" -> roundData.french_translation
-                    "es" -> roundData.spanish_translation
-                    else -> roundData.russian_translation
-                }
-            } else {
-                this.currentTaskPrompt = "Тип задания не поддерживается: ${roundData.taskType}"
+            val roundData = currentLevelSentences[roundIndex]
+            val userLanguage = progressManager.getUserLanguage()
+
+            currentTaskType = roundData.taskType
+            currentTaskPrompt = when (userLanguage) {
+                "en" -> roundData.english_translation
+                "fr" -> roundData.french_translation
+                "es" -> roundData.spanish_translation
+                else -> roundData.russian_translation
             }
 
+            assemblyLine.clear()
             selectedCards.clear()
-
             availableCards.clear()
-            availableCards.addAll(
-                targetCards.shuffled().map {
-                    AvailableCardSlot(card = it, isVisible = true)
+
+            // --- ИСПРАВЛЕНИЕ 5: Добавлена недостающая ветка ---
+            when (roundData.taskType) {
+
+                TaskType.ASSEMBLE_TRANSLATION -> {
+                    currentTaskTitleResId = R.string.game_task_assemble
+                    currentHebrewPrompt = ""
+                    this.targetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
+
+                    availableCards.addAll(
+                        targetCards.shuffled().map {
+                            AvailableCardSlot(card = it, isVisible = true)
+                        }
+                    )
                 }
-            )
+
+                TaskType.FILL_IN_BLANK -> {
+                    currentTaskTitleResId = R.string.game_task_fill_in_blank
+                    currentHebrewPrompt = roundData.hebrew
+
+                    val correctCards = roundData.task_correct_cards?.map {
+                        Card(text = it.trim(), translation = "")
+                    } ?: emptyList()
+                    this.targetCards = correctCards
+
+                    val hebrewPrompt = roundData.hebrew
+                    val promptParts = hebrewPrompt.split("___")
+                    var correctCardIndex = 0
+
+                    promptParts.forEachIndexed { index, part ->
+                        if (part.isNotEmpty()) {
+                            assemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
+                        }
+
+                        if (index < promptParts.size - 1) {
+                            if (correctCardIndex < correctCards.size) {
+                                assemblyLine.add(AssemblySlot(
+                                    text = "___",
+                                    isBlank = true,
+                                    filledCard = null,
+                                    targetCard = correctCards[correctCardIndex]
+                                ))
+                                correctCardIndex++
+                            } else {
+                                Log.e("ViewModel", "Mismatch in FILL_IN_BLANK: More '___' than 'task_correct_cards'.")
+                            }
+                        }
+                    }
+
+                    val distractors = roundData.task_distractor_cards?.map {
+                        Card(text = it.trim(), translation = "")
+                    } ?: emptyList()
+
+                    availableCards.addAll(
+                        (correctCards + distractors).shuffled().map {
+                            AvailableCardSlot(card = it, isVisible = true)
+                        }
+                    )
+                }
+
+                // Эта ветка обрабатывает и MATCHING_PAIRS, и UNKNOWN
+                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
+                    currentTaskTitleResId = R.string.game_task_unknown
+                    currentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
+                    currentHebrewPrompt = ""
+                    this.targetCards = emptyList()
+                }
+            }
+            // ----------------------------------------------------
 
             val allCompleted = progressManager.getCompletedRounds(currentLevelId)
             val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -230,10 +408,17 @@ class CardViewModel @Inject constructor(
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
+        val completedCardsList = when (currentTaskType) {
+            TaskType.ASSEMBLE_TRANSLATION -> selectedCards.toList()
+            TaskType.FILL_IN_BLANK -> assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
+            // --- ИСПРАВЛЕНИЕ 6: Добавлена недостающая ветка ---
+            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> emptyList()
+            // ---------------------------------------------
+        }
+
         resultSnapshot = RoundResultSnapshot(
             gameResult = result,
-            completedCards = selectedCards.toList(),
-            translation = translation ?: "Перевод не найден",
+            completedCards = completedCardsList,
             errorCount = this.errorCount,
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
@@ -288,10 +473,9 @@ class CardViewModel @Inject constructor(
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
-        // --- ВОТ ИСПРАВЛЕНИЕ ---
-        // val activeRounds = currentLevelSentences.indices.filter { completedRounds.contains(it) && allArchived.contains(it) } // <-- БЫЛО (ОПЕЧАТКА)
-        val activeRounds = currentLevelSentences.indices.filter { completedRounds.contains(it) && archivedRounds.contains(it) } // <-- СТАЛО
-        // ---------------------
+        val activeRounds = currentLevelSentences.indices.filter {
+            !completedRounds.contains(it) && !archivedRounds.contains(it)
+        }
 
         if (activeRounds.isEmpty()) return
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)

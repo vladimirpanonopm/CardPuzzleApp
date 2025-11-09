@@ -34,16 +34,10 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
-// --- УДАЛЯЕМ ИМПОРТЫ IMAGE ---
-// import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-// import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.graphics.drawable.toBitmap
-// import java.io.IOException
-// import androidx.compose.ui.draw.clip
-// ----------------------------------------------------
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +68,8 @@ fun JournalScreen(
     var pauseDuration by remember { mutableStateOf(1f) }
 
     LaunchedEffect(key1 = levelId) {
-        journalViewModel.loadJournalForLevel(context, levelId)
+        // --- ИЗМЕНЕНИЕ: Убираем Context ---
+        journalViewModel.loadJournalForLevel(levelId)
     }
 
     val pagerState = rememberPagerState(
@@ -443,18 +438,12 @@ private fun JournalPageContent(
                 val context = LocalContext.current
                 val scrollState = rememberScrollState()
 
-                // --- ИЗМЕНЕНИЕ: Вся логика Image/Bitmap УДАЛЕНА ---
-                // val imageBitmap = remember... <-- УДАЛЕНО
-
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // --- ИЗМЕНЕНИЕ: Блок Image УДАЛЕН ---
-                    // if (imageBitmap != null) { ... } <-- УДАЛЕНО
-
                     // 2. ТЕКСТ (Иврит)
                     if (isHebrewSide) {
                         val textToShow = sentence.hebrew

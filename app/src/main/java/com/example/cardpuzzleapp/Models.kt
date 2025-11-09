@@ -22,13 +22,12 @@ enum class GameResult {
 data class RoundResultSnapshot(
     val gameResult: GameResult,
     val completedCards: List<Card>,
-    val translation: String,
+    // val translation: String, // <-- УДАЛЕНО
     val errorCount: Int,
     val timeSpent: Int,
     val levelId: Int,
     val hasMoreRounds: Boolean,
     val audioFilename: String?
-    // val imageName: String? // <-- УДАЛЕНО
 )
 
 data class Card(
@@ -60,7 +59,8 @@ data class HebrewLetter(
     val audioFilename: String
 )
 
-// --- ИЗМЕНЕНИЕ: НОВЫЙ LEVELENTRY ДЛЯ ПАРСИНГА JSON ---
+
+// --- ИЗМЕНЕНИЕ: ОБНОВЛЕННЫЙ LEVELENTRY ДЛЯ ПАРСИНГА JSON ---
 
 @OptIn(InternalSerializationApi::class)
 @Serializable
@@ -71,9 +71,13 @@ data class LevelEntry(
     val french_translation: String? = null,
     val spanish_translation: String? = null,
     val audioFilename: String,
-    // val imageName: String? = null, // <-- УДАЛЕНО
-    val taskType: String? = null, // <-- ДОБАВЛЕНО
-    val voice: String? = null // <-- Поле из скрипта
+
+    val taskType: TaskType = TaskType.UNKNOWN,
+
+    val voice: String? = null,
+
+    val task_correct_cards: List<String>? = null,
+    val task_distractor_cards: List<String>? = null
 )
 
 // --- Класс-обертка для "Эффекта Duolingo" ---

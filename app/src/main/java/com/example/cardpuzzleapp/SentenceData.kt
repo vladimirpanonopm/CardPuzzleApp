@@ -12,8 +12,17 @@ data class SentenceData(
     val english_translation: String? = null,
     val spanish_translation: String? = null,
     val french_translation: String? = null,
-    val audioFilename: String,
-    // val imageName: String? = null, // <-- УДАЛЕНО
-    val taskType: String? = null, // <-- ДОБАВЛЕНО
-    val voice: String? = null
+    val audioFilename: String?, // (Сделано Nullable)
+
+    val taskType: TaskType = TaskType.UNKNOWN,
+
+    val voice: String? = null,
+
+    // Для FILL_IN_BLANK
+    val task_correct_cards: List<String>? = null,
+    val task_distractor_cards: List<String>? = null,
+
+    // --- ДОБАВЛЕНО ДЛЯ MATCHING_PAIRS ---
+    val task_pairs: List<List<String>>? = null
+    // -----------------------------------
 )

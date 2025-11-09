@@ -20,7 +20,7 @@ VOICE_MAP = {
 }
 
 
-# --- 3. Google API (без изменений) ---
+# --- 3. Google API ---
 def synthesize_speech(text_to_speak, voice_name, output_filename):
     """Вызывает Google TTS API и сохраняет .mp3 файл."""
     try:
@@ -48,13 +48,16 @@ def synthesize_speech(text_to_speak, voice_name, output_filename):
         return False  # Провал
 
 
-# --- 4. Парсер (ОБНОВЛЕН) ---
+# --- 4. Парсер (ОБНОВЛЕН ДЛЯ MATCHING_PAIRS) ---
 def parse_entry_block(block_text):
-    """Парсит один блок (одну карточку) из .txt файла V9.0"""
+    """Парсит один блок (одну карточку) из .txt файла."""
     data = {}
     current_key = None
     lines_map = {
         "HEBREW": [],
+        "HEBREW_PROMPT": [],
+        "HEBREW_CORRECT": [],
+        "HEBREW_DISTRACTORS": [],
         "RUSSIAN": [],
         "VOICES": []
     }
@@ -64,44 +67,64 @@ def parse_entry_block(block_text):
         if not line or line.startswith("#"):
             continue
 
-        if line.startswith("HEBREW:"):
+        if line.startswith("TASK:"):
+            data['taskType'] = line.split(":", 1)[1].strip()
+            current_key = None
+
+        elif line.startswith("HEBREW_PROMPT:"):
+            current_key = "HEBREW_PROMPT"
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
+
+        elif line.startswith("HEBREW_CORRECT:"):
+            current_key = "HEBREW_CORRECT"
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
+
+        elif line.startswith("HEBREW_DISTRACTORS:"):
+            current_key = "HEBREW_DISTRACTORS"
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
+
+        elif line.startswith("HEBREW:"):
             current_key = "HEBREW"
             line_content = line.split(":", 1)[1].strip()
-            if line_content:
-                lines_map[current_key].append(line_content)
+            if line_content: lines_map[current_key].append(line_content)
 
         elif line.startswith("RUSSIAN:"):
             current_key = "RUSSIAN"
             line_content = line.split(":", 1)[1].strip()
-            if line_content:
-                lines_map[current_key].append(line_content)
+            if line_content: lines_map[current_key].append(line_content)
 
-        # --- ИЗМЕНЕНИЕ: Добавляем TASK ---
-        elif line.startswith("TASK:"):
-            data['taskType'] = line.split(":", 1)[1].strip()
-            current_key = None
-
-        # --- ИЗМЕНЕНИЕ: Удаляем IMAGE ---
-        elif line.startswith("IMAGE:"):
-            # data['imageName'] = line.split(":", 1)[1].strip() <-- УДАЛЕНО
-            current_key = None
-
-        elif line.startswith("AUDIO:"):
+        elif line.startswith("IMAGE:") or line.startswith("AUDIO:"):
             current_key = None
 
         elif line.startswith("VOICES:"):
             current_key = "VOICES"
             line_content = line.split(":", 1)[1].strip()
-            if line_content:
-                lines_map[current_key].append(line_content)
+            if line_content: lines_map[current_key].append(line_content)
 
         elif current_key:
             lines_map[current_key].append(line)
 
     data['hebrew_display'] = "\n".join(lines_map["HEBREW"])
     data['hebrew_lines'] = lines_map["HEBREW"]
+    data['hebrew_prompt'] = "\n".join(lines_map["HEBREW_PROMPT"])
+    data['task_correct_cards'] = lines_map["HEBREW_CORRECT"]
+    data['task_distractor_cards'] = lines_map["HEBREW_DISTRACTORS"]
     data['russian_translation'] = "\n".join(lines_map["RUSSIAN"])
-    data['voice_keys'] = lines_map["VOICES"]
+
+    voice_info_list = []
+    for v_line in lines_map["VOICES"]:
+        parts = [p.strip() for p in v_line.split(',')]
+        key = parts[0]
+        pause = int(parts[1]) if len(parts) > 1 else 0
+        voice_info_list.append({"key": key, "pause_ms": pause})
+
+    data['voice_info_list'] = voice_info_list
+
+    if 'taskType' not in data:
+        data['taskType'] = 'ASSEMBLE_TRANSLATION'
 
     return data
 
@@ -140,85 +163,120 @@ def process_level_file(txt_filepath, assets_path):
             continue
 
         data = parse_entry_block(clean_block)
+        task_type = data.get('taskType')
 
-        # 1. Готовим hebrew_level_X.json
-        hebrew_text_for_json = data.get('hebrew_display', '')
-        hebrew_list.append(hebrew_text_for_json)
-
-        # --- Генерация имени файла (без изменений) ---
-        text_to_hash = hebrew_text_for_json.strip()
-        hash_object = hashlib.md5(text_to_hash.encode('utf-8'))
-        file_hash = hash_object.hexdigest()
-        final_audio_filename = f"{file_hash}.mp3"
-        # ---------------------------------------
-
-        # --- ИЗМЕНЕНИЕ: 2. Готовим level_X.json ---
+        # --- ИЗМЕНЕНИЕ 1: Общая логика для entry ---
         entry = {
             "hebrew_index": hebrew_index_counter,
             "russian_translation": data.get('russian_translation', ''),
             "english_translation": None,
             "french_translation": None,
             "spanish_translation": None,
-            "audioFilename": final_audio_filename,
-            # "imageName": data.get('imageName', None), <-- УДАЛЕНО
-
-            # --- ДОБАВЛЕНО ---
-            # Устанавливаем тип задания. Если в .txt не указан TASK,
-            # по умолчанию ставим 'ASSEMBLE_TRANSLATION'.
-            "taskType": data.get('taskType', 'ASSEMBLE_TRANSLATION'),
-
-            "voice": None  # (Это поле было в оригинале, оставляем как None)
+            "audioFilename": None,  # (По умолчанию None)
+            "taskType": task_type,
+            "voice": None
         }
-        level_entry_list.append(entry)
 
-        # --- 6. Логика склейки MP3 (без изменений) ---
-        final_mp3_path = os.path.join(audio_output_dir, final_audio_filename)
+        # --- ИЗМЕНЕНИЕ 2: Разная логика для разных taskType ---
 
-        if not os.path.exists(final_mp3_path):
-            print(f"  🎵 Создаю диалог: {final_audio_filename}")
-
-            hebrew_lines = data.get('hebrew_lines', [])
-            voice_keys = data.get('voice_keys', [])
-
-            if len(hebrew_lines) != len(voice_keys):
-                print(
-                    f"    !!! ОШИБКА: Карточка {i}! Количество строк HEBREW ({len(hebrew_lines)}) не совпадает с количеством VOICES ({len(voice_keys)}).")
+        if task_type == 'FILL_IN_BLANK' or task_type == 'ASSEMBLE_TRANSLATION':
+            hebrew_full_text = data.get('hebrew_display', '')
+            if not hebrew_full_text:
+                print(f"    !!! ОШИБКА: Карточка {i}! Тег HEBREW: (для аудио) не найден.")
                 continue
 
-            temp_files = []
+            text_to_hash = hebrew_full_text.strip()
+            hash_object = hashlib.md5(text_to_hash.encode('utf-8'))
+            file_hash = hash_object.hexdigest()
+            final_audio_filename = f"{file_hash}.mp3"
 
-            for line_idx, (line, voice_key) in enumerate(zip(hebrew_lines, voice_keys)):
-                google_voice_name = VOICE_MAP.get(voice_key.strip())
-                if not google_voice_name:
-                    print(f"    !!! ОШИБКА: Голос '{voice_key}' не найден в VOICE_MAP.")
-                    continue
+            entry['audioFilename'] = final_audio_filename
 
-                temp_filename = os.path.join(TEMP_DIR, f"_temp_{line_idx}.mp3")
+            if task_type == 'FILL_IN_BLANK':
+                hebrew_list.append(data.get('hebrew_prompt', ''))
+                entry['task_correct_cards'] = data.get('task_correct_cards', [])
+                entry['task_distractor_cards'] = data.get('task_distractor_cards', [])
 
-                success = synthesize_speech(line.strip(), google_voice_name, temp_filename)
+            elif task_type == 'ASSEMBLE_TRANSLATION':
+                hebrew_list.append(hebrew_full_text)
 
-                if success:
-                    temp_files.append(temp_filename)
+        elif task_type == 'MATCHING_PAIRS':
+            # Для "Найди Пару" hebrew_index не нужен,
+            # но мы должны что-то вставить, чтобы списки hebrew_list
+            # и level_entry_list были одинаковой длины.
+            # Мы вставим LTR-подсказку (напр. "Найди одинаковые пары.")
+            hebrew_list.append(data.get('russian_translation', ''))
 
-            if temp_files:
-                try:
-                    combined_audio = AudioSegment.from_mp3(temp_files[0])
+            list_A = data.get('task_correct_cards', [])
+            list_B = data.get('task_distractor_cards', [])
 
-                    for temp_file in temp_files[1:]:
-                        combined_audio += AudioSegment.from_mp3(temp_file)
+            if len(list_A) != len(list_B):
+                print(
+                    f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}).")
+                continue
 
-                    combined_audio.export(final_mp3_path, format="mp3")
-                    print(f"    ✅ Диалог СКЛЕЕН: {final_mp3_path}")
+            # Собираем пары
+            entry['task_pairs'] = [list(pair) for pair in zip(list_A, list_B)]
 
-                except Exception as e:
-                    print(f"    !!! ОШИБКА Pydub (склейки): {e}")
-                    print(f"    !!! Убедитесь, что у вас установлен 'ffmpeg' (brew install ffmpeg)")
-
-            for f in temp_files:
-                os.remove(f)
+            # Аудио для этого типа пока не генерируем
 
         else:
-            print(f"  ⏩ MP3 уже существует, пропуск: {final_audio_filename}")
+            print(f"    !!! ОШИБКА: Неизвестный taskType '{task_type}' в карточке {i}.")
+            continue
+
+        level_entry_list.append(entry)
+
+        # --- ИЗМЕНЕНИЕ 3: Аудио генерируется только если оно нужно ---
+        if entry['audioFilename']:
+            final_mp3_path = os.path.join(audio_output_dir, entry['audioFilename'])
+
+            if not os.path.exists(final_mp3_path):
+                print(f"  🎵 Создаю диалог: {entry['audioFilename']}")
+
+                hebrew_lines = data.get('hebrew_lines', [])
+                voice_info_list = data.get('voice_info_list', [])
+
+                if len(hebrew_lines) != len(voice_info_list):
+                    print(
+                        f"    !!! ОШИБКА: Карточка {i}! Количество строк HEBREW ({len(hebrew_lines)}) не совпадает с количеством VOICES ({len(voice_info_list)}).")
+                    continue
+
+                temp_files_info = []
+
+                for line_idx, (line, voice_info) in enumerate(zip(hebrew_lines, voice_info_list)):
+
+                    voice_key = voice_info["key"]
+                    pause_ms = voice_info["pause_ms"]
+
+                    google_voice_name = VOICE_MAP.get(voice_key)
+                    if not google_voice_name:
+                        print(f"    !!! ОШИБКА: Голос '{voice_key}' не найден в VOICE_MAP.")
+                        continue
+
+                    temp_filename = os.path.join(TEMP_DIR, f"_temp_{line_idx}.mp3")
+                    success = synthesize_speech(line.strip(), google_voice_name, temp_filename)
+
+                    if success:
+                        temp_files_info.append((temp_filename, pause_ms))
+
+                if temp_files_info:
+                    try:
+                        combined_audio = AudioSegment.empty()
+                        for temp_filename, pause_ms in temp_files_info:
+                            combined_audio += AudioSegment.from_mp3(temp_filename)
+                            if pause_ms > 0:
+                                combined_audio += AudioSegment.silent(duration=pause_ms)
+                        combined_audio.export(final_mp3_path, format="mp3")
+                        print(f"    ✅ Диалог СКЛЕЕН (с паузами): {final_mp3_path}")
+                    except Exception as e:
+                        print(f"    !!! ОШИБКА Pydub (склейки): {e}")
+                        print(f"    !!! Убедитесь, что у вас установлен 'ffmpeg' (brew install ffmpeg)")
+
+                for f, _ in temp_files_info:
+                    os.remove(f)
+
+            else:
+                print(f"  ⏩ MP3 уже существует, пропуск: {entry['audioFilename']}")
 
         hebrew_index_counter += 1
 

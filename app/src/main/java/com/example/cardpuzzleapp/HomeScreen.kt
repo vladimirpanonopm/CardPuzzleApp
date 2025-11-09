@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,17 +24,26 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
+    // --- ИЗМЕНЕНИЕ 1: Принимаем ViewModel ---
+    viewModel: CardViewModel,
+    // ------------------------------------
     onStartLevel: (levelId: Int) -> Unit,
     onShowTrack: (levelId: Int) -> Unit,
     onSettingsClick: () -> Unit,
     onAlefbetClick: () -> Unit
 ) {
     Log.d(AppDebug.TAG, "HomeScreen: Composing")
-    val context = LocalContext.current
-    val progressManager = remember {
-        Log.d(AppDebug.TAG, "HomeScreen: Creating GameProgressManager")
-        GameProgressManager(context)
+
+    // --- ИЗМЕНЕНИЕ 2: Убираем прямой доступ к Context и ProgressManager ---
+    // val context = LocalContext.current // <-- УДАЛЕНО
+    // val progressManager = remember { ... } // <-- УДАЛЕНО
+
+    // --- ИЗМЕНЕНИЕ 3: Асинхронно загружаем кол-во уровней ---
+    LaunchedEffect(Unit) {
+        Log.d(AppDebug.TAG, "HomeScreen: LaunchedEffect -> loading level count...")
+        viewModel.loadLevelCount()
     }
+    // ----------------------------------------------------
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -56,7 +66,6 @@ fun HomeScreen(
                     .fillMaxWidth(0.8f)
                     .height(50.dp)
             ) {
-                // ИЗМЕНЕНИЕ: Используем новую короткую надпись
                 Text(text = stringResource(R.string.alefbet_level_button_short), fontSize = 18.sp)
             }
 
@@ -68,24 +77,19 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 maxItemsInEachRow = 3
             ) {
-                Log.d(AppDebug.TAG, "HomeScreen: Calling LevelRepository.getLevelCount...")
-                // --- ЭТО КРИТИЧЕСКАЯ ТОЧКА ---
-                // Если крэш происходит, он будет здесь, т.к. 'context' может быть невалидным
-                val levelCount = LevelRepository.getLevelCount(context)
-                Log.d(AppDebug.TAG, "HomeScreen: LevelRepository.getLevelCount returned: $levelCount")
+                // --- ИЗМЕНЕНИЕ 4: Используем state из ViewModel ---
+                Log.d(AppDebug.TAG, "HomeScreen: FlowRow recomposing. Level count: ${viewModel.levelCount}")
+                val levelCount = viewModel.levelCount
+                // ---------------------------------------------
 
                 for (levelId in 1..levelCount) {
                     Button(
                         onClick = {
                             Log.d(AppDebug.TAG, "HomeScreen: Level button $levelId clicked")
-                            val levelData = LevelRepository.getLevelData(context, levelId)
-                            val completedRounds = progressManager.getCompletedRounds(levelId)
-
-                            if (levelData != null && completedRounds.size >= levelData.size) {
-                                onShowTrack(levelId)
-                            } else {
-                                onStartLevel(levelId)
-                            }
+                            // --- ИЗМЕНЕНИЕ 5: Логика перенесена в AppNavigation ---
+                            // Вся логика (if completed -> showTrack)
+                            // теперь находится в onStartLevel/onShowTrack в AppNavigation
+                            onStartLevel(levelId)
                         },
                         modifier = Modifier.sizeIn(minWidth = 80.dp, minHeight = 80.dp)
                     ) {

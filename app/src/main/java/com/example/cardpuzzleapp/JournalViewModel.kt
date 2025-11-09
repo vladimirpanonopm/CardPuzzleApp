@@ -5,7 +5,12 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+// --- НОВЫЕ ИМПОРТЫ ---
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -14,14 +19,13 @@ import javax.inject.Inject
 @HiltViewModel
 class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
-    private val audioPlayer: AudioPlayer
+    private val audioPlayer: AudioPlayer,
+    // --- ИЗМЕНЕНИЕ 1: Внедряем Репозиторий ---
+    private val levelRepository: LevelRepository
 ) : ViewModel() {
 
-    // Список предложений, которые отображаются в журнале.
-    // Jetpack Compose будет автоматически следить за его изменениями.
     val journalSentences = mutableStateListOf<SentenceData>()
 
-    // Информация о текущем уровне, для которого открыт журнал.
     private var currentLevelId: Int = -1
     var currentLevelSentences = listOf<SentenceData>()
         private set
@@ -30,16 +34,21 @@ class JournalViewModel @Inject constructor(
      * Главный метод инициализации.
      * Загружает данные для конкретного уровня и обновляет список карточек в журнале.
      */
-    fun loadJournalForLevel(context: Context, levelId: Int) {
+    // --- ИЗМЕНЕНИЕ 2: Убираем Context, добавляем Coroutine ---
+    fun loadJournalForLevel(levelId: Int) {
         if (levelId == -1) return
         this.currentLevelId = levelId
 
-        // Загружаем все предложения для данного уровня.
-        val levelData = LevelRepository.getLevelData(context, levelId)
-        this.currentLevelSentences = levelData ?: emptyList()
+        viewModelScope.launch(Dispatchers.IO) {
+            // Загружаем все предложения для данного уровня.
+            val levelData = levelRepository.getLevelData(levelId)
 
-        // Обновляем список карточек для отображения.
-        loadJournalSentences()
+            withContext(Dispatchers.Main) {
+                this@JournalViewModel.currentLevelSentences = levelData ?: emptyList()
+                // Обновляем список карточек для отображения.
+                loadJournalSentences()
+            }
+        }
     }
 
     /**
@@ -60,6 +69,7 @@ class JournalViewModel @Inject constructor(
         journalSentences.clear()
         journalSentences.addAll(completedSentences)
     }
+    // -----------------------------------------------------------
 
     /**
      * "Забывает" карточку, возвращая ее из журнала обратно в игру.
@@ -81,7 +91,7 @@ class JournalViewModel @Inject constructor(
         loadJournalSentences()
     }
 
-    // --- НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ AUDIO ---
+    // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
     fun playSoundForPage(pageIndex: Int) {
         journalSentences.getOrNull(pageIndex)?.audioFilename?.let {

@@ -21,6 +21,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.cardpuzzleapp.ui.theme.CardPuzzleAppTheme
 import dagger.hilt.android.AndroidEntryPoint
+// --- НОВЫЙ ИМПОРТ ---
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -34,27 +36,20 @@ class MainActivity : ComponentActivity() {
             var languageCode by remember { mutableStateOf(progressManager.getUserLanguage()) }
             Log.d(AppDebug.TAG, "MainActivity: setContent. Initial languageCode: $languageCode")
 
-            // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-            // 1. Создаем NavController и ВСЕ Hilt ViewModel ЗДЕСЬ.
-            // На этом уровне LocalContext.current - это MainActivity, и Hilt счастлив.
             val navController = rememberNavController()
             val cardViewModel: CardViewModel = hiltViewModel()
             val alefbetViewModel: AlefbetViewModel = hiltViewModel()
             val journalViewModel: JournalViewModel = hiltViewModel()
 
-            // 2. Теперь мы меняем язык в key()
             key(languageCode) {
                 Log.d(AppDebug.TAG, "MainActivity: key(languageCode) recomposing. languageCode: $languageCode")
 
-                // 3. Создаем обернутый Context
                 val wrappedContext = languageCode?.let { LocaleHelper.wrap(this, it) } ?: this
 
-                // 4. Передаем *только* обернутый Context вниз.
                 CompositionLocalProvider(LocalContext provides wrappedContext) {
                     CardPuzzleAppTheme {
                         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
 
-                            // 5. Передаем уже созданные контроллер и ViewModel'ы в AppNavigation
                             AppNavigation(
                                 navController = navController,
                                 cardViewModel = cardViewModel,
@@ -77,7 +72,6 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation(
-    // Принимаем всё как параметры
     navController: NavHostController,
     cardViewModel: CardViewModel,
     alefbetViewModel: AlefbetViewModel,
@@ -87,8 +81,11 @@ fun AppNavigation(
 ) {
     Log.d(AppDebug.TAG, "AppNavigation: Composing. initialLanguage: $initialLanguage")
 
-    // Получаем обернутый контекст (для загрузки ассетов)
-    val context = LocalContext.current
+    // --- ИЗМЕНЕНИЕ 1: Добавляем CoroutineScope ---
+    val coroutineScope = rememberCoroutineScope()
+    // ----------------------------------------
+
+    val context = LocalContext.current // (Этот context теперь "обернутый", но он больше не используется для I/O)
 
     val startDestination = remember {
         val dest = if (initialLanguage != null) "home" else "language_selection"
@@ -122,15 +119,27 @@ fun AppNavigation(
         composable("home") {
             Log.d(AppDebug.TAG, "NavHost: Composing 'home'")
             HomeScreen(
+                // --- ИЗМЕНЕНИЕ 2: Передаем ViewModel ---
+                viewModel = cardViewModel,
                 onStartLevel = { levelId ->
                     Log.d(AppDebug.TAG, "NavHost: 'home' onStartLevel($levelId)")
-                    // Используем обернутый 'context'
-                    cardViewModel.loadLevel(context, levelId)
-                    navController.navigate("game")
+                    // --- ИЗМЕНЕНИЕ 3: Запускаем Coroutine для suspend-функции ---
+                    coroutineScope.launch {
+                        val isFullyCompleted = cardViewModel.loadLevel(levelId)
+                        if (isFullyCompleted) {
+                            navController.navigate("round_track/$levelId")
+                        } else {
+                            navController.navigate("game")
+                        }
+                    }
                 },
                 onShowTrack = { levelId ->
                     Log.d(AppDebug.TAG, "NavHost: 'home' onShowTrack($levelId)")
-                    navController.navigate("round_track/$levelId")
+                    // --- ИЗМЕНЕНИЕ 4: Также запускаем Coroutine ---
+                    coroutineScope.launch {
+                        cardViewModel.loadLevel(levelId) // Загружаем данные перед переходом
+                        navController.navigate("round_track/$levelId")
+                    }
                 },
                 onSettingsClick = {
                     Log.d(AppDebug.TAG, "NavHost: 'home' onSettingsClick")
@@ -145,7 +154,6 @@ fun AppNavigation(
 
         composable("alefbet") {
             Log.d(AppDebug.TAG, "NavHost: Composing 'alefbet'")
-            // Больше не создаем VM, а используем переданный
             AlefbetScreen(
                 viewModel = alefbetViewModel,
                 onBackClick = { navController.popBackStack() }
@@ -170,7 +178,6 @@ fun AppNavigation(
 
         composable("game") {
             Log.d(AppDebug.TAG, "NavHost: Composing 'game'")
-            // Используем переданный VM
             GameScreen(
                 viewModel = cardViewModel,
                 onHomeClick = {
@@ -198,7 +205,6 @@ fun AppNavigation(
             Log.d(AppDebug.TAG, "NavHost: Composing 'round_track/$levelId'")
             RoundTrackScreen(
                 levelId = levelId,
-                // Используем переданный VM
                 viewModel = cardViewModel,
                 onHomeClick = {
                     navController.navigate("home") {
@@ -206,11 +212,13 @@ fun AppNavigation(
                     }
                 },
                 onResetClick = {
-                    // Используем обернутый 'context'
-                    cardViewModel.loadLevel(context, levelId)
-                    cardViewModel.resetCurrentLevelProgress()
-                    navController.navigate("game") {
-                        popUpTo("home")
+                    // --- ИЗМЕНЕНИЕ 5: Запускаем Coroutine ---
+                    coroutineScope.launch {
+                        cardViewModel.loadLevel(levelId)
+                        cardViewModel.resetCurrentLevelProgress()
+                        navController.navigate("game") {
+                            popUpTo("home")
+                        }
                     }
                 },
                 onJournalClick = {
@@ -236,7 +244,6 @@ fun AppNavigation(
             val initialRoundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: -1
             Log.d(AppDebug.TAG, "NavHost: Composing 'journal/$levelId?roundIndex=$initialRoundIndex'")
 
-            // Используем переданный VM
             JournalScreen(
                 levelId = levelId,
                 journalViewModel = journalViewModel,

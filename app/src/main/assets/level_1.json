@@ -68,5 +68,23 @@
     "audioFilename": "3e5a5d33cd374ec4551143c9cf0ea3ea.mp3",
     "taskType": "ASSEMBLE_TRANSLATION",
     "voice": null
+  },
+  {
+    "hebrew_index": 7,
+    "russian_translation": "Я иду и также ем по дороге домой.",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": "1ca0d9e336706e1f597957119f5ee946.mp3",
+    "taskType": "FILL_IN_BLANK",
+    "voice": null,
+    "task_correct_cards": [
+      "הולך",
+      "אוכל"
+    ],
+    "task_distractor_cards": [
+      "חתול",
+      "שולחן"
+    ]
   }
 ]

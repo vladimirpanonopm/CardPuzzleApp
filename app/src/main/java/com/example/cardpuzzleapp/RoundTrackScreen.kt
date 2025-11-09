@@ -33,9 +33,16 @@ fun RoundTrackScreen(
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val levelData = remember { LevelRepository.getLevelData(context, levelId) }
 
-    if (levelData == null) {
+    // --- ИЗМЕНЕНИЕ 1: Больше не читаем из Репозитория ---
+    // val levelData = remember { LevelRepository.getLevelData(context, levelId) } // <-- УДАЛЕНО (блокирующий I/O)
+
+    // --- ИЗМЕНЕНИЕ 2: Берем данные из ViewModel ---
+    // (Предполагается, что loadLevel был вызван ПЕРЕД навигацией сюда)
+    val levelData = viewModel.currentLevelSentences
+    // -----------------------------------------
+
+    if (levelData.isEmpty()) { // <-- Изменено с null на isEmpty()
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Ошибка: не удалось загрузить данные уровня $levelId")
         }
@@ -49,7 +56,6 @@ fun RoundTrackScreen(
         BitmapFactory.decodeResource(context.resources, R.drawable.tesy).asImageBitmap()
     }
 
-    // ИЗМЕНЕНИЕ: Создаем стабильный случайный порядок ОДИН РАЗ для каждого levelId
     val shuffledIndices = remember(levelId) {
         (0 until 20).toList().shuffled()
     }
@@ -70,7 +76,6 @@ fun RoundTrackScreen(
                 )
                 AppBottomBarIcon(
                     imageVector = Icons.Default.MenuBook,
-                    // ИСПРАВЛЕНИЕ: Заменена ссылка на несуществующий ресурс
                     contentDescription = stringResource(R.string.cd_go_to_journal),
                     onClick = onJournalClick
                 )
@@ -97,7 +102,7 @@ fun RoundTrackScreen(
                 totalRounds = totalRoundsInLevel,
                 completedRounds = completedRounds,
                 columns = 5,
-                shuffledIndices = shuffledIndices, // Передаем стабильный список
+                shuffledIndices = shuffledIndices,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
@@ -120,7 +125,7 @@ private fun PuzzleGrid(
     totalRounds: Int,
     completedRounds: Int,
     columns: Int,
-    shuffledIndices: List<Int>, // Принимаем готовый список
+    shuffledIndices: List<Int>,
     modifier: Modifier = Modifier
 ) {
     val roundsPerPiece = remember(totalRounds, totalPieces) {

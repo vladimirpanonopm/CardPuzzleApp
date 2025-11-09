@@ -23,4 +23,13 @@ object AppModule {
     fun provideAudioPlayer(@ApplicationContext context: Context): AudioPlayer {
         return AudioPlayer(context)
     }
+
+    // --- ДОБАВЛЕНО ---
+    @Provides
+    @Singleton
+    fun provideLevelRepository(@ApplicationContext context: Context): LevelRepository {
+        // Теперь LevelRepository - это класс, которому мы сами передаем Context
+        return LevelRepository(context)
+    }
+    // -----------------
 }

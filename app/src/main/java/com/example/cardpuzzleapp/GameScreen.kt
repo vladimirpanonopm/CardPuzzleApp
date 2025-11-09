@@ -2,7 +2,6 @@ package com.example.cardpuzzleapp
 import androidx.compose.ui.text.style.TextDirection
 import android.content.Context
 import android.util.Log
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -12,12 +11,14 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Extension
@@ -36,6 +37,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -56,9 +58,11 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.LayoutDirection
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
@@ -73,7 +77,6 @@ fun GameScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
-    val view = LocalView.current
 
     val snapshot = viewModel.resultSnapshot
     val isRoundWon = viewModel.isRoundWon
@@ -93,28 +96,11 @@ fun GameScreen(
     }
 
     LaunchedEffect(Unit) {
-        val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
-        }
-
         viewModel.hapticEvents.collectLatest { event ->
             Log.d("VIBRATE_DEBUG", "GameScreen received event: $event")
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                val vibrationEffect = android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK)
-                vibrator.vibrate(vibrationEffect)
-
-            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val vibrationEffect = android.os.VibrationEffect.createOneShot(20, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
-                vibrator.vibrate(vibrationEffect)
-
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(20)
+            when (event) {
+                HapticEvent.Success -> haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticEvent.Failure -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             }
         }
     }
@@ -123,7 +109,10 @@ fun GameScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = stringResource(id = R.string.game_task_assemble),
+                // --- ВОТ ИЗМЕНЕНИЕ ---
+                // title = stringResource(id = R.string.game_task_assemble), // <-- БЫЛО
+                title = stringResource(id = viewModel.currentTaskTitleResId), // <-- СТАЛО
+                // ---------------------
                 onBackClick = onHomeClick,
                 actions = {
                     if (viewModel.currentLevelId == 1) {
@@ -164,10 +153,7 @@ fun GameScreen(
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.button_show_translation),
-                        // --- ВОТ ИСПРАВЛЕНИЕ (2/2) ---
-                        // onClick = { viewModel.hideResultSheet() } // <-- БЫЛО (ОШИБКА)
-                        onClick = { viewModel.showResultSheet() } // <-- СТАЛО
-                        // ----------------------------
+                        onClick = { viewModel.showResultSheet() }
                     )
                 } else {
                     IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
@@ -196,7 +182,34 @@ fun GameScreen(
                 label = "FontSizeAnimation"
             )
 
+            val styleConfig = CardStyles.getStyle(fontStyle)
+            val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
+                TextStyle(
+                    fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                        FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                        FontVariation.width(styleConfig.fontWidth)
+                    ))),
+                    fontSize = animatedFontSize.sp,
+                    textAlign = TextAlign.Right,
+                    lineHeight = (animatedFontSize * 1.4f).sp,
+                    color = StickyNoteText,
+                    textDirection = TextDirection.Rtl
+                )
+            } else {
+                TextStyle(
+                    fontFamily = fontStyle.fontFamily,
+                    fontSize = animatedFontSize.sp,
+                    textAlign = TextAlign.Right,
+                    lineHeight = (animatedFontSize * 1.4f).sp,
+                    fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
+                    color = StickyNoteText,
+                    textDirection = TextDirection.Rtl
+                )
+            }
+
+
             if (isRoundWon) {
+                // --- ЭКРАН ПОБЕДЫ ---
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -208,7 +221,7 @@ fun GameScreen(
                             .fillMaxSize()
                             .padding(16.dp)
                             .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.Start
                     ) {
                         Text(
                             text = viewModel.currentTaskPrompt ?: "",
@@ -221,45 +234,32 @@ fun GameScreen(
                                 .padding(bottom = 16.dp)
                         )
 
-                        val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
-                        val styleConfig = CardStyles.getStyle(fontStyle)
-                        val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
-                            TextStyle(
-                                fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                                    FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                                    FontVariation.width(styleConfig.fontWidth)
-                                ))),
-                                fontSize = animatedFontSize.sp,
-                                textAlign = TextAlign.Right,
-                                lineHeight = (animatedFontSize * 1.4f).sp,
-                                color = StickyNoteText,
-                                textDirection = TextDirection.Rtl
-                            )
-                        } else {
-                            TextStyle(
-                                fontFamily = fontStyle.fontFamily,
-                                fontSize = animatedFontSize.sp,
-                                textAlign = TextAlign.Right,
-                                lineHeight = (animatedFontSize * 1.4f).sp,
-                                fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
-                                color = StickyNoteText,
-                                textDirection = TextDirection.Rtl
-                            )
+                        val assembledText = remember(viewModel.isRoundWon, viewModel.currentTaskType) {
+                            if (viewModel.currentTaskType == TaskType.ASSEMBLE_TRANSLATION) {
+                                viewModel.targetCards.joinToString(separator = "") { it.text }
+                            } else {
+                                viewModel.assemblyLine.joinToString(separator = "") { slot ->
+                                    val filledCard = slot.filledCard
+                                    filledCard?.text ?: slot.targetCard?.text ?: slot.text
+                                }
+                            }
                         }
 
-                        Text(
-                            text = assembledText,
-                            style = hebrewTextStyle,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
-                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            Text(
+                                text = assembledText,
+                                style = hebrewTextStyle,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(150.dp))
                     }
                 }
             }
-            // ЕСЛИ РАУНД ИДЕТ
+            // --- ЭКРАН ИГРЫ ---
             else {
                 Surface(
                     modifier = Modifier
@@ -267,97 +267,110 @@ fun GameScreen(
                         .weight(0.7f), // 70%
                     color = StickyNoteYellow,
                 ) {
-                    Column(
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(16.dp)
                     ) {
-                        Text(
-                            text = viewModel.currentTaskPrompt ?: "",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                color = StickyNoteText.copy(alpha = 0.8f),
-                                textAlign = TextAlign.Start
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.4f)
-                                .verticalScroll(rememberScrollState())
-                        )
-
-                        val assembledText = viewModel.selectedCards.joinToString(" ") { it.text }
-                        val styleConfig = CardStyles.getStyle(fontStyle)
-                        val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
-                            TextStyle(
-                                fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                                    FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                                    FontVariation.width(styleConfig.fontWidth)
-                                ))),
-                                fontSize = animatedFontSize.sp,
-                                textAlign = TextAlign.Right,
-                                lineHeight = (animatedFontSize * 1.4f).sp,
-                                color = StickyNoteText,
-                                textDirection = TextDirection.Rtl
-                            )
-                        } else {
-                            TextStyle(
-                                fontFamily = fontStyle.fontFamily,
-                                fontSize = animatedFontSize.sp,
-                                textAlign = TextAlign.Right,
-                                lineHeight = (animatedFontSize * 1.4f).sp,
-                                fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
-                                color = StickyNoteText,
-                                textDirection = TextDirection.Rtl
+                        item {
+                            Text(
+                                text = viewModel.currentTaskPrompt ?: "",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = StickyNoteText.copy(alpha = 0.8f),
+                                    textAlign = TextAlign.Start
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp)
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.6f)
-                        ) {
-                            Text(
-                                text = assembledText,
-                                style = hebrewTextStyle,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(bottom = 8.dp)
-                            )
+                        item {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+
+                                Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
+
+                                    when (viewModel.currentTaskType) {
+
+                                        TaskType.ASSEMBLE_TRANSLATION -> {
+                                            Text(
+                                                text = viewModel.selectedCards.joinToString(separator = "") { it.text },
+                                                style = hebrewTextStyle,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable(
+                                                        interactionSource = remember { MutableInteractionSource() },
+                                                        indication = null,
+                                                        onClick = { viewModel.returnLastSelectedCard() }
+                                                    )
+                                            )
+                                        }
+
+                                        TaskType.FILL_IN_BLANK -> {
+                                            FlowRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                viewModel.assemblyLine.forEach { slot ->
+                                                    key(slot.id) {
+                                                        AssemblySlotItem(
+                                                            slot = slot,
+                                                            textStyle = hebrewTextStyle,
+                                                            fontStyle = fontStyle,
+                                                            taskType = viewModel.currentTaskType,
+                                                            onReturnCard = { viewModel.returnCardFromSlot(slot) }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        TaskType.UNKNOWN -> { /* Пусто */ }
+                                        TaskType.MATCHING_PAIRS -> TODO()
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
 
-                FlowRow(
-                    modifier = Modifier
-                        .weight(0.3f) // 30%
-                        .fillMaxSize()
-                        .background(Color.White)
-                        .verticalScroll(rememberScrollState())
-                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
-                        .animateContentSize(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    viewModel.availableCards.forEach { slot ->
-                        key(slot.id) {
-                            Shakeable(
-                                trigger = viewModel.errorCount,
-                                errorCardId = viewModel.errorCardId,
-                                currentCardId = slot.card.id
-                            ) { shakeModifier ->
-                                SelectableCard(
-                                    modifier = shakeModifier
-                                        .graphicsLayer {
-                                            alpha = if (slot.isVisible) 1f else 0f
+                // --- Нижний "Банк" карт ---
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    FlowRow(
+                        modifier = Modifier
+                            .weight(0.3f) // 30%
+                            .fillMaxSize()
+                            .background(Color.White)
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                            .animateContentSize(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        viewModel.availableCards.forEach { slot ->
+                            key(slot.id) {
+                                Shakeable(
+                                    trigger = viewModel.errorCount,
+                                    errorCardId = viewModel.errorCardId,
+                                    currentCardId = slot.card.id
+                                ) { shakeModifier ->
+                                    SelectableCard(
+                                        modifier = shakeModifier
+                                            .graphicsLayer {
+                                                alpha = if (slot.isVisible) 1f else 0f
+                                            },
+                                        card = slot.card,
+                                        onSelect = {
+                                            if (slot.isVisible) {
+                                                viewModel.selectCard(slot)
+                                            }
                                         },
-                                    card = slot.card,
-                                    onSelect = {
-                                        if (slot.isVisible) {
-                                            viewModel.selectCard(slot)
-                                        }
-                                    },
-                                    fontStyle = fontStyle
-                                )
+                                        fontStyle = fontStyle,
+                                        taskType = viewModel.currentTaskType,
+                                        isAssembledCard = false
+                                    )
+                                }
                             }
                         }
                     }
@@ -389,160 +402,6 @@ fun GameScreen(
                 },
                 onTrackClick = { onTrackClick(snapshot.levelId) }
             )
-        }
-    }
-}
-
-
-@OptIn(ExperimentalTextApi::class, ExperimentalFoundationApi::class)
-@Composable
-fun SelectableCard(
-    modifier: Modifier = Modifier,
-    card: Card,
-    onSelect: () -> Unit,
-    fontStyle: FontStyle
-) {
-    var isFlipped by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(
-        targetValue = if (isFlipped) 180f else 0f,
-        animationSpec = tween(600), label = "CardFlipAnimation"
-    )
-
-    LaunchedEffect(isFlipped) {
-        if (isFlipped) {
-            delay(1000)
-            isFlipped = false
-        }
-    }
-
-    val styleConfig = CardStyles.getStyle(fontStyle)
-
-    val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
-        TextStyle(
-            fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                FontVariation.width(styleConfig.fontWidth)
-            ))),
-            fontSize = 29.sp,
-            textAlign = TextAlign.Right,
-            textDirection = TextDirection.Rtl
-        )
-    } else {
-        TextStyle(
-            fontFamily = fontStyle.fontFamily,
-            fontSize = 29.sp,
-            textAlign = TextAlign.Right,
-            fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
-            textDirection = TextDirection.Rtl
-        )
-    }
-
-    Card(
-        modifier = modifier
-            .graphicsLayer { rotationX = rotation }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onSelect() },
-                    onLongPress = { isFlipped = true }
-                )
-            },
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = StickyNoteYellow),
-        border = BorderStroke(styleConfig.borderWidth, styleConfig.borderColor)
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(vertical = styleConfig.verticalPadding, horizontal = styleConfig.horizontalPadding)
-                .widthIn(min = 51.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (rotation < 90f) {
-                Text(
-                    text = card.text.replace('\n', ' ').replace('\r', ' '),
-                    style = hebrewTextStyle,
-                    color = StickyNoteText
-                )
-            }
-            else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { rotationX = 180f },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = card.translation.ifEmpty { stringResource(R.string.result_translation_not_found) },
-                        fontSize = 26.sp,
-                        textAlign = TextAlign.Center,
-                        color = StickyNoteText
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultSheetContent(
-    snapshot: RoundResultSnapshot,
-    onContinueClick: () -> Unit,
-    onRepeatClick: () -> Unit,
-    onTrackClick: () -> Unit
-) {
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = Modifier
-            .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .verticalScroll(scrollState),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Text(
-                text = snapshot.translation,
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Start
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onTrackClick) {
-                Icon(
-                    imageVector = Icons.Default.Extension,
-                    contentDescription = stringResource(R.string.round_track_title, snapshot.levelId),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            IconButton(onClick = onRepeatClick) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.button_repeat_round),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Button(
-                onClick = onContinueClick,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-            ) {
-                Text(text = stringResource(R.string.button_continue), fontSize = 20.sp)
-            }
         }
     }
 }

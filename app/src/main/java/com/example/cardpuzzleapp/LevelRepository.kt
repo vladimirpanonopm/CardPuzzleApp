@@ -11,36 +11,43 @@ import com.example.cardpuzzleapp.SentenceData
 // --- ИСПРАВЛЕНИЕ ДЛЯ 'InternalSerializationApi' ---
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
 @OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
 // -----------------------------
 
+@Singleton
+class LevelRepository @Inject constructor(
+    private val context: Context
+) {
 
-object LevelRepository {
-
-    // Кэш для готовых SentenceData (как и был)
     private val levelCache = mutableMapOf<Int, List<SentenceData>>()
-
-    // НОВЫЙ КЭШ: Map<LevelID, List<HebrewString>>
-    // Хранит списки иврита для каждого уровня
     private val hebrewListCache = mutableMapOf<Int, List<String>>()
 
-    private val jsonParser = Json { ignoreUnknownKeys = true }
-    private const val DEBUG_TAG = AppDebug.TAG // Используем наш общий тег
+    // --- ИЗМЕНЕНИЕ: Обучаем Json парсер работать с Enum ---
+    private val jsonParser = Json {
+        ignoreUnknownKeys = true
+        // Если из JSON придет "ASSEMBLE_TRANSLATION",
+        // он автоматически превратит это в TaskType.ASSEMBLE_TRANSLATION
+        coerceInputValues = true // (Использует TaskType.UNKNOWN если значение не найдено)
+    }
+    // ----------------------------------------------------
 
-    // Функция теперь загружает список иврита ДЛЯ КОНКРЕТНОГО УРОВНЯ
-    private fun loadHebrewListForLevel(context: Context, levelId: Int): List<String> {
-        // Загружаем из кэша, если уже загружали
+    private suspend fun loadHebrewListForLevel(levelId: Int): List<String> = withContext(Dispatchers.IO) {
         hebrewListCache[levelId]?.let {
             Log.d(DEBUG_TAG, "LevelRepository: loadHebrewListForLevel($levelId) from CACHE.")
-            return it
+            return@withContext it
         }
 
         val fileName = "hebrew_level_$levelId.json"
         Log.d(DEBUG_TAG, "LevelRepository: loadHebrewListForLevel($levelId) from ASSETS ($fileName).")
-        return try {
+        return@withContext try {
             val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
             val stringList = jsonParser.decodeFromString<List<String>>(jsonString)
-            hebrewListCache[levelId] = stringList // Сохраняем в кэш
+            hebrewListCache[levelId] = stringList
             stringList
         } catch (e: Exception) {
             Log.e(DEBUG_TAG, "LevelRepository: ERROR in loadHebrewListForLevel($levelId)", e)
@@ -51,43 +58,36 @@ object LevelRepository {
     fun clearCache() {
         Log.d(DEBUG_TAG, "LevelRepository: Cache cleared.")
         levelCache.clear()
-        hebrewListCache.clear() // <-- Очищаем оба кэша
+        hebrewListCache.clear()
     }
 
-    // Главная функция getLevelData переписана
-    fun getLevelData(context: Context, levelId: Int): List<SentenceData>? {
+    suspend fun getLevelData(levelId: Int): List<SentenceData>? = withContext(Dispatchers.IO) {
         Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) called.")
         if (levelCache.containsKey(levelId)) {
             Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) from CACHE.")
-            return levelCache[levelId]
+            return@withContext levelCache[levelId]
         }
 
-        // 1. Загружаем список иврита (RTL) для этого уровня
-        val hebrewStrings = loadHebrewListForLevel(context, levelId)
+        val hebrewStrings = loadHebrewListForLevel(levelId)
         if (hebrewStrings.isEmpty()) {
             Log.e(DEBUG_TAG, "LevelRepository: getLevelData($levelId) FAILED. Hebrew list is empty.")
-            return null
+            return@withContext null
         }
 
         val fileName = "level_$levelId.json"
         Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) loading LTR file: $fileName")
-        return try {
-            // 2. Загружаем LTR-файл (переводы, аудио, индексы)
+        return@withContext try {
             val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
-
-            // 3. Парсим LTR-файл (используя LevelEntry)
             val levelEntries = jsonParser.decodeFromString<List<LevelEntry>>(jsonString)
 
-            // 4. "Собираем" (мерджим) два файла в финальный список
             val sentences = levelEntries.mapNotNull { entry ->
-                // Находим текст на иврите по индексу
                 val hebrewText = hebrewStrings.getOrNull(entry.hebrew_index)
                 if (hebrewText == null) {
-                    Log.e(DEBUG_TAG, "LevelRepository: getLevelData($levelId) - Index '${entry.hebrew_index}' not found in hebrew_level_$levelId.json!")
-                    return@mapNotNull null // Пропускаем эту карточку
+                    Log.e(DEBUG_TAG, "LevelRepository: getLevelData($levelId) - Index '${entry.hebrew_index}' not found!")
+                    return@mapNotNull null
                 }
 
-                // Создаем финальный объект SentenceData, который ожидает ViewModel
+                // --- ИЗМЕНЕНИЕ: Просто передаем данные. Enum уже готов. ---
                 SentenceData(
                     hebrew = hebrewText,
                     russian_translation = entry.russian_translation,
@@ -95,9 +95,12 @@ object LevelRepository {
                     french_translation = entry.french_translation,
                     spanish_translation = entry.spanish_translation,
                     audioFilename = entry.audioFilename,
-                    taskType = entry.taskType, // <-- ДОБАВЛЕНО
-                    voice = entry.voice
+                    taskType = entry.taskType, // (Теперь это Enum)
+                    voice = entry.voice,
+                    task_correct_cards = entry.task_correct_cards,
+                    task_distractor_cards = entry.task_distractor_cards
                 )
+                // -----------------------------------------------------
             }
 
             levelCache[levelId] = sentences
@@ -109,10 +112,9 @@ object LevelRepository {
         }
     }
 
-    fun getLevelCount(context: Context): Int {
+    suspend fun getLevelCount(): Int = withContext(Dispatchers.IO) {
         Log.d(DEBUG_TAG, "LevelRepository: getLevelCount() called.")
-        // Эта функция теперь должна считать ТОЛЬКО LTR-файлы
-        return try {
+        return@withContext try {
             Log.d(DEBUG_TAG, "LevelRepository: Accessing context.assets.list()...")
             val files = context.assets.list("")
             val count = files?.count { it.startsWith("level_") && it.endsWith(".json") } ?: 0
@@ -121,21 +123,21 @@ object LevelRepository {
         } catch (e: IOException) {
             Log.e(DEBUG_TAG, "LevelRepository: ERROR in getLevelCount()", e)
             e.printStackTrace()
-            return 0
+            0
         }
     }
 
-    fun findLongestSentence(context: Context): SentenceData? {
+    suspend fun findLongestSentence(): SentenceData? {
         clearCache()
 
-        val levelCount = getLevelCount(context)
+        val levelCount = getLevelCount()
         if (levelCount == 0) return null
 
         var longestSentence: SentenceData? = null
         Log.d(DEBUG_TAG, "LevelRepository: --- Finding longest sentence ---")
 
         for (levelId in 1..levelCount) {
-            val levelData = getLevelData(context, levelId)
+            val levelData = getLevelData(levelId)
             levelData?.forEach { sentence ->
                 if (sentence.hebrew.length > (longestSentence?.hebrew?.length ?: -1)) {
                     longestSentence = sentence
@@ -145,5 +147,9 @@ object LevelRepository {
         }
         Log.d(DEBUG_TAG, "--- Search complete. Result: ${longestSentence?.hebrew}")
         return longestSentence
+    }
+
+    companion object {
+        private const val DEBUG_TAG = AppDebug.TAG
     }
 }
