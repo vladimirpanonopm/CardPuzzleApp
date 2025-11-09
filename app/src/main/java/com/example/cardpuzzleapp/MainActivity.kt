@@ -104,55 +104,57 @@ fun AppNavigation(
         }
     }
 
-    // --- Обработка навигационных событий из CardViewModel ---
+    // --- ИЗМЕНЕНИЕ 1: Добавляем проверку текущего маршрута ---
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { route ->
             Log.d(AppDebug.TAG, "NavigationEvent received: $route")
+
+            // Получаем текущий активный маршрут
+            val currentRoute = navController.currentDestination?.route
+
             when {
-                // Если событие - это "matching_game/LevelId/RoundIndex"
                 route.startsWith("matching_game/") -> {
                     val parts = route.split("/")
                     val levelId = parts.getOrNull(1)?.toIntOrNull() ?: 1
                     val roundIndex = parts.getOrNull(2)?.toIntOrNull() ?: 0
-                    matchingViewModel.loadLevelAndRound(levelId, roundIndex) // Загружаем данные в Match VM
-                    navController.navigate("matching_game/$levelId/$roundIndex")
+                    matchingViewModel.loadLevelAndRound(levelId, roundIndex)
+                    navController.navigate(route)
                 }
-                // Если событие - это "round_track/LevelId"
                 route.startsWith("round_track/") -> {
                     navController.navigate(route)
                 }
-                // Если событие - это "game" (GameScreen)
                 route == "game" -> {
-                    navController.navigate("game")
+                    // --- ИСПРАВЛЕНИЕ БАГА "ДВОЙНОЙ ЗАГРУЗКИ" ---
+                    // Мы переходим на "game", только если мы УЖЕ не на "game".
+                    if (currentRoute != "game") {
+                        navController.navigate("game")
+                    } else {
+                        // Если мы уже на "game", ViewModel обновит UI сам.
+                        // Ничего не делаем, чтобы избежать "двойной загрузки".
+                        Log.d(AppDebug.TAG, "Already on 'game' route. Navigation skipped to prevent double load.")
+                    }
                 }
             }
         }
     }
+    // ----------------------------------------------------
 
-    // --- ИЗМЕНЕНИЕ 1: Добавляем обработку "SKIP" ---
+    // --- Обработка событий из MatchingViewModel (без изменений) ---
     LaunchedEffect(Unit) {
         matchingViewModel.completionEvents.collectLatest { event ->
             if (event == "WIN") {
-                // 1. Возвращаемся
                 navController.popBackStack()
-                // 2. Говорим CardViewModel перейти к следующему раунду
                 cardViewModel.proceedToNextRound()
             }
             if (event == "TRACK") {
-                // Переходим на экран трека
                 navController.navigate("round_track/${matchingViewModel.currentLevelId}")
             }
-            // --- НОВЫЙ ОБРАБОТЧИК ---
             if (event == "SKIP") {
-                // 1. Возвращаемся
                 navController.popBackStack()
-                // 2. Говорим CardViewModel пропустить раунд
                 cardViewModel.skipToNextAvailableRound()
             }
-            // ------------------------
         }
     }
-    // ----------------------------------------------------
 
     NavHost(navController = navController, startDestination = startDestination) {
 
@@ -176,15 +178,13 @@ fun AppNavigation(
                         val isFullyCompleted = cardViewModel.loadLevel(levelId)
                         if (isFullyCompleted) {
                             navController.navigate("round_track/$levelId")
-                        } else {
-                            // CardViewModel отправит событие навигации
                         }
                     }
                 },
                 onShowTrack = { levelId ->
                     Log.d(AppDebug.TAG, "NavHost: 'home' onShowTrack($levelId)")
                     coroutineScope.launch {
-                        cardViewModel.loadLevel(levelId) // Загружаем данные перед переходом
+                        cardViewModel.loadLevel(levelId)
                         navController.navigate("round_track/$levelId")
                     }
                 },
@@ -244,7 +244,6 @@ fun AppNavigation(
             )
         }
 
-        // --- ИЗМЕНЕНИЕ 2: Передаем новые колбэки в MatchingGameScreen ---
         composable(
             route = "matching_game/{levelId}/{roundIndex}",
             arguments = listOf(
@@ -262,7 +261,6 @@ fun AppNavigation(
                     navController.popBackStack()
                 },
                 onJournalClick = {
-                    // Используем данные из ViewModel, т.к. backStackEntry.arguments могут быть неточными
                     navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
                 },
                 onTrackClick = {
@@ -270,7 +268,6 @@ fun AppNavigation(
                 }
             )
         }
-        // ----------------------------------------------------
 
         composable(
             route = "round_track/{levelId}",
