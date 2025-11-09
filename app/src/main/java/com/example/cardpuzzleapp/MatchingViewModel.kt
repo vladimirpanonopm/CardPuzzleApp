@@ -1,6 +1,7 @@
 package com.example.cardpuzzleapp
 
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -8,7 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -16,150 +16,258 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+// --- МОДЕЛЬ ДЛЯ ЭЛЕМЕНТА ПАРЫ ---
+data class MatchItem(
+    val id: UUID = UUID.randomUUID(),
+    val text: String,
+    val pairId: String,
+    val isMatched: Boolean = false,
+    val isSelected: Boolean = false,
+    val isHebrew: Boolean
+)
+// ---------------------------------
+
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
     private val levelRepository: LevelRepository,
     private val progressManager: GameProgressManager
-    // TODO: Добавить AudioPlayer, если/когда нам понадобится озвучка по клику
 ) : ViewModel() {
 
     // --- Игровое поле ---
-    val cards = mutableStateListOf<MatchCard>()
-    var isInteractionLocked by mutableStateOf(false) // Блокировка UI, пока переворачиваются неверные карты
+    val hebrewCards = mutableStateListOf<MatchItem>()
+    val translationCards = mutableStateListOf<MatchItem>()
 
     // --- Состояние UI ---
-    var currentTaskTitle by mutableStateOf("Найди пары")
+    var currentTaskTitleResId by mutableStateOf(R.string.game_task_matching)
         private set
     var isGameWon by mutableStateOf(false)
+        private set
+    var errorCount by mutableStateOf(0)
+        private set
+    var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
+        private set
+
+    // --- ИЗМЕНЕНИЕ 1: Добавляем состояния для BottomBar и BottomSheet ---
+    var showResultSheet by mutableStateOf(false)
+        private set
+    var isLastRoundAvailable by mutableStateOf(false)
+        private set
+    // -----------------------------------------------------------
+
+    var selectedItem by mutableStateOf<MatchItem?>(null)
         private set
 
     // --- Каналы событий ---
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
 
-    private var firstFlippedCard: MatchCard? = null
-    private var levelData: SentenceData? = null
+    private val _completionEventChannel = Channel<String>()
+    val completionEvents = _completionEventChannel.receiveAsFlow()
 
-    // --- ВРЕМЕННО ДЛЯ ОТЛАДКИ ---
-    // Мы жестко задаем, что хотим отладить 1-й уровень, 1-ю карточку (которая 0-я в списке)
-    private val debugLevelId = 1
-    private val debugRoundIndex = 0 // 0-я карточка в level_1.json, которую мы сделали MATCHING_PAIRS
+    // --- Состояние текущего раунда ---
+    var currentLevelId: Int by mutableStateOf(1)
+        private set
+    // --- ИЗМЕНЕНИЕ 2: Делаем currentRoundIndex публичным для навигации Журнала ---
+    var currentRoundIndex: Int by mutableStateOf(0)
+        private set
+    // ----------------------------------------------------------------------
+    private var allLevelSentences = listOf<SentenceData>() // Храним все раунды уровня
 
-    init {
+
+    fun loadLevelAndRound(levelId: Int, roundIndex: Int) {
+        this.currentLevelId = levelId
+        this.currentRoundIndex = roundIndex
         loadRound()
     }
 
     fun loadRound() {
         viewModelScope.launch {
-            Log.d(AppDebug.TAG, "MatchingViewModel: loadRound() (level $debugLevelId, round $debugRoundIndex)")
-            // 1. Загружаем данные
-            val allLevelData = levelRepository.getLevelData(debugLevelId)
-            levelData = allLevelData?.getOrNull(debugRoundIndex)
+            Log.d(AppDebug.TAG, "MatchingViewModel: loadRound() (level $currentLevelId, round $currentRoundIndex)")
 
-            if (levelData == null || levelData?.taskType != TaskType.MATCHING_PAIRS) {
-                currentTaskTitle = "Ошибка: Задание 'Найди Пары' не найдено"
-                Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! 'MATCHING_PAIRS' не найдено в level $debugLevelId / round $debugRoundIndex")
+            // --- ИЗМЕНЕНИЕ 3: Загружаем ВСЕ данные уровня, а не только текущий раунд ---
+            val allData = levelRepository.getLevelData(currentLevelId)
+            if (allData == null) {
+                Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! Не удалось загрузить LevelData.")
+                currentTaskTitleResId = R.string.game_task_unknown
+                return@launch
+            }
+            allLevelSentences = allData
+
+            val levelData = allData.getOrNull(currentRoundIndex)
+            // -----------------------------------------------------------------
+
+            if (levelData == null || levelData.taskType != TaskType.MATCHING_PAIRS) {
+                currentTaskTitleResId = R.string.game_task_unknown
+                Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! 'MATCHING_PAIRS' не найдено.")
                 return@launch
             }
 
-            // 2. Устанавливаем заголовок
-            // (В .txt мы клали заголовок в RUSSIAN, а hebrew_list - это просто плейсхолдер)
-            currentTaskTitle = levelData?.russian_translation ?: "Найди пары"
+            currentTaskTitleResId = R.string.game_task_matching
 
-            // 3. Генерируем карточки
-            val pairs = levelData?.task_pairs ?: emptyList()
-            val newCards = mutableListOf<MatchCard>()
+            // Генерируем карточки
+            val pairs = levelData.task_pairs ?: emptyList()
+            val newHebrewList = mutableListOf<MatchItem>()
+            val newTranslationList = mutableListOf<MatchItem>()
 
             pairs.forEachIndexed { index, pair ->
-                val textA = pair.getOrNull(0)
-                val textB = pair.getOrNull(1)
-                val pairId = "pair_$index" // (напр. "pair_0", "pair_1")
+                val hebrewText = pair.getOrNull(0)
+                val translationText = pair.getOrNull(1)
+                val pairId = "pair_$index"
 
-                if (textA != null && textB != null) {
-                    newCards.add(MatchCard(text = textA, pairId = pairId))
-                    newCards.add(MatchCard(text = textB, pairId = pairId))
+                if (hebrewText != null && translationText != null) {
+                    newHebrewList.add(MatchItem(text = hebrewText, pairId = pairId, isHebrew = true))
+                    newTranslationList.add(MatchItem(text = translationText, pairId = pairId, isHebrew = false))
                 }
             }
 
-            // 4. Очищаем поле, перемешиваем и добавляем
-            cards.clear()
-            cards.addAll(newCards.shuffled())
+            // Очищаем поле
+            hebrewCards.clear()
+            hebrewCards.addAll(newHebrewList.shuffled())
+            translationCards.clear()
+            translationCards.addAll(newTranslationList.shuffled())
+
             isGameWon = false
-            firstFlippedCard = null
-            isInteractionLocked = false
-            Log.d(AppDebug.TAG, "MatchingViewModel: Поле сгенерировано. ${cards.size} карт.")
+            resultSnapshot = null
+            showResultSheet = false
+            selectedItem = null
+            errorCount = 0
+
+            // --- ИЗМЕНЕНИЕ 4: Рассчитываем, последний ли это раунд ---
+            updateLastRoundAvailability()
+            // -----------------------------------------------
+
+            Log.d(AppDebug.TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
         }
     }
 
-    /**
-     * Вызывается, когда пользователь нажимает на карточку.
-     */
-    fun onCardClicked(clickedCard: MatchCard) {
-        // Нельзя нажимать на "совпавшие" или во время блокировки UI
-        if (clickedCard.isMatched || isInteractionLocked) return
+    // --- ИЗМЕНЕНИЕ 5: Новая функция для проверки последнего раунда ---
+    private fun updateLastRoundAvailability() {
+        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
+        val allArchived = progressManager.getArchivedRounds(currentLevelId)
+        val uncompletedRounds = allLevelSentences.indices.filter {
+            !allCompleted.contains(it) && !allArchived.contains(it)
+        }
+        isLastRoundAvailable = uncompletedRounds.size <= 1
+    }
+    // ---------------------------------------------------------
 
-        // Нажатие на уже перевернутую карту
-        if (clickedCard.id == firstFlippedCard?.id) return
+    fun onMatchItemClicked(item: MatchItem) {
+        if (item.isMatched || isGameWon) return // Блокируем клики после победы
 
-        viewModelScope.launch {
-            // --- Переворачиваем карту в UI ---
-            flipCard(clickedCard.id, true)
+        val currentSelection = selectedItem
 
-            val firstCard = firstFlippedCard
+        if (currentSelection == null) {
+            // --- 1. ПЕРВЫЙ ВЫБОР ---
+            setSelection(item, true)
+            selectedItem = item
 
-            if (firstCard == null) {
-                // --- 1. Это ПЕРВАЯ карта ---
-                firstFlippedCard = clickedCard.copy(isFlipped = true)
-                Log.d(AppDebug.TAG, "MatchingViewModel: Первая карта перевернута (${clickedCard.text})")
+        } else if (currentSelection.isHebrew == item.isHebrew) {
+            // --- 2. ПОВТОРНЫЙ ВЫБОР В ТОМ ЖЕ СТОЛБЦЕ ---
+            if (currentSelection.id == item.id) {
+                setSelection(item, false)
+                selectedItem = null
             } else {
-                // --- 2. Это ВТОРАЯ карта ---
-                isInteractionLocked = true // Блокируем UI
-                Log.d(AppDebug.TAG, "MatchingViewModel: Вторая карта перевернута (${clickedCard.text})")
+                setSelection(currentSelection, false)
+                setSelection(item, true)
+                selectedItem = item
+            }
+        } else {
+            // --- 3. ВТОРОЙ ВЫБОР В ДРУГОМ СТОЛБЦЕ (ПРОВЕРКА) ---
+            if (currentSelection.pairId == item.pairId) {
+                // --- 3a. УСПЕХ: Пара совпала ---
+                setCardsAsMatched(currentSelection.pairId)
+                selectedItem = null
+                viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
+                Log.d(AppDebug.TAG, "MatchViewModel: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
 
-                if (firstCard.pairId == clickedCard.pairId) {
-                    // --- 2a. УСПЕХ: Пара совпала ---
-                    Log.d(AppDebug.TAG, "MatchingViewModel: УСПЕХ! Пара найдена: ${firstCard.text} / ${clickedCard.text}")
-                    _hapticEventChannel.send(HapticEvent.Success)
-                    // Отмечаем обе как 'isMatched'
-                    setCardsAsMatched(firstCard.pairId)
-                    firstFlippedCard = null
-                    isInteractionLocked = false
-
-                    // Проверяем победу
-                    if (cards.all { it.isMatched }) {
-                        Log.d(AppDebug.TAG, "MatchingViewModel: ПОБЕДА! Все пары найдены.")
-                        isGameWon = true
-                    }
-
-                } else {
-                    // --- 2b. ПРОВАЛ: Пара не совпала ---
-                    Log.d(AppDebug.TAG, "MatchingViewModel: ПРОВАЛ. (${firstCard.text} != ${clickedCard.text})")
-                    _hapticEventChannel.send(HapticEvent.Failure)
-                    delay(1200) // Даем пользователю посмотреть
-                    // Переворачиваем обе обратно
-                    flipCard(firstCard.id, false)
-                    flipCard(clickedCard.id, false)
-                    firstFlippedCard = null
-                    isInteractionLocked = false
+                if (hebrewCards.all { it.isMatched }) {
+                    handleWin()
                 }
+
+            } else {
+                // --- 3b. ПРОВАЛ: Пара не совпала ---
+                errorCount++
+                viewModelScope.launch {
+                    _hapticEventChannel.send(HapticEvent.Failure)
+                    delay(500)
+                    setSelection(currentSelection, false)
+                    setSelection(item, false)
+                    selectedItem = null
+                }
+                Log.d(AppDebug.TAG, "MatchViewModel: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
             }
         }
     }
 
-    /** Обновляет состояние isFlipped для карты в списке */
-    private fun flipCard(cardId: UUID, isFlipped: Boolean) {
-        val index = cards.indexOfFirst { it.id == cardId }
+    private fun setSelection(item: MatchItem, isSelected: Boolean) {
+        val list = if (item.isHebrew) hebrewCards else translationCards
+        val index = list.indexOfFirst { it.id == item.id }
+
         if (index != -1) {
-            cards[index] = cards[index].copy(isFlipped = isFlipped)
+            list[index] = list[index].copy(isSelected = isSelected)
         }
     }
 
-    /** Находит обе карты с pairId и помечает их как 'isMatched' */
     private fun setCardsAsMatched(pairId: String) {
-        cards.indices.forEach { i ->
-            if (cards[i].pairId == pairId) {
-                cards[i] = cards[i].copy(isMatched = true, isFlipped = true)
-            }
+        hebrewCards.indices.filter { hebrewCards[it].pairId == pairId }.forEach { i ->
+            hebrewCards[i] = hebrewCards[i].copy(isMatched = true, isSelected = false)
+        }
+        translationCards.indices.filter { translationCards[it].pairId == pairId }.forEach { i ->
+            translationCards[i] = translationCards[i].copy(isMatched = true, isSelected = false)
         }
     }
+
+    private fun handleWin() {
+        isGameWon = true
+        showResultSheet = false // --- ИЗМЕНЕНИЕ 6: Не показываем шторку автоматически
+        progressManager.saveProgress(currentLevelId, currentRoundIndex)
+
+        resultSnapshot = RoundResultSnapshot(
+            gameResult = GameResult.WIN,
+            completedCards = emptyList(),
+            errorCount = errorCount,
+            timeSpent = 0, // (Таймер не реализован в этом режиме)
+            levelId = currentLevelId,
+            hasMoreRounds = !isLastRoundAvailable, // (Используем кешированный флаг)
+            audioFilename = null
+        )
+    }
+
+    fun proceedToNextRound() {
+        isGameWon = false
+        resultSnapshot = null
+        showResultSheet = false
+        viewModelScope.launch {
+            _completionEventChannel.send("WIN")
+        }
+    }
+
+    fun restartCurrentRound() {
+        isGameWon = false
+        resultSnapshot = null
+        showResultSheet = false
+        loadRound()
+    }
+
+    fun onTrackClick() {
+        viewModelScope.launch {
+            _completionEventChannel.send("TRACK")
+        }
+    }
+
+    // --- ИЗМЕНЕНИЕ 7: Новые функции для управления шторкой и пропуска ---
+    fun showResultSheet() {
+        showResultSheet = true
+    }
+
+    fun hideResultSheet() {
+        showResultSheet = false
+    }
+
+    fun skipToNextAvailableRound() {
+        viewModelScope.launch {
+            _completionEventChannel.send("SKIP")
+        }
+    }
+    // --------------------------------------------------------------
 }

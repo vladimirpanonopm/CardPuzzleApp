@@ -48,7 +48,7 @@ def synthesize_speech(text_to_speak, voice_name, output_filename):
         return False  # Провал
 
 
-# --- 4. Парсер (ОБНОВЛЕН ДЛЯ MATCHING_PAIRS) ---
+# --- 4. Парсер (ИСПРАВЛЕНО) ---
 def parse_entry_block(block_text):
     """Парсит один блок (одну карточку) из .txt файла."""
     data = {}
@@ -70,42 +70,41 @@ def parse_entry_block(block_text):
         if line.startswith("TASK:"):
             data['taskType'] = line.split(":", 1)[1].strip()
             current_key = None
+            continue
 
-        elif line.startswith("HEBREW_PROMPT:"):
+        # --- ИСПРАВЛЕННЫЙ БЛОК ПАРСИНГА СТРОК ---
+        if line.startswith("HEBREW_PROMPT:"):
             current_key = "HEBREW_PROMPT"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
+            line = line.split(":", 1)[1].strip()
 
         elif line.startswith("HEBREW_CORRECT:"):
             current_key = "HEBREW_CORRECT"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
+            line = line.split(":", 1)[1].strip()
 
         elif line.startswith("HEBREW_DISTRACTORS:"):
             current_key = "HEBREW_DISTRACTORS"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
+            line = line.split(":", 1)[1].strip()
 
         elif line.startswith("HEBREW:"):
             current_key = "HEBREW"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
+            line = line.split(":", 1)[1].strip()
 
         elif line.startswith("RUSSIAN:"):
             current_key = "RUSSIAN"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
-
-        elif line.startswith("IMAGE:") or line.startswith("AUDIO:"):
-            current_key = None
+            line = line.split(":", 1)[1].strip()
 
         elif line.startswith("VOICES:"):
             current_key = "VOICES"
-            line_content = line.split(":", 1)[1].strip()
-            if line_content: lines_map[current_key].append(line_content)
+            line = line.split(":", 1)[1].strip()
 
-        elif current_key:
+        elif line.startswith("IMAGE:") or line.startswith("AUDIO:"):
+            current_key = None
+            continue
+
+        # Если есть текущий ключ и строка не пуста, добавляем ее
+        if current_key and line:
             lines_map[current_key].append(line)
+        # ------------------------------------------
 
     data['hebrew_display'] = "\n".join(lines_map["HEBREW"])
     data['hebrew_lines'] = lines_map["HEBREW"]
@@ -210,9 +209,9 @@ def process_level_file(txt_filepath, assets_path):
             list_A = data.get('task_correct_cards', [])
             list_B = data.get('task_distractor_cards', [])
 
-            if len(list_A) != len(list_B):
+            if len(list_A) != len(list_B) or not list_A:
                 print(
-                    f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}).")
+                    f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}) ИЛИ СПИСОК ПУСТ.")
                 continue
 
             # Собираем пары

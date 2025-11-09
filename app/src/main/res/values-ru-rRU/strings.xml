@@ -62,7 +62,7 @@
     <string name="pos_quantifier">Квантификатор</string>
     <string name="pos_interjection">Междометие</string>
     <string name="alefbet_task_assemble">Собрать алфавит</string>
-
+    <string name="game_task_matching">Соедини пары</string>
     <string name="game_task_fill_in_blank">Заполни пропуски</string>
     <string name="game_task_unknown">Задание</string>
 </resources>

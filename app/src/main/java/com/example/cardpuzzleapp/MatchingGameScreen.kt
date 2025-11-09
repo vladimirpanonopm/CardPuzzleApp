@@ -1,160 +1,240 @@
 package com.example.cardpuzzleapp
 
-import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ 1: Добавляем иконки ---
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
+// -----------------------------------
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
- * Главный экран для игры "Найди Пару" (Matching Pairs).
- * Это наша "Песочница" для отладки.
+ * Экран для механики "Соедини пары" (Match-to-Line).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchingGameScreen(
-    viewModel: MatchingViewModel, // Мы получим его из AppNavigation
-    onBackClick: () -> Unit      // (В режиме "Песочницы" эта кнопка будет перезапускать игру)
+    viewModel: MatchingViewModel,
+    onBackClick: () -> Unit,
+    // --- ИЗМЕНЕНИЕ 2: Добавляем колбэки ---
+    onJournalClick: () -> Unit,
+    onTrackClick: () -> Unit
+    // ------------------------------------
 ) {
-    val haptics = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+    val snapshot = viewModel.resultSnapshot
 
+    // Слушаем событие победы, чтобы завершить раунд и вернуться на домашний экран
     LaunchedEffect(Unit) {
-        viewModel.hapticEvents.collectLatest { event ->
-            Log.d(AppDebug.TAG, "MatchingScreen received event: $event")
-            when (event) {
-                HapticEvent.Success -> haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                HapticEvent.Failure -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        viewModel.completionEvents.collect { event ->
+            if (event == "WIN") {
+                // При победе мы возвращаемся, CardViewModel продолжит игру
+                onBackClick()
             }
+            // (Событие "TRACK" обрабатывается в MainActivity)
+            // (Событие "SKIP" обрабатывается в MainActivity)
         }
     }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                title = viewModel.currentTaskTitle,
+                title = stringResource(id = viewModel.currentTaskTitleResId),
                 onBackClick = onBackClick
             )
         },
+        // --- ИЗМЕНЕНИЕ 3: Переделываем AppBottomBar ---
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.button_reset),
-                    onClick = { viewModel.loadRound() } // Кнопка "Обновить" перезапускает раунд
+                    imageVector = Icons.Default.MenuBook,
+                    contentDescription = stringResource(R.string.journal_title),
+                    onClick = onJournalClick
                 )
-            }
-        }
-    ) { paddingValues ->
+                AppBottomBarIcon(
+                    imageVector = Icons.Default.PlaylistAddCheck,
+                    contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
+                    onClick = onTrackClick
+                )
 
-        if (viewModel.isGameWon) {
-            // Экран победы
-            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("ПОБЕДА!", style = MaterialTheme.typography.headlineLarge)
-                    Button(onClick = { viewModel.loadRound() }) {
-                        Text("Играть снова")
+                if (viewModel.isGameWon) {
+                    // ПОСЛЕ ПОБЕДЫ: Кнопка "Показать"
+                    AppBottomBarIcon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = stringResource(R.string.button_show_translation),
+                        onClick = { viewModel.showResultSheet() }
+                    )
+                } else {
+                    // ВО ВРЕМЯ ИГРЫ: Кнопка "Пропустить"
+                    IconButton(
+                        onClick = { viewModel.skipToNextAvailableRound() },
+                        enabled = !viewModel.isLastRoundAvailable
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = stringResource(R.string.button_skip),
+                            modifier = Modifier.size(36.dp),
+                            tint = LocalContentColor.current.copy(alpha = if (viewModel.isLastRoundAvailable) 0.38f else 1.0f)
+                        )
                     }
                 }
             }
-        } else {
-            // Игровое поле
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 120.dp), // Авто-подбор кол-ва колонок
+        }
+        // ---------------------------------------------
+    ) { paddingValues ->
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                items(viewModel.cards, key = { it.id }) { card ->
-                    MatchCardItem(
-                        card = card,
-                        onClick = { viewModel.onCardClicked(card) }
+                // Левый столбец (Иврит)
+                MatchColumn(
+                    items = viewModel.hebrewCards,
+                    onItemClick = viewModel::onMatchItemClicked,
+                    modifier = Modifier.weight(1f),
+                    isHebrewColumn = true
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Правый столбец (Перевод)
+                MatchColumn(
+                    items = viewModel.translationCards,
+                    onItemClick = viewModel::onMatchItemClicked,
+                    modifier = Modifier.weight(1f),
+                    isHebrewColumn = false
+                )
+            }
+
+            // --- ИЗМЕНЕНИЕ 4: Шторка теперь зависит от 'showResultSheet' ---
+            if (viewModel.showResultSheet && snapshot != null) {
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+                ModalBottomSheet(
+                    onDismissRequest = { viewModel.hideResultSheet() }, // Свайп = Скрыть
+                    sheetState = sheetState,
+                    dragHandle = null,
+                    scrimColor = Color.Transparent
+                ) {
+                    // Используем тот же Composable, что и в GameScreen
+                    ResultSheetContent(
+                        snapshot = snapshot,
+                        onContinueClick = {
+                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
+                                viewModel.hideResultSheet() // (на всякий случай)
+                                viewModel.proceedToNextRound()
+                            }
+                        },
+                        onRepeatClick = {
+                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
+                                viewModel.hideResultSheet()
+                                viewModel.restartCurrentRound()
+                            }
+                        },
+                        onTrackClick = {
+                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
+                                viewModel.hideResultSheet()
+                                viewModel.onTrackClick()
+                            }
+                        }
                     )
                 }
             }
+            // ----------------------------------------------------
         }
     }
 }
 
-/**
- * Composable-функция для ОДНОЙ карточки на поле.
- * Умеет "переворачиваться".
- */
 @Composable
-private fun MatchCardItem(
-    card: MatchCard,
-    onClick: () -> Unit
+private fun MatchColumn(
+    items: List<MatchItem>,
+    onItemClick: (MatchItem) -> Unit,
+    modifier: Modifier = Modifier,
+    isHebrewColumn: Boolean
 ) {
-    val rotation by animateFloatAsState(
-        targetValue = if (card.isFlipped) 180f else 0f,
-        animationSpec = tween(600), label = "CardFlipAnimation"
-    )
+    LazyColumn(
+        modifier = modifier.fillMaxHeight(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(items, key = { it.id }) { item ->
+            MatchLineItem(
+                item = item,
+                onItemClick = onItemClick,
+                isHebrew = isHebrewColumn
+            )
+        }
+    }
+}
 
-    val cardColor = if (card.isMatched) {
-        // "Совпавшая" карта - бледная
-        StickyNoteYellow.copy(alpha = 0.6f)
-    } else {
-        // Активная карта - яркая
-        StickyNoteYellow
+@Composable
+private fun MatchLineItem(
+    item: MatchItem,
+    onItemClick: (MatchItem) -> Unit,
+    isHebrew: Boolean
+) {
+    val cornerRadius = 8.dp
+    val cardColor = when {
+        item.isMatched -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f)
+        item.isSelected -> StickyNoteYellow
+        else -> MaterialTheme.colorScheme.surface
+    }
+
+    val borderColor = when {
+        item.isMatched -> Color.Transparent
+        item.isSelected -> StickyNoteText
+        else -> MaterialTheme.colorScheme.outline
     }
 
     Card(
         modifier = Modifier
-            .aspectRatio(1f) // Делает карту квадратной
-            .graphicsLayer {
-                rotationY = rotation
-                cameraDistance = 8 * density
-            }
-            .clickable(enabled = !card.isMatched && !card.isFlipped, onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            .fillMaxWidth()
+            .clickable(
+                enabled = !item.isMatched,
+                onClick = { onItemClick(item) },
+                interactionSource = remember { MutableInteractionSource() },
+                indication = rememberRipple()
+            ),
+        shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.3f))
+        border = BorderStroke(2.dp, borderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            if (rotation < 90f) {
-                // --- Рубашка (Back) ---
-                Text("?", fontSize = 48.sp, color = StickyNoteText)
-            } else {
-                // --- Лицо (Front) ---
-                Text(
-                    text = card.text,
-                    fontSize = 24.sp,
-                    textAlign = TextAlign.Center,
-                    color = StickyNoteText,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .graphicsLayer { rotationY = 180f } // (Переворачиваем текст обратно)
-                )
-            }
-        }
+        Text(
+            text = item.text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            textAlign = if (isHebrew) TextAlign.Right else TextAlign.Left,
+            fontSize = 18.sp,
+            color = StickyNoteText
+        )
     }
 }

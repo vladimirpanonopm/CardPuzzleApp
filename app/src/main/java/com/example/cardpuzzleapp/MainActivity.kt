@@ -21,7 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.cardpuzzleapp.ui.theme.CardPuzzleAppTheme
 import dagger.hilt.android.AndroidEntryPoint
-// --- НОВЫЙ ИМПОРТ ---
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
             val cardViewModel: CardViewModel = hiltViewModel()
             val alefbetViewModel: AlefbetViewModel = hiltViewModel()
             val journalViewModel: JournalViewModel = hiltViewModel()
+            val matchingViewModel: MatchingViewModel = hiltViewModel()
 
             key(languageCode) {
                 Log.d(AppDebug.TAG, "MainActivity: key(languageCode) recomposing. languageCode: $languageCode")
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
                                 cardViewModel = cardViewModel,
                                 alefbetViewModel = alefbetViewModel,
                                 journalViewModel = journalViewModel,
+                                matchingViewModel = matchingViewModel,
                                 initialLanguage = languageCode,
                                 onLanguageChange = { newLangCode ->
                                     Log.d(AppDebug.TAG, "MainActivity: onLanguageChange lambda triggered with: $newLangCode")
@@ -76,16 +78,14 @@ fun AppNavigation(
     cardViewModel: CardViewModel,
     alefbetViewModel: AlefbetViewModel,
     journalViewModel: JournalViewModel,
+    matchingViewModel: MatchingViewModel,
     initialLanguage: String?,
     onLanguageChange: (String) -> Unit
 ) {
     Log.d(AppDebug.TAG, "AppNavigation: Composing. initialLanguage: $initialLanguage")
 
-    // --- ИЗМЕНЕНИЕ 1: Добавляем CoroutineScope ---
     val coroutineScope = rememberCoroutineScope()
-    // ----------------------------------------
-
-    val context = LocalContext.current // (Этот context теперь "обернутый", но он больше не используется для I/O)
+    val context = LocalContext.current
 
     val startDestination = remember {
         val dest = if (initialLanguage != null) "home" else "language_selection"
@@ -104,6 +104,56 @@ fun AppNavigation(
         }
     }
 
+    // --- Обработка навигационных событий из CardViewModel ---
+    LaunchedEffect(Unit) {
+        cardViewModel.navigationEvent.collectLatest { route ->
+            Log.d(AppDebug.TAG, "NavigationEvent received: $route")
+            when {
+                // Если событие - это "matching_game/LevelId/RoundIndex"
+                route.startsWith("matching_game/") -> {
+                    val parts = route.split("/")
+                    val levelId = parts.getOrNull(1)?.toIntOrNull() ?: 1
+                    val roundIndex = parts.getOrNull(2)?.toIntOrNull() ?: 0
+                    matchingViewModel.loadLevelAndRound(levelId, roundIndex) // Загружаем данные в Match VM
+                    navController.navigate("matching_game/$levelId/$roundIndex")
+                }
+                // Если событие - это "round_track/LevelId"
+                route.startsWith("round_track/") -> {
+                    navController.navigate(route)
+                }
+                // Если событие - это "game" (GameScreen)
+                route == "game" -> {
+                    navController.navigate("game")
+                }
+            }
+        }
+    }
+
+    // --- ИЗМЕНЕНИЕ 1: Добавляем обработку "SKIP" ---
+    LaunchedEffect(Unit) {
+        matchingViewModel.completionEvents.collectLatest { event ->
+            if (event == "WIN") {
+                // 1. Возвращаемся
+                navController.popBackStack()
+                // 2. Говорим CardViewModel перейти к следующему раунду
+                cardViewModel.proceedToNextRound()
+            }
+            if (event == "TRACK") {
+                // Переходим на экран трека
+                navController.navigate("round_track/${matchingViewModel.currentLevelId}")
+            }
+            // --- НОВЫЙ ОБРАБОТЧИК ---
+            if (event == "SKIP") {
+                // 1. Возвращаемся
+                navController.popBackStack()
+                // 2. Говорим CardViewModel пропустить раунд
+                cardViewModel.skipToNextAvailableRound()
+            }
+            // ------------------------
+        }
+    }
+    // ----------------------------------------------------
+
     NavHost(navController = navController, startDestination = startDestination) {
 
         composable("language_selection") {
@@ -119,23 +169,20 @@ fun AppNavigation(
         composable("home") {
             Log.d(AppDebug.TAG, "NavHost: Composing 'home'")
             HomeScreen(
-                // --- ИЗМЕНЕНИЕ 2: Передаем ViewModel ---
                 viewModel = cardViewModel,
                 onStartLevel = { levelId ->
                     Log.d(AppDebug.TAG, "NavHost: 'home' onStartLevel($levelId)")
-                    // --- ИЗМЕНЕНИЕ 3: Запускаем Coroutine для suspend-функции ---
                     coroutineScope.launch {
                         val isFullyCompleted = cardViewModel.loadLevel(levelId)
                         if (isFullyCompleted) {
                             navController.navigate("round_track/$levelId")
                         } else {
-                            navController.navigate("game")
+                            // CardViewModel отправит событие навигации
                         }
                     }
                 },
                 onShowTrack = { levelId ->
                     Log.d(AppDebug.TAG, "NavHost: 'home' onShowTrack($levelId)")
-                    // --- ИЗМЕНЕНИЕ 4: Также запускаем Coroutine ---
                     coroutineScope.launch {
                         cardViewModel.loadLevel(levelId) // Загружаем данные перед переходом
                         navController.navigate("round_track/$levelId")
@@ -197,6 +244,34 @@ fun AppNavigation(
             )
         }
 
+        // --- ИЗМЕНЕНИЕ 2: Передаем новые колбэки в MatchingGameScreen ---
+        composable(
+            route = "matching_game/{levelId}/{roundIndex}",
+            arguments = listOf(
+                navArgument("levelId") { type = NavType.IntType },
+                navArgument("roundIndex") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
+            val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
+            Log.d(AppDebug.TAG, "NavHost: Composing 'matching_game/$levelId/$roundIndex'")
+
+            MatchingGameScreen(
+                viewModel = matchingViewModel,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onJournalClick = {
+                    // Используем данные из ViewModel, т.к. backStackEntry.arguments могут быть неточными
+                    navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
+                },
+                onTrackClick = {
+                    navController.navigate("round_track/${matchingViewModel.currentLevelId}")
+                }
+            )
+        }
+        // ----------------------------------------------------
+
         composable(
             route = "round_track/{levelId}",
             arguments = listOf(navArgument("levelId") { type = NavType.IntType })
@@ -212,13 +287,8 @@ fun AppNavigation(
                     }
                 },
                 onResetClick = {
-                    // --- ИЗМЕНЕНИЕ 5: Запускаем Coroutine ---
                     coroutineScope.launch {
-                        cardViewModel.loadLevel(levelId)
                         cardViewModel.resetCurrentLevelProgress()
-                        navController.navigate("game") {
-                            popUpTo("home")
-                        }
                     }
                 },
                 onJournalClick = {

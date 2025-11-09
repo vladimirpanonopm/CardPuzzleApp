@@ -90,7 +90,9 @@ class CardViewModel @Inject constructor(
 
     fun loadLevelCount() {
         viewModelScope.launch(Dispatchers.IO) {
-            levelCount = levelRepository.getLevelCount()
+            val count = levelRepository.getLevelCount()
+            Log.d(AppDebug.TAG, "CardViewModel: Level count loaded: $count")
+            levelCount = count
         }
     }
 
@@ -135,9 +137,7 @@ class CardViewModel @Inject constructor(
                     isCorrect = (targetSlot.targetCard?.text?.trim() == card.text.trim())
                 }
             }
-            // --- ИСПРАВЛЕНИЕ 1: Добавлена недостающая ветка ---
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
-            // ---------------------------------------------
         }
 
 
@@ -164,9 +164,7 @@ class CardViewModel @Inject constructor(
                         assemblyLine[targetSlotIndex] = assemblyLine[targetSlotIndex].copy(filledCard = card)
                     }
                 }
-                // --- ИСПРАВЛЕНИЕ 2: Добавлена недостающая ветка ---
                 TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
-                // ---------------------------------------------
             }
 
             checkWinCondition()
@@ -193,9 +191,7 @@ class CardViewModel @Inject constructor(
                     assemblyLine[index] = slot.copy(filledCard = null)
                 }
             }
-            // --- ИСПРАВЛЕНИЕ 3: Добавлена недостающая ветка ---
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
-            // ---------------------------------------------
         }
 
         val indexInAvailable = availableCards.indexOfFirst { it.card.id == card.id }
@@ -225,9 +221,7 @@ class CardViewModel @Inject constructor(
             TaskType.FILL_IN_BLANK -> {
                 assemblyLine.none { it.isBlank && it.filledCard == null }
             }
-            // --- ИСПРАВЛЕНИЕ 4: Добавлена недостающая ветка ---
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> false
-            // ---------------------------------------------
         }
 
         if (didWin) {
@@ -257,6 +251,7 @@ class CardViewModel @Inject constructor(
 
         val completedRounds = progressManager.getCompletedRounds(levelId)
         val archivedRounds = progressManager.getArchivedRounds(levelId)
+
         val totalRounds = levelData.size
 
         if ((completedRounds.size + archivedRounds.size) >= totalRounds && totalRounds > 0) {
@@ -273,6 +268,19 @@ class CardViewModel @Inject constructor(
             isLevelFullyCompleted = true
             return true
         }
+
+        // --- ИСПРАВЛЕНИЕ 1: ОТПРАВЛЯЕМ НАВИГАЦИЮ ДЛЯ ЛЮБОГО ТИПА ---
+        val currentRoundData = currentLevelSentences.getOrNull(currentRoundIndex)
+        viewModelScope.launch {
+            if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                _navigationEvent.send("matching_game/${currentLevelId}/${currentRoundIndex}")
+            } else {
+                // (ASSEMBLE_TRANSLATION или FILL_IN_BLANK)
+                _navigationEvent.send("game")
+            }
+        }
+        // ----------------------------------------------------
+
         return false
     }
 
@@ -298,7 +306,6 @@ class CardViewModel @Inject constructor(
             selectedCards.clear()
             availableCards.clear()
 
-            // --- ИСПРАВЛЕНИЕ 5: Добавлена недостающая ветка ---
             when (roundData.taskType) {
 
                 TaskType.ASSEMBLE_TRANSLATION -> {
@@ -357,15 +364,20 @@ class CardViewModel @Inject constructor(
                     )
                 }
 
-                // Эта ветка обрабатывает и MATCHING_PAIRS, и UNKNOWN
-                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
+                TaskType.MATCHING_PAIRS -> {
+                    currentTaskTitleResId = R.string.game_task_matching
+                    currentHebrewPrompt = ""
+                    this.targetCards = emptyList()
+                    // Фактический запуск MatchingGameScreen происходит через NavigationEvent в loadLevel
+                }
+
+                TaskType.UNKNOWN -> {
                     currentTaskTitleResId = R.string.game_task_unknown
                     currentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
                     currentHebrewPrompt = ""
                     this.targetCards = emptyList()
                 }
             }
-            // ----------------------------------------------------
 
             val allCompleted = progressManager.getCompletedRounds(currentLevelId)
             val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -411,9 +423,7 @@ class CardViewModel @Inject constructor(
         val completedCardsList = when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> selectedCards.toList()
             TaskType.FILL_IN_BLANK -> assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
-            // --- ИСПРАВЛЕНИЕ 6: Добавлена недостающая ветка ---
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> emptyList()
-            // ---------------------------------------------
         }
 
         resultSnapshot = RoundResultSnapshot(
@@ -423,7 +433,7 @@ class CardViewModel @Inject constructor(
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
             hasMoreRounds = hasMoreRounds,
-            audioFilename = if (result == GameResult.WIN) currentLevelSentences.getOrNull(currentRoundIndex)?.audioFilename else null
+            audioFilename = if (result == GameResult.WIN) currentSentence?.audioFilename else null
         )
 
         viewModelScope.launch {
@@ -440,11 +450,24 @@ class CardViewModel @Inject constructor(
         loadRound(currentRoundIndex)
     }
 
+    // --- ИСПРАВЛЕНИЕ 2: Сброс уровня должен также отправлять событие навигации ---
     fun resetCurrentLevelProgress() {
         progressManager.resetLevelProgress(currentLevelId)
         isLevelFullyCompleted = false
+        // Загружаем Раунд 0
         loadRound(0)
+
+        // Отправляем событие навигации, как в loadLevel
+        val currentRoundData = currentLevelSentences.getOrNull(0)
+        viewModelScope.launch {
+            if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                _navigationEvent.send("matching_game/${currentLevelId}/0")
+            } else {
+                _navigationEvent.send("game")
+            }
+        }
     }
+    // -----------------------------------------------------------------
 
     fun proceedToNextRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
@@ -467,6 +490,17 @@ class CardViewModel @Inject constructor(
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
 
         loadRound(nextRound)
+
+        // --- Проверяем тип задания после загрузки нового раунда ---
+        val nextRoundData = currentLevelSentences.getOrNull(nextRound)
+        viewModelScope.launch {
+            if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}")
+            } else {
+                _navigationEvent.send("game")
+            }
+        }
+        // -----------------------------------------------------------------------
     }
 
     fun skipToNextAvailableRound() {
@@ -481,6 +515,18 @@ class CardViewModel @Inject constructor(
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
         loadRound(activeRounds[nextIndexInActiveList])
+
+        // --- Проверяем тип задания после перехода ---
+        val nextRound = activeRounds[nextIndexInActiveList]
+        val nextRoundData = currentLevelSentences.getOrNull(nextRound)
+        viewModelScope.launch {
+            if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}")
+            } else {
+                _navigationEvent.send("game")
+            }
+        }
+        // --------------------------------------------------------
     }
 
     companion object {

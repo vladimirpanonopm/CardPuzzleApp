@@ -32,7 +32,7 @@ class LevelRepository @Inject constructor(
         ignoreUnknownKeys = true
         // Если из JSON придет "ASSEMBLE_TRANSLATION",
         // он автоматически превратит это в TaskType.ASSEMBLE_TRANSLATION
-        coerceInputValues = true // (Использует TaskType.UNKNOWN если значение не найдено)
+        coerceInputValues = true
     }
     // ----------------------------------------------------
 
@@ -62,6 +62,11 @@ class LevelRepository @Inject constructor(
     }
 
     suspend fun getLevelData(levelId: Int): List<SentenceData>? = withContext(Dispatchers.IO) {
+        // --- ИЗМЕНЕНИЕ: ВРЕМЕННО ОЧИЩАЕМ КЭШ ПРИ КАЖДОЙ ЗАГРУЗКЕ ---
+        // Это необходимо, так как мы постоянно меняем формат JSON
+        if (levelId == 1) clearCache()
+        // ---------------------------------------------------------
+
         Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) called.")
         if (levelCache.containsKey(levelId)) {
             Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) from CACHE.")
@@ -94,11 +99,12 @@ class LevelRepository @Inject constructor(
                     english_translation = entry.english_translation,
                     french_translation = entry.french_translation,
                     spanish_translation = entry.spanish_translation,
-                    audioFilename = entry.audioFilename,
+                    audioFilename = entry.audioFilename, // (Теперь корректно String?)
                     taskType = entry.taskType, // (Теперь это Enum)
                     voice = entry.voice,
                     task_correct_cards = entry.task_correct_cards,
-                    task_distractor_cards = entry.task_distractor_cards
+                    task_distractor_cards = entry.task_distractor_cards,
+                    task_pairs = entry.task_pairs
                 )
                 // -----------------------------------------------------
             }
