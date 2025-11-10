@@ -30,7 +30,9 @@ data class MatchItem(
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
     private val levelRepository: LevelRepository,
-    private val progressManager: GameProgressManager
+    private val progressManager: GameProgressManager,
+    // --- ИЗМЕНЕНИЕ 1: Внедряем TtsPlayer ---
+    private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
     // --- Игровое поле ---
@@ -46,13 +48,10 @@ class MatchingViewModel @Inject constructor(
         private set
     var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
         private set
-
-    // --- ИЗМЕНЕНИЕ 1: Добавляем состояния для BottomBar и BottomSheet ---
     var showResultSheet by mutableStateOf(false)
         private set
     var isLastRoundAvailable by mutableStateOf(false)
         private set
-    // -----------------------------------------------------------
 
     var selectedItem by mutableStateOf<MatchItem?>(null)
         private set
@@ -67,10 +66,8 @@ class MatchingViewModel @Inject constructor(
     // --- Состояние текущего раунда ---
     var currentLevelId: Int by mutableStateOf(1)
         private set
-    // --- ИЗМЕНЕНИЕ 2: Делаем currentRoundIndex публичным для навигации Журнала ---
     var currentRoundIndex: Int by mutableStateOf(0)
         private set
-    // ----------------------------------------------------------------------
     private var allLevelSentences = listOf<SentenceData>() // Храним все раунды уровня
 
 
@@ -84,7 +81,6 @@ class MatchingViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d(AppDebug.TAG, "MatchingViewModel: loadRound() (level $currentLevelId, round $currentRoundIndex)")
 
-            // --- ИЗМЕНЕНИЕ 3: Загружаем ВСЕ данные уровня, а не только текущий раунд ---
             val allData = levelRepository.getLevelData(currentLevelId)
             if (allData == null) {
                 Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! Не удалось загрузить LevelData.")
@@ -94,7 +90,6 @@ class MatchingViewModel @Inject constructor(
             allLevelSentences = allData
 
             val levelData = allData.getOrNull(currentRoundIndex)
-            // -----------------------------------------------------------------
 
             if (levelData == null || levelData.taskType != TaskType.MATCHING_PAIRS) {
                 currentTaskTitleResId = R.string.game_task_unknown
@@ -132,15 +127,12 @@ class MatchingViewModel @Inject constructor(
             selectedItem = null
             errorCount = 0
 
-            // --- ИЗМЕНЕНИЕ 4: Рассчитываем, последний ли это раунд ---
             updateLastRoundAvailability()
-            // -----------------------------------------------
 
             Log.d(AppDebug.TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
         }
     }
 
-    // --- ИЗМЕНЕНИЕ 5: Новая функция для проверки последнего раунда ---
     private fun updateLastRoundAvailability() {
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -149,10 +141,18 @@ class MatchingViewModel @Inject constructor(
         }
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
-    // ---------------------------------------------------------
 
+    /**
+     * Обрабатывает клик пользователя по элементу в любом из столбцов.
+     */
     fun onMatchItemClicked(item: MatchItem) {
         if (item.isMatched || isGameWon) return // Блокируем клики после победы
+
+        // --- ИЗМЕНЕНИЕ 2: Озвучиваем слово на иврите при нажатии ---
+        if (item.isHebrew) {
+            ttsPlayer.speak(item.text)
+        }
+        // --------------------------------------------------
 
         val currentSelection = selectedItem
 
@@ -219,16 +219,16 @@ class MatchingViewModel @Inject constructor(
 
     private fun handleWin() {
         isGameWon = true
-        showResultSheet = false // --- ИЗМЕНЕНИЕ 6: Не показываем шторку автоматически
+        showResultSheet = false
         progressManager.saveProgress(currentLevelId, currentRoundIndex)
 
         resultSnapshot = RoundResultSnapshot(
             gameResult = GameResult.WIN,
             completedCards = emptyList(),
             errorCount = errorCount,
-            timeSpent = 0, // (Таймер не реализован в этом режиме)
+            timeSpent = 0,
             levelId = currentLevelId,
-            hasMoreRounds = !isLastRoundAvailable, // (Используем кешированный флаг)
+            hasMoreRounds = !isLastRoundAvailable,
             audioFilename = null
         )
     }
@@ -255,7 +255,6 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ 7: Новые функции для управления шторкой и пропуска ---
     fun showResultSheet() {
         showResultSheet = true
     }
@@ -269,5 +268,12 @@ class MatchingViewModel @Inject constructor(
             _completionEventChannel.send("SKIP")
         }
     }
-    // --------------------------------------------------------------
+
+    // --- ИЗМЕНЕНИЕ 3: Выключаем TTS, когда ViewModel уничтожается ---
+    override fun onCleared() {
+        super.onCleared()
+        Log.d(AppDebug.TAG, "MatchingViewModel: onCleared(). Выключаем TTS.")
+        ttsPlayer.shutdown()
+    }
+    // -------------------------------------------------------
 }
