@@ -39,7 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.core.graphics.drawable.toBitmap
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
     levelId: Int,
@@ -51,14 +51,11 @@ fun JournalScreen(
     val context = LocalContext.current
     val journalSentences = journalViewModel.journalSentences
     val coroutineScope = rememberCoroutineScope()
-
-    // --- ИСПРАВЛЕНИЕ: Прямой доступ к наблюдаемым свойствам ViewModel без 'by' ---
-    // Нам не нужно делегирование, т.к. ViewModel уже использует 'by' для своих переменных
-    val journalFontSize = journalViewModel.currentFontSizeSp
-    val journalFontStyle = journalViewModel.currentFontStyle
-    // -----------------------------------------------------------------------------
+    val progressManager = remember { GameProgressManager(context) }
 
     var isFlipped by remember { mutableStateOf(false) }
+    var journalFontSize by remember { mutableStateOf(progressManager.getJournalFontSize().sp) }
+    var journalFontStyle by remember { mutableStateOf(progressManager.getJournalFontStyle()) }
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var cardToDelete by remember { mutableStateOf<SentenceData?>(null) }
@@ -71,7 +68,6 @@ fun JournalScreen(
     var pauseDuration by remember { mutableStateOf(1f) }
 
     LaunchedEffect(key1 = levelId) {
-        // --- ИЗМЕНЕНИЕ: Убираем Context ---
         journalViewModel.loadJournalForLevel(levelId)
     }
 
@@ -82,8 +78,8 @@ fun JournalScreen(
 
     LaunchedEffect(journalSentences, initialRoundIndex) {
         if (journalSentences.isNotEmpty()) {
-            val sentenceToShow = journalViewModel.currentLevelSentences.getOrNull(initialRoundIndex)
-            val page = if (initialRoundIndex != -1 && sentenceToShow != null) {
+            val page = if (initialRoundIndex != -1) {
+                val sentenceToShow = journalViewModel.currentLevelSentences.getOrNull(initialRoundIndex)
                 journalSentences.indexOf(sentenceToShow).coerceAtLeast(0)
             } else 0
             pagerState.scrollToPage(page)
@@ -213,9 +209,8 @@ fun JournalScreen(
                                         SegmentedButton(
                                             shape = RoundedCornerShape(16.dp),
                                             onClick = {
-                                                if (journalFontStyle != style) {
-                                                    journalViewModel.toggleFontStyle()
-                                                }
+                                                journalFontStyle = style
+                                                progressManager.saveJournalFontStyle(style)
                                             },
                                             selected = journalFontStyle == style
                                         ) {
@@ -231,10 +226,10 @@ fun JournalScreen(
                                     Slider(
                                         modifier = Modifier.weight(1f),
                                         value = journalFontSize.value,
-                                        onValueChange = { journalViewModel.saveNewFontSize(it) },
+                                        onValueChange = { journalFontSize = it.sp },
                                         valueRange = 28f..56f,
                                         onValueChangeFinished = {
-                                            // Сохранение уже происходит в onValueChange
+                                            progressManager.saveJournalFontSize(journalFontSize.value)
                                         }
                                     )
                                     Text("A", fontSize = 32.sp)
@@ -441,10 +436,6 @@ private fun JournalPageContent(
             ) {
                 val context = LocalContext.current
                 val scrollState = rememberScrollState()
-                // --- ИЗМЕНЕНИЕ 4: Здесь по-прежнему нужен прогресс-менеджер для userLanguage ---
-                // Создаем синглтон, поскольку Hilt не может внедрять его здесь
-                val progressManager = remember { GameProgressManager(context) }
-                // ------------------------------------------------------------------------------
 
                 Column(
                     modifier = Modifier
@@ -454,7 +445,33 @@ private fun JournalPageContent(
                 ) {
                     // 2. ТЕКСТ (Иврит)
                     if (isHebrewSide) {
-                        val textToShow = sentence.hebrew
+
+                        // --- ИСПРАВЛЕНИЕ: Логика для MATCHING_PAIRS и FILL_IN_BLANK ---
+                        val (textToShow, alignment) = when (sentence.taskType) {
+                            TaskType.MATCHING_PAIRS -> {
+                                val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(0) ?: "" } ?: ""
+                                pairsText to TextAlign.Right
+                            }
+                            TaskType.FILL_IN_BLANK -> {
+                                val hebrewString = sentence.hebrew
+                                val correctCards = sentence.task_correct_cards ?: emptyList()
+                                val parts = hebrewString.split("___")
+                                val assembledText = buildString {
+                                    parts.forEachIndexed { index, part ->
+                                        append(part)
+                                        if (index < correctCards.size) {
+                                            append(correctCards[index])
+                                        }
+                                    }
+                                }
+                                assembledText to TextAlign.Right
+                            }
+                            else -> { // ASSEMBLE_TRANSLATION, UNKNOWN, or default
+                                sentence.hebrew to TextAlign.Right
+                            }
+                        }
+                        // ---------------------------------------------
+
                         val styleConfig = CardStyles.getStyle(fontStyle)
 
                         val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
@@ -464,7 +481,7 @@ private fun JournalPageContent(
                                     FontVariation.width(styleConfig.fontWidth)
                                 ))),
                                 fontSize = fontSize,
-                                textAlign = TextAlign.Right,
+                                textAlign = alignment, // Используем alignment
                                 color = StickyNoteText,
                                 textDirection = TextDirection.Rtl
                             )
@@ -472,36 +489,44 @@ private fun JournalPageContent(
                             TextStyle(
                                 fontFamily = fontStyle.fontFamily,
                                 fontSize = fontSize,
-                                textAlign = TextAlign.Right,
+                                textAlign = alignment, // Используем alignment
                                 fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
                                 color = StickyNoteText,
                                 textDirection = TextDirection.Rtl
                             )
                         }
                         Text(
-                            text = textToShow,
+                            text = textToShow, // Используем textToShow
                             style = hebrewTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         // 3. ТЕКСТ (Перевод)
                     } else {
-                        // --- ИЗМЕНЕНИЕ 5: Язык берется из progressManager, который мы сохранили выше ---
-                        val userLanguage = progressManager.getUserLanguage()
-                        // -----------------------------------------------------------------------------
-                        val textToShow = when (userLanguage) {
-                            "en" -> sentence.english_translation
-                            "fr" -> sentence.french_translation
-                            "es" -> sentence.spanish_translation
-                            else -> sentence.russian_translation
+                        val userLanguage = GameProgressManager(LocalContext.current).getUserLanguage()
+
+                        // --- ИСПРАВЛЕНИЕ (для Оборота): Логика для MATCHING_PAIRS ---
+                        val (textToShow, alignment) = if (sentence.taskType == TaskType.MATCHING_PAIRS) {
+                            val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(1) ?: "" } ?: ""
+                            pairsText to TextAlign.Left
+                        } else {
+                            val translation = when (userLanguage) {
+                                "en" -> sentence.english_translation
+                                "fr" -> sentence.french_translation
+                                "es" -> sentence.spanish_translation
+                                else -> sentence.russian_translation
+                            }
+                            translation to TextAlign.Left
                         }
+                        // ---------------------------------------------
+
                         val translationTextStyle = MaterialTheme.typography.headlineMedium.copy(
                             fontSize = fontSize,
-                            textAlign = TextAlign.Left,
+                            textAlign = alignment, // Используем alignment
                             color = StickyNoteText
                         )
                         Text(
-                            text = textToShow ?:"",
+                            text = textToShow ?: "", // Используем textToShow
                             style = translationTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
