@@ -22,63 +22,41 @@ fun ResultSheetContent(
     onRepeatClick: () -> Unit,
     onTrackClick: () -> Unit
 ) {
-    // val scrollState = rememberScrollState() // <-- Больше не нужен
+    // --- ИСПРАВЛЕНИЕ: Убираем Column и Text("Отлично") ---
+    // Оставляем ТОЛЬКО Row с кнопками
 
-    Column(
-        // --- ИЗМЕНЕНИЕ: Обновляем padding ---
+    Row(
         modifier = Modifier
-            .fillMaxWidth() // <-- Добавлено
-            .padding(vertical = 24.dp, horizontal = 16.dp), // <-- Изменено
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            // Добавляем padding, который был у Column
+            .padding(vertical = 24.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // --- ИЗМЕНЕНИЕ: Блок с переводом ПОЛНОСТЬЮ УДАЛЕН ---
-        // Box(
-        //     modifier = Modifier
-        //         .fillMaxWidth()
-        //         .weight(1f, fill = false)
-        //         .verticalScroll(scrollState),
-        //     contentAlignment = Alignment.CenterStart
-        // ) {
-        //     Text(
-        //         text = snapshot.translation,
-        //         style = MaterialTheme.typography.headlineSmall,
-        //         textAlign = TextAlign.Start
-        //     )
-        // }
-        // Spacer(modifier = Modifier.height(16.dp))
-        // ----------------------------------------------------
+        IconButton(onClick = onTrackClick) {
+            Icon(
+                imageVector = Icons.Default.Extension,
+                contentDescription = stringResource(R.string.round_track_title, snapshot.levelId),
+                modifier = Modifier.size(32.dp)
+            )
+        }
 
-        Row(
+        IconButton(onClick = onRepeatClick) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = stringResource(R.string.button_repeat_round),
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        Button(
+            onClick = onContinueClick,
             modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .weight(1f)
+                .height(50.dp)
         ) {
-            IconButton(onClick = onTrackClick) {
-                Icon(
-                    imageVector = Icons.Default.Extension,
-                    contentDescription = stringResource(R.string.round_track_title, snapshot.levelId),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            IconButton(onClick = onRepeatClick) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.button_repeat_round),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Button(
-                onClick = onContinueClick,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-            ) {
-                Text(text = stringResource(R.string.button_continue), fontSize = 20.sp)
-            }
+            Text(text = stringResource(R.string.button_continue), fontSize = 20.sp)
         }
     }
 }

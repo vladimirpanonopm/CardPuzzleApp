@@ -1,5 +1,6 @@
 package com.example.cardpuzzleapp
 
+import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -11,14 +12,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ 1: Добавляем иконки ---
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
-// -----------------------------------
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +31,10 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 
+// --- ИЗМЕНЕНИЕ 1: Новый тег для логов ---
+private const val TAG = "MATCH_SHEET_DEBUG"
+// --------------------------------------
+
 /**
  * Экран для механики "Соедини пары" (Match-to-Line).
  */
@@ -40,19 +43,23 @@ import kotlinx.coroutines.launch
 fun MatchingGameScreen(
     viewModel: MatchingViewModel,
     onBackClick: () -> Unit,
-    // --- ИЗМЕНЕНИЕ 2: Добавляем колбэки ---
     onJournalClick: () -> Unit,
     onTrackClick: () -> Unit
-    // ------------------------------------
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snapshot = viewModel.resultSnapshot
+
+    // --- ИЗМЕНЕНИЕ 2: Логируем состояния ---
+    Log.d(TAG, "MatchingGameScreen RECOMPOSING:")
+    Log.d(TAG, "  > isGameWon = ${viewModel.isGameWon}")
+    Log.d(TAG, "  > showResultSheet = ${viewModel.showResultSheet}")
+    Log.d(TAG, "  > snapshot is null = ${snapshot == null}")
+    // -------------------------------------
 
     // Слушаем событие победы, чтобы завершить раунд и вернуться на домашний экран
     LaunchedEffect(Unit) {
         viewModel.completionEvents.collect { event ->
             if (event == "WIN") {
-                // При победе мы возвращаемся, CardViewModel продолжит игру
                 onBackClick()
             }
             // (Событие "TRACK" обрабатывается в MainActivity)
@@ -67,7 +74,6 @@ fun MatchingGameScreen(
                 onBackClick = onBackClick
             )
         },
-        // --- ИЗМЕНЕНИЕ 3: Переделываем AppBottomBar ---
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
@@ -86,7 +92,12 @@ fun MatchingGameScreen(
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.button_show_translation),
-                        onClick = { viewModel.showResultSheet() }
+                        onClick = {
+                            // --- ИЗМЕНЕНИЕ 3: Логируем нажатие ---
+                            Log.d(TAG, "BottomBar: 'Visibility' icon CLICKED")
+                            viewModel.showResultSheet()
+                            // --------------------------------
+                        }
                     )
                 } else {
                     // ВО ВРЕМЯ ИГРЫ: Кнопка "Пропустить"
@@ -104,7 +115,6 @@ fun MatchingGameScreen(
                 }
             }
         }
-        // ---------------------------------------------
     ) { paddingValues ->
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -134,22 +144,28 @@ fun MatchingGameScreen(
                 )
             }
 
-            // --- ИЗМЕНЕНИЕ 4: Шторка теперь зависит от 'showResultSheet' ---
-            if (viewModel.showResultSheet && snapshot != null) {
+            // --- ИЗМЕНЕНИЕ 4: Логируем условие показа шторки ---
+            val shouldShowSheet = viewModel.showResultSheet && snapshot != null
+            Log.d(TAG, "ModalBottomSheet Check: shouldShowSheet = $shouldShowSheet")
+
+            if (shouldShowSheet) {
+                Log.d(TAG, "ModalBottomSheet RECOMPOSING (SHOULD BE VISIBLE)")
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                 ModalBottomSheet(
-                    onDismissRequest = { viewModel.hideResultSheet() }, // Свайп = Скрыть
+                    onDismissRequest = {
+                        Log.d(TAG, "ModalBottomSheet: onDismissRequest CALLED")
+                        viewModel.hideResultSheet()
+                    },
                     sheetState = sheetState,
                     dragHandle = null,
                     scrimColor = Color.Transparent
                 ) {
-                    // Используем тот же Composable, что и в GameScreen
                     ResultSheetContent(
-                        snapshot = snapshot,
+                        snapshot = snapshot!!, // (Мы уже проверили на null)
                         onContinueClick = {
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                                viewModel.hideResultSheet() // (на всякий случай)
+                                viewModel.hideResultSheet()
                                 viewModel.proceedToNextRound()
                             }
                         },

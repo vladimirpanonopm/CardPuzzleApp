@@ -1,18 +1,22 @@
 package com.example.cardpuzzleapp
 
-import androidx.compose.runtime.getValue
+import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+// --- НОВЫЕ ИМПОРТЫ ---
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.unit.sp
 import javax.inject.Inject
-import kotlin.math.roundToInt
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 /**
  * Этот ViewModel отвечает исключительно за логику и данные экрана "Журнал".
@@ -21,48 +25,23 @@ import kotlin.math.roundToInt
 class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
     private val audioPlayer: AudioPlayer,
-    private val levelRepository: LevelRepository
+    private val levelRepository: LevelRepository,
+    // --- ИЗМЕНЕНИЕ 1: Внедряем TtsPlayer ---
+    private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
-    val journalSentences = mutableStateListOf<SentenceData>()
+    var journalSentences by mutableStateOf<List<SentenceData>>(emptyList())
+        private set
+
+    // --- (Код был изменен с mutableStateListOf на State<List> для консистентности) ---
 
     private var currentLevelId: Int = -1
-    var currentLevelSentences = listOf<SentenceData>()
+    var currentLevelSentences by mutableStateOf<List<SentenceData>>(emptyList())
         private set
 
-    // --- НОВЫЕ STATE ДЛЯ ШРИФТА (1) ---
-    var currentFontStyle by mutableStateOf(FontStyle.REGULAR)
-        private set
-    var currentFontSizeSp by mutableStateOf(32.sp) // Используем TextUnit
-        private set
-    // ---------------------------------
-
-    // Блок инициализации для загрузки настроек при создании ViewModel
-    init {
-        loadPreferences()
-    }
-
-    // Метод для загрузки шрифта из GameProgressManager
-    private fun loadPreferences() {
-        currentFontStyle = progressManager.getJournalFontStyle()
-        val sizeFloat = progressManager.getJournalFontSize() // Предполагается, что возвращает Float
-        currentFontSizeSp = sizeFloat.sp
-    }
-
-    // --- Методы для УПРАВЛЕНИЯ ШРИФТОМ (2) ---
-    fun toggleFontStyle() {
-        currentFontStyle = if (currentFontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
-        progressManager.saveJournalFontStyle(currentFontStyle)
-    }
-
-    fun saveNewFontSize(newSize: Float) {
-        // Минимальный размер, чтобы избежать проблем
-        if (newSize > 0f) {
-            currentFontSizeSp = newSize.sp
-            progressManager.saveJournalFontSize(newSize)
-        }
-    }
-    // ------------------------------------------
+    // --- ИЗМЕНЕНИЕ 2: Добавляем Job для управления воспроизведением ---
+    private var audioPlaybackJob: Job? = null
+    // -----------------------------------------------------------
 
     /**
      * Главный метод инициализации.
@@ -96,11 +75,9 @@ class JournalViewModel @Inject constructor(
         // В журнале показываем только те, что пройдены, но не в архиве.
         val activeJournalIndices = allCompleted - allArchived
 
-        val completedSentences = currentLevelSentences.filterIndexed { index, _ ->
+        journalSentences = currentLevelSentences.filterIndexed { index, _ ->
             index in activeJournalIndices
         }
-        journalSentences.clear()
-        journalSentences.addAll(completedSentences)
     }
 
     /**
@@ -125,23 +102,78 @@ class JournalViewModel @Inject constructor(
 
     // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
+    // --- ИЗМЕНЕНИЕ 3: Обновляем playSoundForPage (для пролистывания) ---
+    /**
+     * Воспроизводит звук для одной страницы (обычное нажатие или пролистывание).
+     */
     fun playSoundForPage(pageIndex: Int) {
-        journalSentences.getOrNull(pageIndex)?.audioFilename?.let {
-            audioPlayer.play(it)
+        audioPlaybackJob?.cancel() // Отменяем предыдущее воспроизведение
+        audioPlaybackJob = viewModelScope.launch {
+            val sentence = journalSentences.getOrNull(pageIndex) ?: return@launch
+
+            if (sentence.taskType == TaskType.MATCHING_PAIRS) {
+                // Для "Соедини пары" - озвучиваем слова по очереди
+                val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
+                for (word in words) {
+                    ttsPlayer.speakAndAwait(word) // Ждем завершения слова
+                    delay(500) // Небольшая пауза между словами
+                }
+            } else if (sentence.audioFilename != null) {
+                // Для остальных - проигрываем аудиофайл
+                audioPlayer.play(sentence.audioFilename)
+            }
         }
     }
+    // -----------------------------------------------------------------
 
+    // --- ИЗМЕНЕНИЕ 4: Обновляем playAndAwait (для A-B повторения) ---
+    /**
+     * Воспроизводит звук и ЖДЕТ завершения. Используется циклом A-B.
+     */
     suspend fun playAndAwait(pageIndex: Int, speed: Float) {
-        journalSentences.getOrNull(pageIndex)?.audioFilename?.let {
-            audioPlayer.playAndAwaitCompletion(it, speed)
+        val sentence = journalSentences.getOrNull(pageIndex) ?: return
+
+        if (sentence.taskType == TaskType.MATCHING_PAIRS) {
+            // Для "Соедини пары" - озвучиваем слова по очереди
+            val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
+            for (word in words) {
+                ttsPlayer.speakAndAwait(word) // Ждем завершения слова
+                // Пауза 1 сек, как Вы просили (с поправкой на скорость)
+                delay((1000 / speed).toLong())
+            }
+        } else if (sentence.audioFilename != null) {
+            // Для остальных - проигрываем аудиофайл
+            audioPlayer.playAndAwaitCompletion(sentence.audioFilename, speed)
         }
     }
+    // ----------------------------------------------------------------
 
+    // --- ИЗМЕНЕНИЕ 5: Обновляем stopAudio и releaseAudio ---
+    /**
+     * Останавливает любое воспроизведение (и AudioPlayer, и TTS).
+     */
     fun stopAudio() {
+        audioPlaybackJob?.cancel()
         audioPlayer.stop()
+        ttsPlayer.stop()
     }
 
+    /**
+     * Вызывается, когда экран Журнала закрывается (DisposableEffect).
+     */
     fun releaseAudio() {
-        audioPlayer.release()
+        stopAudio()
     }
+
+    /**
+     * Вызывается, когда ViewModel уничтожается.
+     */
+    override fun onCleared() {
+        super.onCleared()
+        releaseAudio()
+        // TTSPlayer - это Singleton, им управляет Hilt.
+        // Но мы должны остановить звук, если он играет.
+        ttsPlayer.stop()
+    }
+    // -------------------------------------------------------
 }

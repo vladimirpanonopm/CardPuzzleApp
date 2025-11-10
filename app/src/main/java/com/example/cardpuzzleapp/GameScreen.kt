@@ -109,10 +109,7 @@ fun GameScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                // --- ВОТ ИЗМЕНЕНИЕ ---
-                // title = stringResource(id = R.string.game_task_assemble), // <-- БЫЛО
-                title = stringResource(id = viewModel.currentTaskTitleResId), // <-- СТАЛО
-                // ---------------------
+                title = stringResource(id = viewModel.currentTaskTitleResId),
                 onBackClick = onHomeClick,
                 actions = {
                     if (viewModel.currentLevelId == 1) {
@@ -325,8 +322,12 @@ fun GameScreen(
                                             }
                                         }
 
-                                        TaskType.UNKNOWN -> { /* Пусто */ }
-                                        TaskType.MATCHING_PAIRS -> TODO()
+                                        // --- ИСПРАВЛЕНИЕ: Заменяем TODO() ---
+                                        TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
+                                            // Эта ветка не должна вызываться,
+                                            // но мы оставляем ее пустой, чтобы избежать крэша.
+                                        }
+                                        // ------------------------------------
                                     }
                                 }
                             }

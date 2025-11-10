@@ -27,11 +27,12 @@ data class MatchItem(
 )
 // ---------------------------------
 
+private const val TAG = "MATCH_SHEET_DEBUG"
+
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
     private val levelRepository: LevelRepository,
     private val progressManager: GameProgressManager,
-    // --- ИЗМЕНЕНИЕ 1: Внедряем TtsPlayer ---
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
@@ -148,11 +149,9 @@ class MatchingViewModel @Inject constructor(
     fun onMatchItemClicked(item: MatchItem) {
         if (item.isMatched || isGameWon) return // Блокируем клики после победы
 
-        // --- ИЗМЕНЕНИЕ 2: Озвучиваем слово на иврите при нажатии ---
         if (item.isHebrew) {
             ttsPlayer.speak(item.text)
         }
-        // --------------------------------------------------
 
         val currentSelection = selectedItem
 
@@ -218,8 +217,13 @@ class MatchingViewModel @Inject constructor(
     }
 
     private fun handleWin() {
+        Log.d(TAG, "handleWin() CALLED")
         isGameWon = true
-        showResultSheet = false
+        Log.d(TAG, "isGameWon = $isGameWon")
+
+        // --- ИЗМЕНЕНИЕ: Шторка должна появляться АВТОМАТИЧЕСКИ ---
+        // showResultSheet = false // <-- БЫЛО
+
         progressManager.saveProgress(currentLevelId, currentRoundIndex)
 
         resultSnapshot = RoundResultSnapshot(
@@ -231,6 +235,15 @@ class MatchingViewModel @Inject constructor(
             hasMoreRounds = !isLastRoundAvailable,
             audioFilename = null
         )
+        Log.d(TAG, "resultSnapshot CREATED: ${resultSnapshot != null}")
+
+        // --- ДОБАВЛЕНО: Та же логика, что и в CardViewModel ---
+        viewModelScope.launch {
+            delay(650) // Та же задержка, что и в GameScreen
+            showResultSheet = true
+            Log.d(TAG, "АВТО-ПОДЪЕМ ШТОРКИ: showResultSheet = true")
+        }
+        // ------------------------------------------------
     }
 
     fun proceedToNextRound() {
@@ -256,11 +269,15 @@ class MatchingViewModel @Inject constructor(
     }
 
     fun showResultSheet() {
+        Log.d(TAG, "showResultSheet() CALLED (Кнопка 'Глаз')")
         showResultSheet = true
+        Log.d(TAG, "showResultSheet = $showResultSheet")
     }
 
     fun hideResultSheet() {
+        Log.d(TAG, "hideResultSheet() CALLED (Свайп)")
         showResultSheet = false
+        Log.d(TAG, "showResultSheet = $showResultSheet")
     }
 
     fun skipToNextAvailableRound() {
@@ -269,11 +286,9 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ 3: Выключаем TTS, когда ViewModel уничтожается ---
     override fun onCleared() {
         super.onCleared()
-        Log.d(AppDebug.TAG, "MatchingViewModel: onCleared(). Выключаем TTS.")
-        ttsPlayer.shutdown()
+        Log.d(AppDebug.TAG, "MatchingViewModel: onCleared(). ОСТАНАВЛИВАЕМ TTS.")
+        ttsPlayer.stop()
     }
-    // -------------------------------------------------------
 }

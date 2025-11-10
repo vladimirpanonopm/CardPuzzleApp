@@ -90,9 +90,7 @@ class CardViewModel @Inject constructor(
 
     fun loadLevelCount() {
         viewModelScope.launch(Dispatchers.IO) {
-            val count = levelRepository.getLevelCount()
-            Log.d(AppDebug.TAG, "CardViewModel: Level count loaded: $count")
-            levelCount = count
+            levelCount = levelRepository.getLevelCount()
         }
     }
 
@@ -450,14 +448,12 @@ class CardViewModel @Inject constructor(
         loadRound(currentRoundIndex)
     }
 
-    // --- ИСПРАВЛЕНИЕ 2: Сброс уровня должен также отправлять событие навигации ---
     fun resetCurrentLevelProgress() {
         progressManager.resetLevelProgress(currentLevelId)
         isLevelFullyCompleted = false
-        // Загружаем Раунд 0
         loadRound(0)
 
-        // Отправляем событие навигации, как в loadLevel
+        // --- ИСПРАВЛЕНИЕ 2: Сброс уровня должен также отправлять событие навигации ---
         val currentRoundData = currentLevelSentences.getOrNull(0)
         viewModelScope.launch {
             if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -466,8 +462,8 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
+        // -----------------------------------------------------------------
     }
-    // -----------------------------------------------------------------
 
     fun proceedToNextRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
@@ -486,12 +482,10 @@ class CardViewModel @Inject constructor(
         }
 
         val nextForwardRound = uncompletedRounds.firstOrNull { it > currentRoundIndex }
-
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
-
         loadRound(nextRound)
 
-        // --- Проверяем тип задания после загрузки нового раунда ---
+        // --- ИСПРАВЛЕНИЕ 3: Добавляем отправку навигации ---
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -500,7 +494,7 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
-        // -----------------------------------------------------------------------
+        // ----------------------------------------------------
     }
 
     fun skipToNextAvailableRound() {
@@ -514,10 +508,11 @@ class CardViewModel @Inject constructor(
         if (activeRounds.isEmpty()) return
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
-        loadRound(activeRounds[nextIndexInActiveList])
 
-        // --- Проверяем тип задания после перехода ---
         val nextRound = activeRounds[nextIndexInActiveList]
+        loadRound(nextRound)
+
+        // --- ИСПРАВЛЕНИЕ 4: Добавляем отправку навигации ---
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -526,7 +521,7 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
-        // --------------------------------------------------------
+        // ----------------------------------------------------
     }
 
     companion object {
