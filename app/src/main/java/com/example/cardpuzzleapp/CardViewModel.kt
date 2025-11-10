@@ -32,7 +32,9 @@ data class AssemblySlot(
 class CardViewModel @Inject constructor(
     val progressManager: GameProgressManager,
     private val audioPlayer: AudioPlayer,
-    private val levelRepository: LevelRepository
+    private val levelRepository: LevelRepository,
+    // --- ИЗМЕНЕНИЕ 1: Внедряем TtsPlayer ---
+    private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
     var currentTaskPrompt by mutableStateOf<String?>("")
@@ -138,16 +140,15 @@ class CardViewModel @Inject constructor(
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
         }
 
-
-        viewModelScope.launch {
-            if (isCorrect) {
-                _hapticEventChannel.send(HapticEvent.Success)
-            } else {
-                _hapticEventChannel.send(HapticEvent.Failure)
-            }
-        }
-
+        // --- ИЗМЕНЕНИЕ 2: Логика TTS разделена ---
         if (isCorrect) {
+            // --- ПРАВИЛЬНЫЙ ВЫБОР: Звук -> Вибрация -> Действие ---
+            ttsPlayer.speak(card.text.trim()) // Озвучиваем слово (без \n)
+
+            viewModelScope.launch {
+                _hapticEventChannel.send(HapticEvent.Success)
+            }
+
             val indexInAvailable = availableCards.indexOfFirst { it.id == slot.id }
             if (indexInAvailable != -1) {
                 availableCards[indexInAvailable] = slot.copy(isVisible = false)
@@ -168,15 +169,27 @@ class CardViewModel @Inject constructor(
             checkWinCondition()
 
         } else {
+            // --- НЕПРАВИЛЬНЫЙ ВЫБОР: Вибрация -> Тряска (триггер) -> Звук ---
+            viewModelScope.launch {
+                _hapticEventChannel.send(HapticEvent.Failure)
+            }
             errorCount++
             errorCardId = card.id
+
+            // Звук ПОСЛЕ триггеров вибрации и тряски
+            ttsPlayer.speak(card.text.trim())
         }
+        // ------------------------------------------
     }
 
     fun returnCardFromSlot(slot: AssemblySlot) {
         if (isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return
 
         val card = slot.filledCard ?: return
+
+        // --- ИЗМЕНЕНИЕ 3: Озвучиваем возвращаемую карточку ---
+        ttsPlayer.speak(card.text.trim())
+        // ----------------------------------------------
 
         when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
@@ -202,6 +215,10 @@ class CardViewModel @Inject constructor(
         if (isRoundWon || currentTaskType != TaskType.ASSEMBLE_TRANSLATION) return
 
         val cardToReturn = selectedCards.lastOrNull() ?: return
+
+        // --- ИЗМЕНЕНИЕ 4: Озвучиваем возвращаемую карточку ---
+        ttsPlayer.speak(cardToReturn.text.trim())
+        // ----------------------------------------------
 
         selectedCards.remove(cardToReturn)
 
@@ -267,17 +284,14 @@ class CardViewModel @Inject constructor(
             return true
         }
 
-        // --- ИСПРАВЛЕНИЕ 1: ОТПРАВЛЯЕМ НАВИГАЦИЮ ДЛЯ ЛЮБОГО ТИПА ---
         val currentRoundData = currentLevelSentences.getOrNull(currentRoundIndex)
         viewModelScope.launch {
             if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
                 _navigationEvent.send("matching_game/${currentLevelId}/${currentRoundIndex}")
             } else {
-                // (ASSEMBLE_TRANSLATION или FILL_IN_BLANK)
                 _navigationEvent.send("game")
             }
         }
-        // ----------------------------------------------------
 
         return false
     }
@@ -366,7 +380,6 @@ class CardViewModel @Inject constructor(
                     currentTaskTitleResId = R.string.game_task_matching
                     currentHebrewPrompt = ""
                     this.targetCards = emptyList()
-                    // Фактический запуск MatchingGameScreen происходит через NavigationEvent в loadLevel
                 }
 
                 TaskType.UNKNOWN -> {
@@ -453,7 +466,6 @@ class CardViewModel @Inject constructor(
         isLevelFullyCompleted = false
         loadRound(0)
 
-        // --- ИСПРАВЛЕНИЕ 2: Сброс уровня должен также отправлять событие навигации ---
         val currentRoundData = currentLevelSentences.getOrNull(0)
         viewModelScope.launch {
             if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -462,7 +474,6 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
-        // -----------------------------------------------------------------
     }
 
     fun proceedToNextRound() {
@@ -485,7 +496,6 @@ class CardViewModel @Inject constructor(
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
         loadRound(nextRound)
 
-        // --- ИСПРАВЛЕНИЕ 3: Добавляем отправку навигации ---
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -494,7 +504,6 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
-        // ----------------------------------------------------
     }
 
     fun skipToNextAvailableRound() {
@@ -512,7 +521,6 @@ class CardViewModel @Inject constructor(
         val nextRound = activeRounds[nextIndexInActiveList]
         loadRound(nextRound)
 
-        // --- ИСПРАВЛЕНИЕ 4: Добавляем отправку навигации ---
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
@@ -521,8 +529,16 @@ class CardViewModel @Inject constructor(
                 _navigationEvent.send("game")
             }
         }
-        // ----------------------------------------------------
     }
+
+    // --- ИЗМЕНЕНИЕ 5: Добавляем onCleared для TTS ---
+    override fun onCleared() {
+        super.onCleared()
+        // Мы НЕ вызываем shutdown(), так как TtsPlayer - это Singleton.
+        // Мы просто останавливаем любое воспроизведение, которое могло "зависнуть".
+        ttsPlayer.stop()
+    }
+    // -------------------------------------------
 
     companion object {
         private const val TAG = "VIBRATE_DEBUG"
