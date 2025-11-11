@@ -6,7 +6,6 @@ import java.util.UUID
 // --- ВОТ ИСПРАВЛЕНИЕ (НОВЫЙ ИМПОРТ И ANNOTATION) ---
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.JsonElement
 @OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
 // -----------------------------
 
@@ -71,9 +70,7 @@ data class LevelEntry(
     val english_translation: String? = null,
     val french_translation: String? = null,
     val spanish_translation: String? = null,
-    // --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: String? = null ---
-    val audioFilename: String? = null,
-    // ---------------------------------------------
+    val audioFilename: String?, // <-- (Сделано Nullable)
 
     val taskType: TaskType = TaskType.UNKNOWN,
 
@@ -81,7 +78,10 @@ data class LevelEntry(
 
     val task_correct_cards: List<String>? = null,
     val task_distractor_cards: List<String>? = null,
+
+    // --- ИСПРАВЛЕНИЕ: Добавлено недостающее поле ---
     val task_pairs: List<List<String>>? = null
+    // ------------------------------------------
 )
 
 // --- Класс-обертка для "Эффекта Duolingo" ---

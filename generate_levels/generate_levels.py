@@ -48,7 +48,7 @@ def synthesize_speech(text_to_speak, voice_name, output_filename):
         return False  # Провал
 
 
-# --- 4. Парсер (ИСПРАВЛЕНО) ---
+# --- 4. Парсер (ОБНОВЛЕН ДЛЯ MATCHING_PAIRS) ---
 def parse_entry_block(block_text):
     """Парсит один блок (одну карточку) из .txt файла."""
     data = {}
@@ -70,41 +70,46 @@ def parse_entry_block(block_text):
         if line.startswith("TASK:"):
             data['taskType'] = line.split(":", 1)[1].strip()
             current_key = None
-            continue
 
-        # --- ИСПРАВЛЕННЫЙ БЛОК ПАРСИНГА СТРОК ---
-        if line.startswith("HEBREW_PROMPT:"):
+        elif line.startswith("HEBREW_PROMPT:"):
             current_key = "HEBREW_PROMPT"
-            line = line.split(":", 1)[1].strip()
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
 
         elif line.startswith("HEBREW_CORRECT:"):
             current_key = "HEBREW_CORRECT"
-            line = line.split(":", 1)[1].strip()
+            line_content = line.split(":", 1)[1].strip()
+            # --- ИЗМЕНЕНИЕ 1: Мы НЕ добавляем саму строку "HEBREW_CORRECT:" ---
+            if line_content: lines_map[current_key].append(line_content)
+            # -----------------------------------------------------------
 
         elif line.startswith("HEBREW_DISTRACTORS:"):
             current_key = "HEBREW_DISTRACTORS"
-            line = line.split(":", 1)[1].strip()
+            line_content = line.split(":", 1)[1].strip()
+            # --- ИЗМЕНЕНИЕ 2: Мы НЕ добавляем саму строку "HEBREW_DISTRACTORS:" ---
+            if line_content: lines_map[current_key].append(line_content)
+            # ---------------------------------------------------------------
 
         elif line.startswith("HEBREW:"):
             current_key = "HEBREW"
-            line = line.split(":", 1)[1].strip()
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
 
         elif line.startswith("RUSSIAN:"):
             current_key = "RUSSIAN"
-            line = line.split(":", 1)[1].strip()
-
-        elif line.startswith("VOICES:"):
-            current_key = "VOICES"
-            line = line.split(":", 1)[1].strip()
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
 
         elif line.startswith("IMAGE:") or line.startswith("AUDIO:"):
             current_key = None
-            continue
 
-        # Если есть текущий ключ и строка не пуста, добавляем ее
-        if current_key and line:
+        elif line.startswith("VOICES:"):
+            current_key = "VOICES"
+            line_content = line.split(":", 1)[1].strip()
+            if line_content: lines_map[current_key].append(line_content)
+
+        elif current_key:
             lines_map[current_key].append(line)
-        # ------------------------------------------
 
     data['hebrew_display'] = "\n".join(lines_map["HEBREW"])
     data['hebrew_lines'] = lines_map["HEBREW"]
@@ -164,7 +169,7 @@ def process_level_file(txt_filepath, assets_path):
         data = parse_entry_block(clean_block)
         task_type = data.get('taskType')
 
-        # --- ИЗМЕНЕНИЕ 1: Общая логика для entry ---
+        # --- Общая логика для entry ---
         entry = {
             "hebrew_index": hebrew_index_counter,
             "russian_translation": data.get('russian_translation', ''),
@@ -176,7 +181,7 @@ def process_level_file(txt_filepath, assets_path):
             "voice": None
         }
 
-        # --- ИЗМЕНЕНИЕ 2: Разная логика для разных taskType ---
+        # --- Разная логика для разных taskType ---
 
         if task_type == 'FILL_IN_BLANK' or task_type == 'ASSEMBLE_TRANSLATION':
             hebrew_full_text = data.get('hebrew_display', '')
@@ -200,19 +205,21 @@ def process_level_file(txt_filepath, assets_path):
                 hebrew_list.append(hebrew_full_text)
 
         elif task_type == 'MATCHING_PAIRS':
-            # Для "Найди Пару" hebrew_index не нужен,
-            # но мы должны что-то вставить, чтобы списки hebrew_list
-            # и level_entry_list были одинаковой длины.
-            # Мы вставим LTR-подсказку (напр. "Найди одинаковые пары.")
             hebrew_list.append(data.get('russian_translation', ''))
 
+            # --- ИЗМЕНЕНИЕ 3: БАГ БЫЛ ЗДЕСЬ ---
+            # Мы должны были читать из 'task_correct_cards' и 'task_distractor_cards',
+            # которые 'parse_entry_block' уже заполнил.
             list_A = data.get('task_correct_cards', [])
             list_B = data.get('task_distractor_cards', [])
+            # --------------------------------
 
-            if len(list_A) != len(list_B) or not list_A:
+            if len(list_A) != len(list_B) or len(list_A) == 0:
                 print(
-                    f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}) ИЛИ СПИСОК ПУСТ.")
+                    f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}) или равно 0.")
                 continue
+
+            print(f"    Found {len(list_A)} pairs for MATCHING_PAIRS card {i}")
 
             # Собираем пары
             entry['task_pairs'] = [list(pair) for pair in zip(list_A, list_B)]
@@ -225,7 +232,7 @@ def process_level_file(txt_filepath, assets_path):
 
         level_entry_list.append(entry)
 
-        # --- ИЗМЕНЕНИЕ 3: Аудио генерируется только если оно нужно ---
+        # --- Аудио генерируется только если оно нужно ---
         if entry['audioFilename']:
             final_mp3_path = os.path.join(audio_output_dir, entry['audioFilename'])
 
@@ -279,7 +286,7 @@ def process_level_file(txt_filepath, assets_path):
 
         hebrew_index_counter += 1
 
-    # --- Запись JSON файлов (без изменений) ---
+    # --- Запись JSON файлов ---
     hebrew_file_path = os.path.join(assets_path, f"hebrew_level_{level_id}.json")
     with open(hebrew_file_path, 'w', encoding='utf-8') as f:
         json.dump(hebrew_list, f, ensure_ascii=False, indent=2)
@@ -291,7 +298,7 @@ def process_level_file(txt_filepath, assets_path):
     print(f"✅ JSON (Уровень) создан: {level_file_path}")
 
 
-# --- Точка входа (без изменений) ---
+# --- Точка входа ---
 def main():
     if not os.path.exists(ASSETS_DIR):
         print(f"!!! ОШИБКА: Папка ASSETS_DIR не найдена по пути: {ASSETS_DIR}")

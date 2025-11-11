@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,9 +32,9 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 
-// --- ИЗМЕНЕНИЕ 1: Новый тег для логов ---
-private const val TAG = "MATCH_SHEET_DEBUG"
-// --------------------------------------
+// --- TAG ---
+private const val TAG = "UI_ROUND_DEBUG"
+// -----------------------------
 
 /**
  * Экран для механики "Соедини пары" (Match-to-Line).
@@ -41,7 +42,13 @@ private const val TAG = "MATCH_SHEET_DEBUG"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchingGameScreen(
+    // --- ИЗМЕНЕНИЕ V12: Добавлена cardViewModel ---
+    cardViewModel: CardViewModel,
+    // ------------------------------------------
     viewModel: MatchingViewModel,
+    routeLevelId: Int,
+    routeRoundIndex: Int,
+    routeUid: Long,
     onBackClick: () -> Unit,
     onJournalClick: () -> Unit,
     onTrackClick: () -> Unit
@@ -49,23 +56,23 @@ fun MatchingGameScreen(
     val coroutineScope = rememberCoroutineScope()
     val snapshot = viewModel.resultSnapshot
 
-    // --- ИЗМЕНЕНИЕ 2: Логируем состояния ---
-    Log.d(TAG, "MatchingGameScreen RECOMPOSING:")
-    Log.d(TAG, "  > isGameWon = ${viewModel.isGameWon}")
-    Log.d(TAG, "  > showResultSheet = ${viewModel.showResultSheet}")
-    Log.d(TAG, "  > snapshot is null = ${snapshot == null}")
-    // -------------------------------------
+    LaunchedEffect(routeUid) {
+        Log.i(AppDebug.TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
 
-    // Слушаем событие победы, чтобы завершить раунд и вернуться на домашний экран
-    LaunchedEffect(Unit) {
-        viewModel.completionEvents.collect { event ->
-            if (event == "WIN") {
-                onBackClick()
-            }
-            // (Событие "TRACK" обрабатывается в MainActivity)
-            // (Событие "SKIP" обрабатывается в MainActivity)
-        }
+        // --- ИЗМЕНЕНИЕ V12: Сообщаем CardViewModel, что мы - активный раунд ---
+        cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
+        // ----------------------------------------------------------------
+
+        viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
+
+    val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
+
+    Log.d(TAG, "MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
+    Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
+    Log.d(TAG, "  > viewModel.loadedUid = ${viewModel.loadedUid}")
+    Log.d(TAG, "  > ==>> shouldShowLoading = $shouldShowLoading (isLoading || ${viewModel.loadedUid} != $routeUid)")
+    Log.d(TAG, "  > hebrewCards.size = ${viewModel.hebrewCards.size}")
 
     Scaffold(
         topBar = {
@@ -88,19 +95,8 @@ fun MatchingGameScreen(
                 )
 
                 if (viewModel.isGameWon) {
-                    // ПОСЛЕ ПОБЕДЫ: Кнопка "Показать"
-                    AppBottomBarIcon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = stringResource(R.string.button_show_translation),
-                        onClick = {
-                            // --- ИЗМЕНЕНИЕ 3: Логируем нажатие ---
-                            Log.d(TAG, "BottomBar: 'Visibility' icon CLICKED")
-                            viewModel.showResultSheet()
-                            // --------------------------------
-                        }
-                    )
+                    Spacer(modifier = Modifier.size(48.dp))
                 } else {
-                    // ВО ВРЕМЯ ИГРЫ: Кнопка "Пропустить"
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
                         enabled = !viewModel.isLastRoundAvailable
@@ -117,34 +113,47 @@ fun MatchingGameScreen(
         }
     ) { paddingValues ->
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Левый столбец (Иврит)
-                MatchColumn(
-                    items = viewModel.hebrewCards,
-                    onItemClick = viewModel::onMatchItemClicked,
-                    modifier = Modifier.weight(1f),
-                    isHebrewColumn = true
-                )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center
+        ) {
 
-                Spacer(modifier = Modifier.width(16.dp))
+            if (!shouldShowLoading) {
+                Log.d(TAG, "MatchingGameScreen: shouldShowLoading=false. Отрисовка колонок с карточками (size=${viewModel.hebrewCards.size}).")
 
-                // Правый столбец (Перевод)
-                MatchColumn(
-                    items = viewModel.translationCards,
-                    onItemClick = viewModel::onMatchItemClicked,
-                    modifier = Modifier.weight(1f),
-                    isHebrewColumn = false
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    MatchColumn(
+                        items = viewModel.hebrewCards,
+                        onItemClick = viewModel::onMatchItemClicked,
+                        modifier = Modifier.weight(1f),
+                        isHebrewColumn = true,
+                        roundIndex = viewModel.currentRoundIndex
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    MatchColumn(
+                        items = viewModel.translationCards,
+                        onItemClick = viewModel::onMatchItemClicked,
+                        modifier = Modifier.weight(1f),
+                        isHebrewColumn = false,
+                        roundIndex = viewModel.currentRoundIndex
+                    )
+                }
+            } else {
+                Log.d(TAG, "MatchingGameScreen: shouldShowLoading=true. Отрисовка CircularProgressIndicator.")
+                CircularProgressIndicator(
+                    modifier = Modifier.size(64.dp)
                 )
             }
 
-            // --- ИЗМЕНЕНИЕ 4: Логируем условие показа шторки ---
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
             Log.d(TAG, "ModalBottomSheet Check: shouldShowSheet = $shouldShowSheet")
 
@@ -162,7 +171,7 @@ fun MatchingGameScreen(
                     scrimColor = Color.Transparent
                 ) {
                     ResultSheetContent(
-                        snapshot = snapshot!!, // (Мы уже проверили на null)
+                        snapshot = snapshot!!,
                         onContinueClick = {
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
@@ -184,7 +193,6 @@ fun MatchingGameScreen(
                     )
                 }
             }
-            // ----------------------------------------------------
         }
     }
 }
@@ -194,8 +202,12 @@ private fun MatchColumn(
     items: List<MatchItem>,
     onItemClick: (MatchItem) -> Unit,
     modifier: Modifier = Modifier,
-    isHebrewColumn: Boolean
+    isHebrewColumn: Boolean,
+    roundIndex: Int
 ) {
+    val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
+    Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
+
     LazyColumn(
         modifier = modifier.fillMaxHeight(),
         verticalArrangement = Arrangement.spacedBy(12.dp)

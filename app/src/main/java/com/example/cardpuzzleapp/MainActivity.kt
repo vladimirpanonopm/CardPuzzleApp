@@ -72,6 +72,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private const val NAV_DEBUG_TAG = "MATCHING_CARDS_DEBUG"
+
 @Composable
 fun AppNavigation(
     navController: NavHostController,
@@ -104,42 +106,38 @@ fun AppNavigation(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ 1: Добавляем проверку текущего маршрута ---
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { route ->
-            Log.d(AppDebug.TAG, "NavigationEvent received: $route")
+            Log.e(AppDebug.TAG, ">>> AppNavigation RECV EVENT: '$route'. Current dest: ${navController.currentDestination?.route}")
 
-            // Получаем текущий активный маршрут
             val currentRoute = navController.currentDestination?.route
 
             when {
                 route.startsWith("matching_game/") -> {
-                    val parts = route.split("/")
-                    val levelId = parts.getOrNull(1)?.toIntOrNull() ?: 1
-                    val roundIndex = parts.getOrNull(2)?.toIntOrNull() ?: 0
-                    matchingViewModel.loadLevelAndRound(levelId, roundIndex)
-                    navController.navigate(route)
+                    Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
+                    navController.navigate(route) {
+                        if (currentRoute?.startsWith("game") == true) {
+                            Log.d(NAV_DEBUG_TAG, "AppNavigation: PopUpTo '$currentRoute' (inclusive)")
+                            popUpTo(currentRoute) { inclusive = true }
+                        }
+                    }
                 }
                 route.startsWith("round_track/") -> {
                     navController.navigate(route)
                 }
-                route == "game" -> {
-                    // --- ИСПРАВЛЕНИЕ БАГА "ДВОЙНОЙ ЗАГРУЗКИ" ---
-                    // Мы переходим на "game", только если мы УЖЕ не на "game".
-                    if (currentRoute != "game") {
-                        navController.navigate("game")
-                    } else {
-                        // Если мы уже на "game", ViewModel обновит UI сам.
-                        // Ничего не делаем, чтобы избежать "двойной загрузки".
-                        Log.d(AppDebug.TAG, "Already on 'game' route. Navigation skipped to prevent double load.")
+                route.startsWith("game/") -> {
+                    Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
+                    navController.navigate(route) {
+                        if (currentRoute?.startsWith("matching_game") == true) {
+                            Log.d(NAV_DEBUG_TAG, "AppNavigation: PopUpTo '$currentRoute' (inclusive)")
+                            popUpTo(currentRoute) { inclusive = true }
+                        }
                     }
                 }
             }
         }
     }
-    // ----------------------------------------------------
 
-    // --- Обработка событий из MatchingViewModel (без изменений) ---
     LaunchedEffect(Unit) {
         matchingViewModel.completionEvents.collectLatest { event ->
             if (event == "WIN") {
@@ -150,7 +148,6 @@ fun AppNavigation(
                 navController.navigate("round_track/${matchingViewModel.currentLevelId}")
             }
             if (event == "SKIP") {
-                navController.popBackStack()
                 cardViewModel.skipToNextAvailableRound()
             }
         }
@@ -223,10 +220,21 @@ fun AppNavigation(
             )
         }
 
-        composable("game") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'game'")
+        // --- ИСПРАВЛЕНИЕ ОШИБКИ 'roundIndex' ---
+        composable(
+            route = "game/{levelId}/{roundIndex}",
+            arguments = listOf(
+                navArgument("levelId") { type = NavType.IntType },
+                navArgument("roundIndex") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
+            val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0 // <-- 'roundIndex' ОПРЕДЕЛЕН
+            Log.d(AppDebug.TAG, "NavHost: Composing 'game/$levelId/$roundIndex'")
+
             GameScreen(
                 viewModel = cardViewModel,
+                routeRoundIndex = roundIndex, // <-- 'roundIndex' ПЕРЕДАН
                 onHomeClick = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
@@ -235,39 +243,53 @@ fun AppNavigation(
                 onJournalClick = {
                     navController.navigate("journal/${cardViewModel.currentLevelId}?roundIndex=${cardViewModel.currentRoundIndex}")
                 },
-                onTrackClick = { levelId ->
-                    navController.navigate("round_track/$levelId")
+                onTrackClick = { levelIdNav ->
+                    navController.navigate("round_track/$levelIdNav")
                 },
                 onSkipClick = {
                     cardViewModel.skipToNextAvailableRound()
                 }
             )
         }
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
 
         composable(
-            route = "matching_game/{levelId}/{roundIndex}",
+            route = "matching_game/{levelId}/{roundIndex}?uid={uid}",
             arguments = listOf(
                 navArgument("levelId") { type = NavType.IntType },
-                navArgument("roundIndex") { type = NavType.IntType }
+                navArgument("roundIndex") { type = NavType.IntType },
+                navArgument("uid") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
             )
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
-            Log.d(AppDebug.TAG, "NavHost: Composing 'matching_game/$levelId/$roundIndex'")
+            val uid = backStackEntry.arguments?.getLong("uid") ?: 0L
+            Log.d(AppDebug.TAG, "NavHost: Composing 'matching_game/$levelId/$roundIndex' (UID: $uid)")
 
             MatchingGameScreen(
+                cardViewModel = cardViewModel,
                 viewModel = matchingViewModel,
+                routeLevelId = levelId,
+                routeRoundIndex = roundIndex,
+                routeUid = uid,
                 onBackClick = {
                     navController.popBackStack()
                 },
                 onJournalClick = {
+                    // --- ИСПРАВЛЕНИЕ ОПЕЧАТКИ V12 ---
                     navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
+                    // ---------------------------------
                 },
                 onTrackClick = {
                     navController.navigate("round_track/${matchingViewModel.currentLevelId}")
                 }
             )
         }
+
 
         composable(
             route = "round_track/{levelId}",
@@ -309,7 +331,7 @@ fun AppNavigation(
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val initialRoundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: -1
-            Log.d(AppDebug.TAG, "NavHost: Composing 'journal/$levelId?roundIndex=$initialRoundIndex'")
+            Log.d(AppDebug.TAG, "NavHost: Composing 'journal/$levelId/$initialRoundIndex'")
 
             JournalScreen(
                 levelId = levelId,

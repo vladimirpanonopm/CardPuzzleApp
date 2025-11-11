@@ -64,16 +64,22 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 
+private const val TAG = "UI_ROUND_DEBUG"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun GameScreen(
     viewModel: CardViewModel,
+    // --- ИСПРАВЛЕНИЕ: Добавлен routeRoundIndex ---
+    routeRoundIndex: Int,
+    // ------------------------------------------
     onHomeClick: () -> Unit,
     onJournalClick: () -> Unit,
     onSkipClick: () -> Unit,
     onTrackClick: (Int) -> Unit
 ) {
+    Log.i(AppDebug.TAG, ">>> GameScreen RECOMPOSING. routeRoundIndex: $routeRoundIndex, VM.currentRoundIndex: ${viewModel.currentRoundIndex}, Type: ${viewModel.currentTaskType}, Prompt: '${viewModel.currentTaskPrompt}', Cards: ${viewModel.availableCards.size}")
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -83,6 +89,18 @@ fun GameScreen(
 
     val showResultSheet = viewModel.showResultSheet
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // --- ИСПРАВЛЕНИЕ: Загружаем данные только при смене routeRoundIndex ---
+    LaunchedEffect(routeRoundIndex) {
+        Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
+
+        // --- ИСПРАВЛЕНИЕ: Сообщаем CardViewModel, что мы - активный раунд ---
+        viewModel.updateCurrentRoundIndex(routeRoundIndex)
+        // ----------------------------------------------------------------
+
+        viewModel.loadRound(routeRoundIndex)
+    }
+    // ------------------------------------------------------------------
 
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collectLatest { route ->
@@ -147,11 +165,7 @@ fun GameScreen(
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
                 if (viewModel.isRoundWon) {
-                    AppBottomBarIcon(
-                        imageVector = Icons.Default.Visibility,
-                        contentDescription = stringResource(R.string.button_show_translation),
-                        onClick = { viewModel.showResultSheet() }
-                    )
+                    Spacer(modifier = Modifier.size(48.dp))
                 } else {
                     IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
                         Icon(
@@ -205,6 +219,9 @@ fun GameScreen(
             }
 
 
+            // --- ИСПРАВЛЕНИЕ V13: Возвращаем спиннер ---
+            val isDataReady = viewModel.currentRoundIndex == routeRoundIndex && viewModel.currentTaskType != TaskType.MATCHING_PAIRS
+
             if (isRoundWon) {
                 // --- ЭКРАН ПОБЕДЫ ---
                 Surface(
@@ -256,8 +273,19 @@ fun GameScreen(
                     }
                 }
             }
-            // --- ЭКРАН ИГРЫ ---
+            // --- ЭКРАН ИГРЫ (ИЛИ ЗАГРУЗКИ) ---
+            else if (!isDataReady) {
+                // --- ВОЗВРАЩАЕМ СПИННЕР ---
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+                // -----------------------------
+            }
             else {
+                // --- ЭКРАН ИГРЫ (ДАННЫЕ ГОТОВЫ) ---
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -322,12 +350,9 @@ fun GameScreen(
                                             }
                                         }
 
-                                        // --- ИСПРАВЛЕНИЕ: Заменяем TODO() ---
                                         TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
-                                            // Эта ветка не должна вызываться,
-                                            // но мы оставляем ее пустой, чтобы избежать крэша.
+                                            // Эта ветка теперь защищена
                                         }
-                                        // ------------------------------------
                                     }
                                 }
                             }

@@ -1,0 +1,62 @@
+[
+  {
+    "hebrew_index": 0,
+    "russian_translation": "Контроль: Только Пары 1",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": null,
+    "taskType": "MATCHING_PAIRS",
+    "voice": null,
+    "task_pairs": [
+      [
+        "חתול",
+        "Cat"
+      ],
+      [
+        "כלב",
+        "Dog"
+      ]
+    ]
+  },
+  {
+    "hebrew_index": 1,
+    "russian_translation": "Контроль: Только Пары 2",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": null,
+    "taskType": "MATCHING_PAIRS",
+    "voice": null,
+    "task_pairs": [
+      [
+        "סוס",
+        "Horse"
+      ],
+      [
+        "פרה",
+        "Cow"
+      ]
+    ]
+  },
+  {
+    "hebrew_index": 2,
+    "russian_translation": "Контроль: Только Пары 3",
+    "english_translation": null,
+    "french_translation": null,
+    "spanish_translation": null,
+    "audioFilename": null,
+    "taskType": "MATCHING_PAIRS",
+    "voice": null,
+    "task_pairs": [
+      [
+        "אור",
+        "Light"
+      ],
+      [
+        "לילה",
+        "Night"
+      ]
+    ]
+  }
+]

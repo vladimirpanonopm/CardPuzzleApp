@@ -11,6 +11,10 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+// --- ИЗМЕНЕНИЕ 1: Добавить импорты ---
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+// ---------------------------------
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -27,7 +31,9 @@ data class MatchItem(
 )
 // ---------------------------------
 
-private const val TAG = "MATCH_SHEET_DEBUG"
+// --- ЛОГ-ТЕГ ДЛЯ БАГА ---
+private const val TAG = "MATCHING_CARDS_DEBUG"
+// -------------------------
 
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
@@ -37,8 +43,18 @@ class MatchingViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- Игровое поле ---
-    val hebrewCards = mutableStateListOf<MatchItem>()
-    val translationCards = mutableStateListOf<MatchItem>()
+    var hebrewCards by mutableStateOf<List<MatchItem>>(emptyList())
+    var translationCards by mutableStateOf<List<MatchItem>>(emptyList())
+
+    // --- ФЛАГ ЗАГРУЗКИ ---
+    var isLoading by mutableStateOf(true)
+        private set
+
+    // <<< ----- НОВЫЙ КЛЮЧЕВОЙ STATE V11 ----- >>>
+    /** Хранит UID, который был *успешно* загружен в ViewModel. */
+    var loadedUid by mutableStateOf(0L)
+        private set
+    // <<< --------------------------------- >>>
 
     // --- Состояние UI ---
     var currentTaskTitleResId by mutableStateOf(R.string.game_task_matching)
@@ -57,6 +73,10 @@ class MatchingViewModel @Inject constructor(
     var selectedItem by mutableStateOf<MatchItem?>(null)
         private set
 
+    // --- ИЗМЕНЕНИЕ 2: Добавить Job для отслеживания загрузки ---
+    private var currentLoadJob: Job? = null
+    // ----------------------------------------------------
+
     // --- Каналы событий ---
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
@@ -72,33 +92,93 @@ class MatchingViewModel @Inject constructor(
     private var allLevelSentences = listOf<SentenceData>() // Храним все раунды уровня
 
 
-    fun loadLevelAndRound(levelId: Int, roundIndex: Int) {
+    // --- ИСПРАВЛЕНИЕ V11: Принимаем UID ---
+    fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
+        Log.d(TAG, "MatchingViewModel: loadLevelAndRound($levelId, $roundIndex, uid=$uid) CALLED.")
+        Log.d(TAG, "  > Текущее состояние VM: loadedUid=$loadedUid, isLoading=$isLoading")
+
+        // --- НОВЫЙ ЛОГ: Проверка, актуальны ли данные ---
+        if (loadedUid == uid && !isLoading) {
+            Log.w(TAG, "  > ОТМЕНА ЗАГРУЗКИ: Этот UID ($uid) уже загружен.")
+            return
+        }
+        // ---------------------------------------------
+
+        // --- ИЗМЕНЕНИЕ 3: Отменить предыдущую активную загрузку ---
+        currentLoadJob?.cancel()
+        Log.d(TAG, "loadLevelAndRound: Предыдущий Job (если был) отменен.")
+        // ------------------------------------------------------
+
+        // 1. Синхронно ставим флаг "Загрузка"
+        isLoading = true
+        Log.d(TAG, "loadLevelAndRound: СИНХРОННЫЙ СБРОС UI (isLoading = true)")
+
+        // 2. Сбрасываем *все* состояние раунда
+        hebrewCards = emptyList()
+        translationCards = emptyList()
+        isGameWon = false
+        resultSnapshot = null
+        showResultSheet = false
+        selectedItem = null
+        errorCount = 0
+
         this.currentLevelId = levelId
         this.currentRoundIndex = roundIndex
-        loadRound()
+
+        // --- ИЗМЕНЕНИЕ 4: Запустить и сохранить новый Job ---
+        // 3. Запускаем асинхронную загрузку, передавая UID
+        currentLoadJob = loadRound(uid)
+        // ------------------------------------------------
     }
 
-    fun loadRound() {
-        viewModelScope.launch {
-            Log.d(AppDebug.TAG, "MatchingViewModel: loadRound() (level $currentLevelId, round $currentRoundIndex)")
+    // --- ИЗМЕНЕНИЕ 5: Метод теперь возвращает Job ---
+    private fun loadRound(uid: Long): Job {
+        // -------------------------------------------
+        Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (АСИНХРОННАЯ ЗАГРУЗКА) CALLED")
 
+        // --- ИЗМЕНЕНИЕ 6: Возвращаем Job из launch ---
+        return viewModelScope.launch {
+            // ------------------------------------------
+            Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (coroutine started)")
+
+            levelRepository.clearCache()
             val allData = levelRepository.getLevelData(currentLevelId)
+
+            // --- ИЗМЕНЕНИЕ 7: Проверять, не отменена ли корутина ---
+            ensureActive()
+            // ---------------------------------------------------
+
             if (allData == null) {
-                Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! Не удалось загрузить LevelData.")
+                Log.e(TAG, "MatchingViewModel: ОШИБКА! allData == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
+                isLoading = false
+                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
                 return@launch
             }
             allLevelSentences = allData
+            Log.d(TAG, "MatchingViewModel: allData.size = ${allData.size}")
 
             val levelData = allData.getOrNull(currentRoundIndex)
 
-            if (levelData == null || levelData.taskType != TaskType.MATCHING_PAIRS) {
+            // --- ИЗМЕНЕНИЕ 8: Проверять, не отменена ли корутина ---
+            ensureActive()
+            // ---------------------------------------------------
+
+            if (levelData == null) {
+                Log.e(TAG, "MatchingViewModel: ОШИБКА! levelData == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
-                Log.e(AppDebug.TAG, "MatchingViewModel: Ошибка! 'MATCHING_PAIRS' не найдено.")
+                isLoading = false
+                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
                 return@launch
             }
 
-            currentTaskTitleResId = R.string.game_task_matching
+            if (levelData.taskType != TaskType.MATCHING_PAIRS) {
+                currentTaskTitleResId = R.string.game_task_unknown
+                Log.e(TAG, "MatchingViewModel: ОШИБКА! 'MATCHING_PAIRS' не найдено.")
+                isLoading = false
+                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
+                return@launch
+            }
 
             // Генерируем карточки
             val pairs = levelData.task_pairs ?: emptyList()
@@ -116,23 +196,28 @@ class MatchingViewModel @Inject constructor(
                 }
             }
 
-            // Очищаем поле
-            hebrewCards.clear()
-            hebrewCards.addAll(newHebrewList.shuffled())
-            translationCards.clear()
-            translationCards.addAll(newTranslationList.shuffled())
+            // --- ИЗМЕНЕНИЕ 9: ГЛАВНАЯ ПРОВЕРКА. Не обновлять UI, если Job отменен ---
+            ensureActive()
+            // -------------------------------------------------------------------
 
-            isGameWon = false
-            resultSnapshot = null
-            showResultSheet = false
-            selectedItem = null
-            errorCount = 0
+            // --- Обновляем State через присваивание ---
+            hebrewCards = newHebrewList.shuffled()
+            translationCards = newTranslationList.shuffled()
+            Log.d(TAG, "MatchingViewModel: (АСИНХРОННО) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
 
             updateLastRoundAvailability()
 
-            Log.d(AppDebug.TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
+            Log.d(TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
+
+            // <<< КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ V11 >>>
+            // 4. Снимаем флаг "Загрузка" И помечаем UID как загруженный
+            isLoading = false
+            loadedUid = uid
+            Log.d(TAG, "loadRound: (АСИНХРОННО) ЗАВЕРШЕНО. isLoading = false, loadedUid = $uid. UI должен обновиться.")
+            // <<< --------------------------- >>>
         }
     }
+    // ----------------------------------------------------
 
     private fun updateLastRoundAvailability() {
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
@@ -143,11 +228,8 @@ class MatchingViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
-    /**
-     * Обрабатывает клик пользователя по элементу в любом из столбцов.
-     */
     fun onMatchItemClicked(item: MatchItem) {
-        if (item.isMatched || isGameWon) return // Блокируем клики после победы
+        if (item.isMatched || isGameWon || isLoading) return
 
         if (item.isHebrew) {
             ttsPlayer.speak(item.text)
@@ -156,12 +238,10 @@ class MatchingViewModel @Inject constructor(
         val currentSelection = selectedItem
 
         if (currentSelection == null) {
-            // --- 1. ПЕРВЫЙ ВЫБОР ---
             setSelection(item, true)
             selectedItem = item
 
         } else if (currentSelection.isHebrew == item.isHebrew) {
-            // --- 2. ПОВТОРНЫЙ ВЫБОР В ТОМ ЖЕ СТОЛБЦЕ ---
             if (currentSelection.id == item.id) {
                 setSelection(item, false)
                 selectedItem = null
@@ -171,9 +251,7 @@ class MatchingViewModel @Inject constructor(
                 selectedItem = item
             }
         } else {
-            // --- 3. ВТОРОЙ ВЫБОР В ДРУГОМ СТОЛБЦЕ (ПРОВЕРКА) ---
             if (currentSelection.pairId == item.pairId) {
-                // --- 3a. УСПЕХ: Пара совпала ---
                 setCardsAsMatched(currentSelection.pairId)
                 selectedItem = null
                 viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
@@ -184,7 +262,6 @@ class MatchingViewModel @Inject constructor(
                 }
 
             } else {
-                // --- 3b. ПРОВАЛ: Пара не совпала ---
                 errorCount++
                 viewModelScope.launch {
                     _hapticEventChannel.send(HapticEvent.Failure)
@@ -199,30 +276,36 @@ class MatchingViewModel @Inject constructor(
     }
 
     private fun setSelection(item: MatchItem, isSelected: Boolean) {
-        val list = if (item.isHebrew) hebrewCards else translationCards
+        val list = if (item.isHebrew) hebrewCards.toMutableList() else translationCards.toMutableList()
         val index = list.indexOfFirst { it.id == item.id }
 
         if (index != -1) {
             list[index] = list[index].copy(isSelected = isSelected)
         }
+
+        if (item.isHebrew) {
+            hebrewCards = list
+        } else {
+            translationCards = list
+        }
     }
 
     private fun setCardsAsMatched(pairId: String) {
-        hebrewCards.indices.filter { hebrewCards[it].pairId == pairId }.forEach { i ->
-            hebrewCards[i] = hebrewCards[i].copy(isMatched = true, isSelected = false)
+        val newHebrewCards = hebrewCards.map {
+            if (it.pairId == pairId) it.copy(isMatched = true, isSelected = false) else it
         }
-        translationCards.indices.filter { translationCards[it].pairId == pairId }.forEach { i ->
-            translationCards[i] = translationCards[i].copy(isMatched = true, isSelected = false)
+        val newTranslationCards = translationCards.map {
+            if (it.pairId == pairId) it.copy(isMatched = true, isSelected = false) else it
         }
+
+        hebrewCards = newHebrewCards
+        translationCards = newTranslationCards
     }
 
     private fun handleWin() {
         Log.d(TAG, "handleWin() CALLED")
         isGameWon = true
         Log.d(TAG, "isGameWon = $isGameWon")
-
-        // --- ИЗМЕНЕНИЕ: Шторка должна появляться АВТОМАТИЧЕСКИ ---
-        // showResultSheet = false // <-- БЫЛО
 
         progressManager.saveProgress(currentLevelId, currentRoundIndex)
 
@@ -237,13 +320,11 @@ class MatchingViewModel @Inject constructor(
         )
         Log.d(TAG, "resultSnapshot CREATED: ${resultSnapshot != null}")
 
-        // --- ДОБАВЛЕНО: Та же логика, что и в CardViewModel ---
         viewModelScope.launch {
-            delay(650) // Та же задержка, что и в GameScreen
+            delay(650)
             showResultSheet = true
             Log.d(TAG, "АВТО-ПОДЪЕМ ШТОРКИ: showResultSheet = true")
         }
-        // ------------------------------------------------
     }
 
     fun proceedToNextRound() {
@@ -256,10 +337,10 @@ class MatchingViewModel @Inject constructor(
     }
 
     fun restartCurrentRound() {
-        isGameWon = false
-        resultSnapshot = null
-        showResultSheet = false
-        loadRound()
+        // --- ИЗМЕНЕНИЕ V11: Мы должны передать UID, чтобы инициировать перезагрузку ---
+        // Мы используем 0L, чтобы он гарантированно отличался от loadedUid
+        loadLevelAndRound(currentLevelId, currentRoundIndex, 0L)
+        // --------------------------------------------------------------------------
     }
 
     fun onTrackClick() {

@@ -1,6 +1,9 @@
 package com.example.cardpuzzleapp
 
 import android.util.Log
+import android.app.Activity // <<< НОВЫЙ ИМПОРТ
+import android.content.Context // <<< НОВЫЙ ИМПОРТ
+import android.content.ContextWrapper // <<< НОВЫЙ ИМПОРТ
 
 fun parseSentenceToCards(sentence: String, dictionary: Map<String, String>): List<Card> {
 
@@ -26,3 +29,5 @@ fun parseSentenceToCards(sentence: String, dictionary: Map<String, String>): Lis
 
     return cards
 }
+
+// --------------------------------------
