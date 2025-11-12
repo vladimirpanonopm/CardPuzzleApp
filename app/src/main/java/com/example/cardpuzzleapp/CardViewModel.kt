@@ -36,18 +36,37 @@ class CardViewModel @Inject constructor(
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
+    // --- ШАГ 1: НОВЫЙ ЕДИНЫЙ UI STATE ---
+    data class GameUiState(
+        val isRoundWon: Boolean = false,
+        val errorCount: Int = 0,
+        val errorCardId: UUID? = null,
+        val selectedCards: List<Card> = emptyList(),
+        val assemblyLine: List<AssemblySlot> = emptyList(),
+        val availableCards: List<AvailableCardSlot> = emptyList(),
+        val fontStyle: FontStyle = FontStyle.REGULAR,
+        val resultSnapshot: RoundResultSnapshot? = null,
+        val showResultSheet: Boolean = false
+    )
+
+    // --- ШАГ 2: ЗАМЕНА СТАРЫХ СОСТОЯНИЙ ---
+    var uiState by mutableStateOf(GameUiState())
+        private set
+
+    // --- Статичные/Глобальные состояния (остаются без изменений) ---
     var currentTaskPrompt by mutableStateOf<String?>("")
         private set
-
     var currentHebrewPrompt by mutableStateOf<String?>("")
         private set
-
     var currentTaskTitleResId by mutableStateOf(R.string.game_task_unknown)
         private set
 
-    var levelCount by mutableStateOf(0)
+    // --- ИСПРАВЛЕНИЕ: ВОТ НЕДОСТАЮЩАЯ СТРОКА ---
+    var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
         private set
-    var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
+    // ------------------------------------------
+
+    var levelCount by mutableStateOf(0)
         private set
     var currentLevelSentences = listOf<SentenceData>()
         private set
@@ -61,26 +80,9 @@ class CardViewModel @Inject constructor(
         private set
     var timeSpent by mutableStateOf(0)
         private set
-    var errorCount by mutableStateOf(0)
-        private set
-    var availableCards = mutableStateListOf<AvailableCardSlot>()
-        private set
-    var assemblyLine = mutableStateListOf<AssemblySlot>()
-        private set
-    var selectedCards = mutableStateListOf<Card>()
-        private set
     var isLastRoundAvailable by mutableStateOf(false)
         private set
-    var showResultSheet by mutableStateOf(false)
-        private set
-    var errorCardId by mutableStateOf<UUID?>(null)
-        private set
-    var isRoundWon by mutableStateOf(false)
-        private set
-    var gameFontStyle by mutableStateOf(FontStyle.REGULAR)
-        private set
-    var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
-        private set
+    // --- Конец Шага 2 ---
 
     private var wordDictionary = mapOf<String, String>()
     private val _hapticEventChannel = Channel<HapticEvent>()
@@ -100,10 +102,12 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    // --- ШАГ 3: Обновление методов для работы с uiState ---
     fun toggleGameFontStyle() {
         if (currentLevelId == 1) {
-            val newStyle = if (gameFontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
-            gameFontStyle = newStyle
+            val newStyle = if (uiState.fontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
+            // ИЗМЕНЕНО:
+            uiState = uiState.copy(fontStyle = newStyle)
             progressManager.saveLevel1FontStyle(newStyle)
         }
     }
@@ -113,39 +117,39 @@ class CardViewModel @Inject constructor(
     }
 
     fun hideResultSheet() {
-        showResultSheet = false
+        // ИЗМЕНЕНО:
+        uiState = uiState.copy(showResultSheet = false)
     }
 
     fun showResultSheet() {
-        if (isRoundWon) {
-            showResultSheet = true
+        // ИЗМЕНЕНО:
+        if (uiState.isRoundWon) {
+            uiState = uiState.copy(showResultSheet = true)
         }
     }
 
-    // ... в CardViewModel.kt ...
-
     fun selectCard(slot: AvailableCardSlot) {
-        // --- ГЛАВНЫЙ GUARD ---
         if (!slot.isVisible) {
             Log.w(AppDebug.TAG, "selectCard: GHOST TAP DETECTED on invisible card. Ignoring.")
             return
         }
-        // --- КОНЕЦ GUARDA ---
 
         val card = slot.card
-
         var isCorrect = false
         var targetSlotIndex = -1
 
+        // ИЗМЕНЕНО: Читаем 'currentTaskType' из ViewModel (он статичен для раунда)
         when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
-                val nextExpectedCard = targetCards.getOrNull(selectedCards.size)
+                // ИЗМЕНЕНО: Читаем 'selectedCards' из 'uiState'
+                val nextExpectedCard = targetCards.getOrNull(uiState.selectedCards.size)
                 isCorrect = (nextExpectedCard != null && card.text.trim() == nextExpectedCard.text.trim())
             }
             TaskType.FILL_IN_BLANK -> {
-                targetSlotIndex = assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
+                // ИЗМЕНЕНО: Читаем 'assemblyLine' из 'uiState'
+                targetSlotIndex = uiState.assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
                 if (targetSlotIndex != -1) {
-                    val targetSlot = assemblyLine[targetSlotIndex]
+                    val targetSlot = uiState.assemblyLine[targetSlotIndex]
                     isCorrect = (targetSlot.targetCard?.text?.trim() == card.text?.trim())
                 }
             }
@@ -159,21 +163,33 @@ class CardViewModel @Inject constructor(
                 _hapticEventChannel.send(HapticEvent.Success)
             }
 
-            val indexInAvailable = availableCards.indexOfFirst { it.id == slot.id }
-            if (indexInAvailable != -1) {
-                availableCards[indexInAvailable] = slot.copy(isVisible = false)
+            // ИЗМЕНЕНО: Обновляем списки внутри uiState
+            val newAvailableCards = uiState.availableCards.map {
+                if (it.id == slot.id) it.copy(isVisible = false) else it
             }
 
             when (currentTaskType) {
                 TaskType.ASSEMBLE_TRANSLATION -> {
-                    selectedCards.add(card)
+                    val newSelectedCards = uiState.selectedCards + card
+                    uiState = uiState.copy(
+                        availableCards = newAvailableCards,
+                        selectedCards = newSelectedCards
+                    )
                 }
                 TaskType.FILL_IN_BLANK -> {
+                    val newAssemblyLine = uiState.assemblyLine.toMutableList()
                     if (targetSlotIndex != -1) {
-                        assemblyLine[targetSlotIndex] = assemblyLine[targetSlotIndex].copy(filledCard = card)
+                        newAssemblyLine[targetSlotIndex] = newAssemblyLine[targetSlotIndex].copy(filledCard = card)
                     }
+                    uiState = uiState.copy(
+                        availableCards = newAvailableCards,
+                        assemblyLine = newAssemblyLine
+                    )
                 }
-                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
+                    // На случай, если нужно обновить только availableCards
+                    uiState = uiState.copy(availableCards = newAvailableCards)
+                }
             }
 
             checkWinCondition()
@@ -182,61 +198,64 @@ class CardViewModel @Inject constructor(
             viewModelScope.launch {
                 _hapticEventChannel.send(HapticEvent.Failure)
             }
-            errorCount++
-            errorCardId = card.id
+            // ИЗМЕНЕНО:
+            uiState = uiState.copy(
+                errorCount = uiState.errorCount + 1,
+                errorCardId = card.id
+            )
 
             ttsPlayer.speak(card.text.trim())
         }
     }
 
-// ... остальной код CardViewModel.kt ...
-
     fun returnCardFromSlot(slot: AssemblySlot) {
-        if (isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return
+        // ИЗМЕНЕНО:
+        if (uiState.isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return
 
         val card = slot.filledCard ?: return
-
         ttsPlayer.speak(card.text.trim())
 
-        when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION -> {}
-            TaskType.FILL_IN_BLANK -> {
-                val index = assemblyLine.indexOfFirst { it.id == slot.id }
-                if (index != -1) {
-                    assemblyLine[index] = slot.copy(filledCard = null)
-                }
-            }
-            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+        // ИЗМЕНЕНО:
+        val newAssemblyLine = uiState.assemblyLine.map {
+            if (it.id == slot.id) it.copy(filledCard = null) else it
+        }
+        val newAvailableCards = uiState.availableCards.map {
+            if (it.card.id == card.id) it.copy(isVisible = true) else it
         }
 
-        val indexInAvailable = availableCards.indexOfFirst { it.card.id == card.id }
-        if (indexInAvailable != -1) {
-            availableCards[indexInAvailable] = availableCards[indexInAvailable].copy(isVisible = true)
-        }
+        uiState = uiState.copy(
+            assemblyLine = newAssemblyLine,
+            availableCards = newAvailableCards
+        )
     }
 
     fun returnLastSelectedCard() {
-        if (isRoundWon || currentTaskType != TaskType.ASSEMBLE_TRANSLATION) return
+        // ИЗМЕНЕНО:
+        if (uiState.isRoundWon || currentTaskType != TaskType.ASSEMBLE_TRANSLATION) return
 
-        val cardToReturn = selectedCards.lastOrNull() ?: return
-
+        val cardToReturn = uiState.selectedCards.lastOrNull() ?: return
         ttsPlayer.speak(cardToReturn.text.trim())
 
-        selectedCards.remove(cardToReturn)
-
-        val indexInAvailable = availableCards.indexOfFirst { it.card.id == cardToReturn.id }
-        if (indexInAvailable != -1) {
-            availableCards[indexInAvailable] = availableCards[indexInAvailable].copy(isVisible = true)
+        // ИЗМЕНЕНО:
+        val newSelectedCards = uiState.selectedCards.dropLast(1)
+        val newAvailableCards = uiState.availableCards.map {
+            if (it.card.id == cardToReturn.id) it.copy(isVisible = true) else it
         }
+
+        uiState = uiState.copy(
+            selectedCards = newSelectedCards,
+            availableCards = newAvailableCards
+        )
     }
 
     private fun checkWinCondition() {
+        // ИЗМЕНЕНО:
         val didWin = when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
-                selectedCards.size == targetCards.size
+                uiState.selectedCards.size == targetCards.size
             }
             TaskType.FILL_IN_BLANK -> {
-                assemblyLine.none { it.isBlank && it.filledCard == null }
+                uiState.assemblyLine.none { it.isBlank && it.filledCard == null }
             }
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> false
         }
@@ -250,9 +269,7 @@ class CardViewModel @Inject constructor(
         Log.d(AppDebug.TAG, "loadLevel($levelId): CALLED")
 
         levelRepository.clearCache()
-
         val levelData = levelRepository.getLevelData(levelId)
-
         Log.d(AppDebug.TAG, "loadLevel($levelId): levelData is ${if (levelData == null) "NULL" else "OK (${levelData.size} sentences)"}")
 
         if (levelData == null) {
@@ -263,7 +280,10 @@ class CardViewModel @Inject constructor(
         this.currentLevelSentences = levelData
         this.currentLevelId = levelId
 
-        gameFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
+        // ИЗМЕНЕНО: Устанавливаем fontStyle в uiState
+        val newFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
+        uiState = uiState.copy(fontStyle = newFontStyle)
+        // ---
 
         val userLanguage = progressManager.getUserLanguage()
         wordDictionary = levelData
@@ -279,7 +299,6 @@ class CardViewModel @Inject constructor(
 
         val completedRounds = progressManager.getCompletedRounds(levelId)
         val archivedRounds = progressManager.getArchivedRounds(levelId)
-
         val totalRounds = levelData.size
 
         if ((completedRounds.size + archivedRounds.size) >= totalRounds && totalRounds > 0) {
@@ -294,6 +313,7 @@ class CardViewModel @Inject constructor(
 
         if (nextRoundToPlay != null) {
             this.currentRoundIndex = nextRoundToPlay
+            // ИЗМЕНЕНО: 'currentTaskType' теперь обновляется в ViewModel
             this.currentTaskType = currentLevelSentences.getOrNull(nextRoundToPlay)?.taskType ?: TaskType.UNKNOWN
         } else {
             isLevelFullyCompleted = true
@@ -315,7 +335,6 @@ class CardViewModel @Inject constructor(
         return false
     }
 
-    // --- ИЗМЕНЕНИЕ: ЛОГИКА АТОМАРНОГО ОБНОВЛЕНИЯ ---
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
@@ -325,24 +344,18 @@ class CardViewModel @Inject constructor(
         }
 
         val roundData = currentLevelSentences[roundIndex]
-
-        // --- ATOMIC UPDATE: Step 1 ---
-        // Создаем *новые* списки. Не трогаем старые.
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val newAvailableCards = mutableListOf<AvailableCardSlot>()
-
-        // --- ИСПРАВЛЕНИЕ: МЕНЯЕМ 'val' НА 'var' ---
         var newTargetCards: List<Card>
         var newTaskTitleResId: Int
         var newCurrentTaskPrompt: String?
         var newCurrentHebrewPrompt: String?
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        val newRoundIndex = roundIndex
+        // ИЗМЕНЕНО: 'newTaskType' теперь локальная
         val newTaskType = roundData.taskType
+        this.currentRoundIndex = roundIndex
+        this.currentTaskType = newTaskType // Обновляем статическое поле
 
-
-        // Сброс таймеров
         resetAndStartCounters()
         val userLanguage = progressManager.getUserLanguage()
 
@@ -408,7 +421,7 @@ class CardViewModel @Inject constructor(
                     }
                 )
             }
-
+            // ... (остальные when)
             TaskType.MATCHING_PAIRS -> {
                 Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
                 newTaskTitleResId = R.string.game_task_matching
@@ -426,22 +439,26 @@ class CardViewModel @Inject constructor(
 
         // --- ATOMIC UPDATE: Step 2 ---
         // Применяем ВСЕ изменения ОДНОВРЕМЕННО
-        // Это вызовет *только одну* recomposition
-        this.resultSnapshot = null
-        this.isRoundWon = false
-        this.selectedCards.clear() // Этот можно очистить, он используется только для ASSEMBLE
 
+        // 1. Обновляем статичные поля
         this.targetCards = newTargetCards
-        this.assemblyLine.clear()
-        this.assemblyLine.addAll(newAssemblyLine)
-        this.availableCards.clear()
-        this.availableCards.addAll(newAvailableCards)
-
         this.currentTaskPrompt = newCurrentTaskPrompt
         this.currentHebrewPrompt = newCurrentHebrewPrompt
         this.currentTaskTitleResId = newTaskTitleResId
-        this.currentTaskType = newTaskType
-        this.currentRoundIndex = newRoundIndex // Это должно быть в конце
+
+        // 2. Сбрасываем uiState до нового чистого состояния
+        uiState = uiState.copy(
+            isRoundWon = false,
+            errorCount = 0,
+            errorCardId = null,
+            selectedCards = emptyList(),
+            assemblyLine = newAssemblyLine,
+            availableCards = newAvailableCards,
+            resultSnapshot = null,
+            showResultSheet = false
+            // fontStyle НЕ сбрасываем, он сохраняется
+        )
+
 
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
         // ------------------------------
@@ -454,10 +471,10 @@ class CardViewModel @Inject constructor(
         }
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     private fun resetAndStartCounters() {
-        errorCount = 0
+        // ИЗМЕНЕНО: 'errorCount' сбрасывается в 'loadRound'
+        timeSpent = 0
         val startTime = System.currentTimeMillis()
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
@@ -470,7 +487,9 @@ class CardViewModel @Inject constructor(
 
     private fun endRound(result: GameResult) {
         timerJob?.cancel()
-        isRoundWon = true
+        // ИЗМЕНЕНО: 'isRoundWon' устанавливается в uiState
+        // isRoundWon = true (УДАЛЕНО)
+
         val userLanguage = progressManager.getUserLanguage()
         val currentSentence = currentLevelSentences.getOrNull(currentRoundIndex)
         val translation = when (userLanguage) {
@@ -488,27 +507,36 @@ class CardViewModel @Inject constructor(
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
+        // ИЗМЕНЕНО: Читаем 'selectedCards' и 'assemblyLine' из 'uiState'
         val completedCardsList = when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION -> selectedCards.toList()
-            TaskType.FILL_IN_BLANK -> assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
+            TaskType.ASSEMBLE_TRANSLATION -> uiState.selectedCards.toList()
+            TaskType.FILL_IN_BLANK -> uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> emptyList()
         }
 
-        resultSnapshot = RoundResultSnapshot(
+        // ИЗМЕНЕНО: Читаем 'errorCount' из 'uiState'
+        val newSnapshot = RoundResultSnapshot(
             gameResult = result,
             completedCards = completedCardsList,
-            errorCount = this.errorCount,
+            errorCount = this.uiState.errorCount, // ИЗМЕНЕНО
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
             hasMoreRounds = hasMoreRounds,
             audioFilename = if (result == GameResult.WIN) currentSentence?.audioFilename else null
         )
 
+        // ИЗМЕНЕНО: Обновляем uiState
+        uiState = uiState.copy(
+            isRoundWon = true,
+            resultSnapshot = newSnapshot
+        )
+
         viewModelScope.launch {
             delay(650)
-            showResultSheet = true
+            // ИЗМЕНЕНО:
+            uiState = uiState.copy(showResultSheet = true)
             if (result == GameResult.WIN) {
-                resultSnapshot?.audioFilename?.let { audioPlayer.play(it) }
+                newSnapshot.audioFilename?.let { audioPlayer.play(it) }
             }
         }
     }
@@ -526,13 +554,18 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
+    // --- ИЗМЕНЕНИЕ ДЛЯ БАГА С 'HomeScreen' ---
     fun proceedToNextRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
+        // --- ИСПРАВЛЕНИЕ "ГОНКИ": УЧИТЫВАЕМ РЕЗУЛЬТАТ ТЕКУЩЕЙ ОПЕРАЦИИ ---
+        val nowCompletedSet = completedRounds + currentRoundIndex
+        // ---------------------------------------------------
+
+        // Используем 'nowCompletedSet' вместо 'completedRounds'
         val uncompletedRounds = (0 until currentLevelSentences.size).filter {
-            !completedRounds.contains(it) && !archivedRounds.contains(it)
+            !nowCompletedSet.contains(it) && !archivedRounds.contains(it)
         }
 
         if (uncompletedRounds.isEmpty()) {
@@ -545,21 +578,23 @@ class CardViewModel @Inject constructor(
 
         val nextForwardRound = uncompletedRounds.firstOrNull { it > currentRoundIndex }
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
-
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
+        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                // Тип экрана меняется, НУЖНА навигация
                 val uniqueId = System.currentTimeMillis()
                 _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
             } else {
+                // Тип экрана тот же, отправляем событие навигации
                 _navigationEvent.send("game/${currentLevelId}/${nextRound}")
             }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
+    // --- ИЗМЕНЕНИЕ ДЛЯ БАГА С 'HomeScreen' ---
     fun skipToNextAvailableRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
@@ -571,23 +606,23 @@ class CardViewModel @Inject constructor(
         if (activeRounds.isEmpty()) return
 
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
-
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
-
         val nextRound = activeRounds[nextIndexInActiveList]
-
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
+        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
+                // Тип экрана меняется, НУЖНА навигация
                 val uniqueId = System.currentTimeMillis()
                 _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
             } else {
+                // Тип экрана тот же, отправляем событие навигации
                 _navigationEvent.send("game/${currentLevelId}/${nextRound}")
             }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()

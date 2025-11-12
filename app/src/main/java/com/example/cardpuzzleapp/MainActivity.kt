@@ -127,9 +127,17 @@ fun AppNavigation(
                         }
                     }
                 }
+
                 route.startsWith("round_track/") -> {
-                    navController.navigate(route)
+                    navController.navigate(route) {
+                        // Если мы переходим на экран "результатов" (паззл)
+                        // с игрового экрана, мы убираем игровой экран из стека.
+                        if (currentRoute?.startsWith("game") == true || currentRoute?.startsWith("matching_game") == true) {
+                            popUpTo(currentRoute) { inclusive = true }
+                        }
+                    }
                 }
+
                 route.startsWith("game/") -> {
                     Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
                     navController.navigate(route) {
@@ -145,10 +153,12 @@ fun AppNavigation(
 
     LaunchedEffect(Unit) {
         matchingViewModel.completionEvents.collectLatest { event ->
+            // --- ИЗМЕНЕНИЕ: УБРАЛИ popBackStack() ---
             if (event == "WIN") {
-                navController.popBackStack()
-                cardViewModel.proceedToNextRound()
+                // БЫЛО: navController.popBackStack()
+                cardViewModel.proceedToNextRound() // Теперь VM сам решает, куда идти
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             if (event == "TRACK") {
                 navController.navigate("round_track/${matchingViewModel.currentLevelId}")
             }

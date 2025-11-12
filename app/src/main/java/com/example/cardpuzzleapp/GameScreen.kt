@@ -71,17 +71,12 @@ import java.util.UUID
 
 private const val TAG = "UI_ROUND_DEBUG"
 
-// --- ИЗМЕНЕНИЕ: Data class теперь содержит ТОЛЬКО данные, определяющие раунд ---
+// --- ИЗМЕНЕНИЕ: УБРАЛИ 'isDataReady' ---
 @Immutable
 private data class GameRoundState(
     val roundIndex: Int,
-    val isDataReady: Boolean,
-
-    // --- Данные, которые не меняются во время раунда ---
     val taskPrompt: String?,
     val taskType: TaskType,
-    val assemblyLine: List<AssemblySlot>,
-    val availableCards: List<AvailableCardSlot>,
     val targetCards: List<Card>
 )
 // --- КОНЕЦ ИЗМЕНЕНИЯ ---
@@ -96,26 +91,22 @@ fun GameScreen(
     onSkipClick: () -> Unit,
     onTrackClick: (Int) -> Unit
 ) {
-    Log.i(AppDebug.TAG, ">>> GameScreen RECOMPOSING. routeRoundIndex: $routeRoundIndex, VM.currentRoundIndex: ${viewModel.currentRoundIndex}, Type: ${viewModel.currentTaskType}, Prompt: '${viewModel.currentTaskPrompt}', Cards: ${viewModel.availableCards.size}")
+    Log.i(AppDebug.TAG, ">>> GameScreen RECOMPOSING. routeRoundIndex: $routeRoundIndex, VM.currentRoundIndex: ${viewModel.currentRoundIndex}, Type: ${viewModel.currentTaskType}, Prompt: '${viewModel.currentTaskPrompt}'")
 
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
-    // --- ИЗМЕНЕНИЕ: Эти данные читаются НАПРЯМУЮ из VM ---
-    // Они НЕ будут в 'targetState' анимации
-    val isRoundWon = viewModel.isRoundWon
-    val selectedCards = viewModel.selectedCards.toList()
-    val errorCount = viewModel.errorCount
-    val errorCardId = viewModel.errorCardId
-    val fontStyle = viewModel.gameFontStyle
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    // --- Читаем ЕДИНЫЙ uiState ---
+    val uiState = viewModel.uiState
 
-    val snapshot = viewModel.resultSnapshot
-    val showResultSheet = viewModel.showResultSheet
+    // --- Все динамические переменные читаются из uiState ---
+    val isRoundWon = uiState.isRoundWon
+    val fontStyle = uiState.fontStyle
+    val snapshot = uiState.resultSnapshot
+    val showResultSheet = uiState.showResultSheet
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Эта логика остается
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
         viewModel.loadRound(routeRoundIndex)
@@ -146,10 +137,10 @@ fun GameScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = stringResource(id = viewModel.currentTaskTitleResId),
+                title = stringResource(id = viewModel.currentTaskTitleResId), // (Статично)
                 onBackClick = onHomeClick,
                 actions = {
-                    if (viewModel.currentLevelId == 1) {
+                    if (viewModel.currentLevelId == 1) { // (Статично)
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -165,7 +156,7 @@ fun GameScreen(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            FontToggleIcon(fontStyle = fontStyle) // (Используем локальную)
+                            FontToggleIcon(fontStyle = fontStyle) // (Из uiState)
                         }
                     }
                 }
@@ -183,10 +174,10 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
-                if (isRoundWon) { // (Используем локальную)
+                if (isRoundWon) { // (Из uiState)
                     Spacer(modifier = Modifier.size(48.dp))
                 } else {
-                    IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
+                    IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) { // (isLastRoundAvailable - статично)
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = stringResource(R.string.button_skip),
@@ -198,48 +189,24 @@ fun GameScreen(
             }
         }
     ) { paddingValues ->
-        // 'Scaffold' (TopBar, BottomBar) остается СТАТИЧНЫМ.
-        // Анимируется только 'Column' ВНУТРИ.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
 
-            val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
-            val animatedFontSize by animateFloatAsState(
-                targetValue = if (isRoundWon) 36f else initialFontSize.value,
-                animationSpec = tween(600),
-                label = "FontSizeAnimation"
-            )
-
-            val styleConfig = CardStyles.getStyle(fontStyle)
-
-            val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
-                TextStyle(
-                    fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                        FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                        FontVariation.width(styleConfig.fontWidth)
-                    ))),
-                    fontSize = animatedFontSize.sp,
-                    textAlign = TextAlign.Right,
-                    lineHeight = (animatedFontSize * 1.4f).sp,
-                    color = StickyNoteText,
-                    textDirection = TextDirection.Rtl
-                )
-            } else {
-                TextStyle(
-                    fontFamily = fontStyle.fontFamily,
-                    fontSize = animatedFontSize.sp,
-                    textAlign = TextAlign.Right,
-                    lineHeight = (animatedFontSize * 1.4f).sp,
-                    fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
-                    color = StickyNoteText,
-                    textDirection = TextDirection.Rtl
+            // --- ИЗМЕНЕНИЕ: УБРАЛИ 'isDataReady' ---
+            val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.targetCards) {
+                GameRoundState(
+                    roundIndex = viewModel.currentRoundIndex,
+                    taskPrompt = viewModel.currentTaskPrompt,
+                    taskType = viewModel.currentTaskType,
+                    targetCards = viewModel.targetCards.toList()
                 )
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-            // --- Анимация "КНИГИ" (как вы просили) ---
+            // Анимация "КНИГИ"
             val enterTransition = slideInHorizontally(
                 animationSpec = tween(500, delayMillis = 100),
                 initialOffsetX = { -it }
@@ -250,200 +217,27 @@ fun GameScreen(
                 targetOffsetX = { it }
             ) + fadeOut(animationSpec = tween(500))
 
-            // --- ИЗМЕНЕНИЕ: Анимация "книги" НЕ срабатывает при победе ---
-            val transition = remember(isRoundWon) {
-                if (isRoundWon) {
-                    // Если мы выиграли, просто "исчезаем" (Fade)
-                    fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
-                } else {
-                    // Если переход между раундами, используем "книгу"
-                    enterTransition togetherWith exitTransition
-                }
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-            // --- ИЗМЕНЕНИЕ: Создаем "ключ" (targetState) ---
-            // Собираем *только* данные, определяющие раунд
-            val isDataReady = viewModel.currentRoundIndex == routeRoundIndex && viewModel.currentTaskType != TaskType.MATCHING_PAIRS
-            val roundState = GameRoundState(
-                roundIndex = viewModel.currentRoundIndex,
-                isDataReady = isDataReady,
-
-                // --- Передаем данные, которые не меняются во время раунда ---
-                taskPrompt = viewModel.currentTaskPrompt,
-                taskType = viewModel.currentTaskType,
-                assemblyLine = viewModel.assemblyLine.toList(),
-                availableCards = viewModel.availableCards.toList(),
-                targetCards = viewModel.targetCards.toList()
-            )
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
-            // 5. Оборачиваем ВСЕ в AnimatedContent
             AnimatedContent(
                 targetState = roundState, // <-- Ключ теперь 'roundState'
                 label = "GameScreenAnimation",
                 transitionSpec = {
-                    // --- ИЗМЕНЕНИЕ: Проверяем, изменился ли ТОЛЬКО roundIndex ---
-                    // Это предотвращает "книжную" анимацию при победе
                     if (targetState.roundIndex != initialState.roundIndex) {
                         enterTransition togetherWith exitTransition
                     } else {
-                        // (Анимация победы)
                         fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
                     }
                 }
-            ) { state ->
-                // 'state' - это 'roundState' в момент анимации.
-                // Он содержит "снимок" данных раунда.
+            ) { staticState -> // 'staticState' - это 'roundState' в момент анимации.
 
-                if (!state.isDataReady) {
-                    // --- СПИННЕР ---
-                    Box(
-                        modifier = Modifier.fillMaxSize(), // (Занимает все место)
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    // --- ЭКРАН ИГРЫ (ДАННЫЕ ГОТОВЫ) ---
-                    Column(modifier = Modifier.fillMaxSize()) {
-
-                        // --- Верхняя "Желтая" часть (70%) ---
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(0.7f),
-                            color = StickyNoteYellow,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp)
-                                    .verticalScroll(rememberScrollState()),
-                            ) {
-                                // --- Русский текст (Подсказка) ---
-                                Text(
-                                    text = state.taskPrompt ?: "", // <-- (из state)
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        color = StickyNoteText.copy(alpha = 0.8f),
-                                        textAlign = TextAlign.Start
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 16.dp)
-                                )
-
-                                // --- Область для Иврита ---
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .defaultMinSize(minHeight = 100.dp)
-                                    ) {
-                                        // --- ИЗМЕНЕНИЕ: Читаем 'isRoundWon' НАПРЯМУЮ из VM ---
-                                        if (isRoundWon) {
-                                            // --- 1. ЭКРАН ПОБЕДЫ ---
-                                            val assembledText = remember(isRoundWon, state.taskType) {
-                                                if (state.taskType == TaskType.ASSEMBLE_TRANSLATION) {
-                                                    state.targetCards.joinToString(separator = "") { it.text }
-                                                } else {
-                                                    state.assemblyLine.joinToString(separator = "") { slot ->
-                                                        val filledCard = slot.filledCard
-                                                        filledCard?.text ?: slot.targetCard?.text ?: slot.text
-                                                    }
-                                                }
-                                            }
-                                            Text(
-                                                text = assembledText,
-                                                style = hebrewTextStyle, // (Используем локальный стиль)
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        } else {
-                                            // --- 2. ЭКРАН ИГРЫ ---
-                                            when (state.taskType) { // (из state)
-                                                TaskType.ASSEMBLE_TRANSLATION -> {
-                                                    Text(
-                                                        // --- ИЗМЕНЕНИЕ: Читаем 'selectedCards' НАПРЯМУЮ из VM ---
-                                                        text = selectedCards.joinToString(separator = "") { it.text },
-                                                        style = hebrewTextStyle, // (Используем локальный стиль)
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clickable(
-                                                                interactionSource = remember { MutableInteractionSource() },
-                                                                indication = null,
-                                                                onClick = { viewModel.returnLastSelectedCard() }
-                                                            )
-                                                    )
-                                                }
-                                                TaskType.FILL_IN_BLANK -> {
-                                                    FlowRow(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                                    ) {
-                                                        state.assemblyLine.forEach { slot -> // (из state)
-                                                            key(slot.id) {
-                                                                AssemblySlotItem(
-                                                                    slot = slot,
-                                                                    textStyle = hebrewTextStyle, // (Используем локальный стиль)
-                                                                    fontStyle = fontStyle, // (Используем локальный)
-                                                                    taskType = state.taskType, // (из state)
-                                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) }
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
-                                            }
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                            } // --- Конец верхней части (Column 0.7) ---
-                        } // --- Конец Surface (0.7) ---
-
-                        // --- Нижний "Банк" карт (30%) ---
-                        if (!isRoundWon) { // (Используем локальный)
-                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                                FlowRow(
-                                    modifier = Modifier
-                                        .weight(0.3f)
-                                        .fillMaxSize()
-                                        .background(Color.White)
-                                        .verticalScroll(rememberScrollState())
-                                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    state.availableCards.forEach { slot -> // (из state)
-                                        key(slot.id) {
-                                            Shakeable(
-                                                trigger = errorCount, // (Используем локальный)
-                                                errorCardId = errorCardId, // (Используем локальный)
-                                                currentCardId = slot.card.id
-                                            ) { shakeModifier ->
-                                                SelectableCard(
-                                                    modifier = shakeModifier,
-                                                    card = slot.card,
-                                                    onSelect = {
-                                                        viewModel.selectCard(slot)
-                                                    },
-                                                    fontStyle = fontStyle, // (Используем локальный)
-                                                    taskType = state.taskType, // (из state)
-                                                    isAssembledCard = false,
-                                                    isVisible = slot.isVisible
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } // --- Конец IF (!isRoundWon) ---
-                    } // --- Конец Column (внутри AnimatedContent) ---
-                } // --- Конец IF (isDataReady) ---
-            } // --- Конец AnimatedContent ---
-        } // --- Конец Column (в Scaffold) ---
-    } // --- Конец Scaffold ---
+                GameScreenLayout(
+                    staticState = staticState,
+                    dynamicState = uiState, // <-- Передаем актуальный uiState
+                    viewModel = viewModel // <-- Передаем VM для лямбд
+                )
+            }
+        }
+    }
 
     if (showResultSheet && snapshot != null) {
         ModalBottomSheet(
@@ -453,7 +247,7 @@ fun GameScreen(
             dragHandle = null
         ) {
             ResultSheetContent(
-                snapshot = snapshot,
+                snapshot = snapshot, // (snapshot из uiState)
                 onContinueClick = {
                     coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                         viewModel.hideResultSheet()
@@ -470,4 +264,189 @@ fun GameScreen(
             )
         }
     }
+}
+
+
+/**
+ * Этот Composable содержит ВСЮ верстку, которая должна меняться
+ */
+@OptIn(ExperimentalTextApi::class, ExperimentalLayoutApi::class)
+@Composable
+private fun GameScreenLayout(
+    staticState: GameRoundState,
+    dynamicState: CardViewModel.GameUiState,
+    viewModel: CardViewModel // Для вызова функций
+) {
+
+    // --- ИЗМЕНЕНИЕ: УБРАЛИ 'if (!staticState.isDataReady)' И СПИННЕР ---
+
+    // (Код для hebrewTextStyle и animatedFontSize)
+    val fontStyle = dynamicState.fontStyle
+    val isRoundWon = dynamicState.isRoundWon
+
+    val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
+    val animatedFontSize by animateFloatAsState(
+        targetValue = if (isRoundWon) 36f else initialFontSize.value,
+        animationSpec = tween(600),
+        label = "FontSizeAnimation"
+    )
+    val styleConfig = CardStyles.getStyle(fontStyle)
+    val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
+        TextStyle(
+            fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                FontVariation.width(styleConfig.fontWidth)
+            ))),
+            fontSize = animatedFontSize.sp,
+            textAlign = TextAlign.Right,
+            lineHeight = (animatedFontSize * 1.4f).sp,
+            color = StickyNoteText,
+            textDirection = TextDirection.Rtl
+        )
+    } else {
+        TextStyle(
+            fontFamily = fontStyle.fontFamily,
+            fontSize = animatedFontSize.sp,
+            textAlign = TextAlign.Right,
+            lineHeight = (animatedFontSize * 1.4f).sp,
+            fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
+            color = StickyNoteText,
+            textDirection = TextDirection.Rtl
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // --- Верхняя "Желтая" часть (70%) ---
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.7f),
+            color = StickyNoteYellow,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                // --- Русский текст (Подсказка) ---
+                Text(
+                    text = staticState.taskPrompt ?: "", // <-- (из staticState)
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = StickyNoteText.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Start
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+
+                // --- Область для Иврита ---
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 100.dp)
+                    ) {
+                        if (isRoundWon) { // (из dynamicState)
+                            // --- 1. ЭКРАН ПОБЕДЫ ---
+                            val assembledText = remember(isRoundWon, staticState.taskType) {
+                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION) {
+                                    staticState.targetCards.joinToString(separator = "") { it.text } // (из staticState)
+                                } else {
+                                    // (из dynamicState)
+                                    dynamicState.assemblyLine.joinToString(separator = "") { slot ->
+                                        val filledCard = slot.filledCard
+                                        filledCard?.text ?: slot.targetCard?.text ?: slot.text
+                                    }
+                                }
+                            }
+                            Text(
+                                text = assembledText,
+                                style = hebrewTextStyle,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            // --- 2. ЭКРАН ИГРЫ ---
+                            when (staticState.taskType) { // (из staticState)
+                                TaskType.ASSEMBLE_TRANSLATION -> {
+                                    Text(
+                                        text = dynamicState.selectedCards.joinToString(separator = "") { it.text }, // (из dynamicState)
+                                        style = hebrewTextStyle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = { viewModel.returnLastSelectedCard() } // (вызов VM)
+                                            )
+                                    )
+                                }
+                                TaskType.FILL_IN_BLANK -> {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        dynamicState.assemblyLine.forEach { slot -> // (из dynamicState)
+                                            key(slot.id) {
+                                                AssemblySlotItem(
+                                                    slot = slot,
+                                                    textStyle = hebrewTextStyle,
+                                                    fontStyle = fontStyle, // (из dynamicState)
+                                                    taskType = staticState.taskType, // (из staticState)
+                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) } // (вызов VM)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            } // --- Конец верхней части (Column 0.7) ---
+        } // --- Конец Surface (0.7) ---
+
+        // --- Нижний "Банк" карт (30%) ---
+        if (!isRoundWon) { // (из dynamicState)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                FlowRow(
+                    modifier = Modifier
+                        .weight(0.3f)
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    dynamicState.availableCards.forEach { slot -> // (из dynamicState)
+                        key(slot.id) {
+                            Shakeable(
+                                trigger = dynamicState.errorCount, // (из dynamicState)
+                                errorCardId = dynamicState.errorCardId, // (из dynamicState)
+                                currentCardId = slot.card.id
+                            ) { shakeModifier ->
+                                SelectableCard(
+                                    modifier = shakeModifier,
+                                    card = slot.card,
+                                    onSelect = {
+                                        viewModel.selectCard(slot) // (вызов VM)
+                                    },
+                                    fontStyle = fontStyle, // (из dynamicState)
+                                    taskType = staticState.taskType, // (из staticState)
+                                    isAssembledCard = false,
+                                    isVisible = slot.isVisible
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } // --- Конец IF (!isRoundWon) ---
+    } // --- Конец Column
+
+    // --- КОНЕЦ ИЗМЕНЕНИЯ (Убрали `else` и `if`) ---
 }
