@@ -32,7 +32,8 @@ data class MatchItem(
 // ---------------------------------
 
 // --- ЛОГ-ТЕГ ДЛЯ БАГА ---
-private const val TAG = "MATCHING_CARDS_DEBUG"
+//private const val TAG = "MATCHING_CARDS_DEBUG"
+private const val TAG = AppDebug.TAG
 // -------------------------
 
 @HiltViewModel

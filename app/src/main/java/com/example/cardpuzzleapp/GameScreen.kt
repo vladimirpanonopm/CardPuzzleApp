@@ -90,17 +90,19 @@ fun GameScreen(
     val showResultSheet = viewModel.showResultSheet
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // --- ИСПРАВЛЕНИЕ: Загружаем данные только при смене routeRoundIndex ---
+    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
 
         // --- ИСПРАВЛЕНИЕ: Сообщаем CardViewModel, что мы - активный раунд ---
-        viewModel.updateCurrentRoundIndex(routeRoundIndex)
+        // (Этот вызов был в старой версии, но `loadRound` теперь делает то же самое,
+        // обновляя `currentRoundIndex` в конце)
+        // viewModel.updateCurrentRoundIndex(routeRoundIndex) // <-- Можно удалить
         // ----------------------------------------------------------------
 
         viewModel.loadRound(routeRoundIndex)
     }
-    // ------------------------------------------------------------------
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collectLatest { route ->
@@ -219,7 +221,7 @@ fun GameScreen(
             }
 
 
-            // --- ИСПРАВЛЕНИЕ V13: Возвращаем спиннер ---
+            // --- ИЗМЕНЕНИЕ: ЛОГИКА isDataReady ВОЗВРАЩЕНА ---
             val isDataReady = viewModel.currentRoundIndex == routeRoundIndex && viewModel.currentTaskType != TaskType.MATCHING_PAIRS
 
             if (isRoundWon) {

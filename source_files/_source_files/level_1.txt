@@ -29,20 +29,23 @@ HEBREW_DISTRACTORS:
 TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַתְ?
-אֲנִי אַנָה. מִי אַתְ?
+אֲנִי אַנָה.
+מִי אַתְ?
 אֲנִי נִינָה.
 
 # 2. Текст для перевода (LTR)
 RUSSIAN:
 Как тебя зовут?
-Я Анна. Как тебя зовут?
+Я Анна.
+Как тебя зовут?
 Я Нина.
 
 # 5. Список голосов (100% LTR)
 # Порядок = порядок строк в HEBREW
 VOICES:
-female_a
-female_c
+female_a,500
+female_c,500
+female_c,500
 female_a
 
 ===
@@ -51,18 +54,21 @@ female_a
 TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 מִי אַתָה?
-אֲנִי נַתִי. מִי אַתָה?
+אֲנִי נַתִי.
+מִי אַתָה?
 אֲנִי מַתִי.
 RUSSIAN:
 Как тебя зовут?
-Я Нати. Как тебя зовут?
+Я Нати.
+Как тебя зовут?
 Я Мати.
 
 
 # Порядок = порядок строк в HEBREW
 VOICES:
-male_b
-male_d
+male_b,500
+male_d,500
+male_d,500
 male_b
 
 ===
@@ -81,9 +87,9 @@ RUSSIAN:
 
 # Порядок = порядок строк в HEBREW
 VOICES:
-male_b
-female_c
-male_b
+male_b,500
+female_c,500
+male_b,500
 female_c
 ===
 # --- Карточка 4 ---
@@ -96,7 +102,7 @@ RUSSIAN:
 Тами это мама.
 
 VOICES:
-male_b
+male_b,800
 male_d
 ===
 # --- Карточка 5 ---
@@ -113,9 +119,9 @@ RUSSIAN:
 Я учительница.
 
 VOICES:
-female_a
-female_c
-female_a
+female_a,500
+female_c,500
+female_a,500
 female_c
 ===
 # --- Карточка 6 ---
@@ -128,23 +134,26 @@ RUSSIAN:
 Я учитель.
 
 VOICES:
-male_b
+male_b,500
 male_d
 ===
 # --- Карточка 7 ---
 TASK: ASSEMBLE_TRANSLATION
 HEBREW:
 לִילִי מוֹרָה?
-לִילִי מוֹרָה. אֶלָה מוֹרָה?
+לִילִי מוֹרָה.
+אֶלָה מוֹרָה?
 אֶלָה לֹא מוֹרָה.
 RUSSIAN:
 Лили учительница?
-Лили учительница. Эла учительница?
+Лили учительница.
+Эла учительница?
 Эла не учительница.
 
 VOICES:
-female_a
-female_c
+female_a,500
+female_c,500
+female_c,500
 female_a
 ===
 TASK: FILL_IN_BLANK

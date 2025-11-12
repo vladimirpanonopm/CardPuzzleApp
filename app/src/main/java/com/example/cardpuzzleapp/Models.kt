@@ -60,29 +60,9 @@ data class HebrewLetter(
 )
 
 
-// --- ИЗМЕНЕНИЕ: ОБНОВЛЕННЫЙ LEVELENTRY ДЛЯ ПАРСИНГА JSON ---
+// --- КЛАСС 'LevelEntry' ПОЛНОСТЬЮ УДАЛЕН ---
+// ... (Код LevelEntry был здесь) ...
 
-@OptIn(InternalSerializationApi::class)
-@Serializable
-data class LevelEntry(
-    val hebrew_index: Int,
-    val russian_translation: String,
-    val english_translation: String? = null,
-    val french_translation: String? = null,
-    val spanish_translation: String? = null,
-    val audioFilename: String?, // <-- (Сделано Nullable)
-
-    val taskType: TaskType = TaskType.UNKNOWN,
-
-    val voice: String? = null,
-
-    val task_correct_cards: List<String>? = null,
-    val task_distractor_cards: List<String>? = null,
-
-    // --- ИСПРАВЛЕНИЕ: Добавлено недостающее поле ---
-    val task_pairs: List<List<String>>? = null
-    // ------------------------------------------
-)
 
 // --- Класс-обертка для "Эффекта Duolingo" ---
 data class AvailableCardSlot(

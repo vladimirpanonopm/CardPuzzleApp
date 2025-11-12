@@ -237,10 +237,18 @@ class CardViewModel @Inject constructor(
     }
 
     suspend fun loadLevel(levelId: Int): Boolean {
+        Log.d(AppDebug.TAG, "loadLevel($levelId): CALLED")
 
         levelRepository.clearCache()
 
-        val levelData = levelRepository.getLevelData(levelId) ?: return false
+        val levelData = levelRepository.getLevelData(levelId)
+
+        Log.d(AppDebug.TAG, "loadLevel($levelId): levelData is ${if (levelData == null) "NULL" else "OK (${levelData.size} sentences)"}")
+
+        if (levelData == null) {
+            Log.e(AppDebug.TAG, "loadLevel($levelId): FAILED. levelData is null.")
+            return false
+        }
 
         this.currentLevelSentences = levelData
         this.currentLevelId = levelId
@@ -272,6 +280,8 @@ class CardViewModel @Inject constructor(
         isLevelFullyCompleted = false
         val nextRoundToPlay = (0 until totalRounds).firstOrNull { !completedRounds.contains(it) && !archivedRounds.contains(it) }
 
+        Log.d(AppDebug.TAG, "loadLevel($levelId): nextRoundToPlay = $nextRoundToPlay. (isLevelFullyCompleted = $isLevelFullyCompleted)")
+
         if (nextRoundToPlay != null) {
             this.currentRoundIndex = nextRoundToPlay
             this.currentTaskType = currentLevelSentences.getOrNull(nextRoundToPlay)?.taskType ?: TaskType.UNKNOWN
@@ -284,8 +294,10 @@ class CardViewModel @Inject constructor(
         viewModelScope.launch {
             if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
                 val uniqueId = System.currentTimeMillis()
+                Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: 'matching_game/${currentLevelId}/${currentRoundIndex}?uid=$uniqueId'")
                 _navigationEvent.send("matching_game/${currentLevelId}/${currentRoundIndex}?uid=$uniqueId")
             } else {
+                Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: 'game/${currentLevelId}/${currentRoundIndex}'")
                 _navigationEvent.send("game/${currentLevelId}/${currentRoundIndex}")
             }
         }
@@ -293,120 +305,146 @@ class CardViewModel @Inject constructor(
         return false
     }
 
+    // --- ИЗМЕНЕНИЕ: ЛОГИКА АТОМАРНОГО ОБНОВЛЕНИЯ ---
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
-        resultSnapshot = null
-        isRoundWon = false
+        if (roundIndex >= currentLevelSentences.size) {
+            Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. Index out of bounds.")
+            return
+        }
 
-        assemblyLine.clear()
-        selectedCards.clear()
-        availableCards.clear()
-        currentTaskPrompt = ""
-        currentHebrewPrompt = ""
+        val roundData = currentLevelSentences[roundIndex]
 
-        if (roundIndex < currentLevelSentences.size) {
+        // --- ATOMIC UPDATE: Step 1 ---
+        // Создаем *новые* списки. Не трогаем старые.
+        val newAssemblyLine = mutableListOf<AssemblySlot>()
+        val newAvailableCards = mutableListOf<AvailableCardSlot>()
 
-            val roundData = currentLevelSentences[roundIndex]
+        // --- ИСПРАВЛЕНИЕ: МЕНЯЕМ 'val' НА 'var' ---
+        var newTargetCards: List<Card>
+        var newTaskTitleResId: Int
+        var newCurrentTaskPrompt: String?
+        var newCurrentHebrewPrompt: String?
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-            this.currentRoundIndex = roundIndex
-            this.currentTaskType = roundData.taskType
+        val newRoundIndex = roundIndex
+        val newTaskType = roundData.taskType
 
-            if (roundData.taskType == TaskType.MATCHING_PAIRS) {
-                Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
-                currentTaskTitleResId = R.string.game_task_matching
-                return
+
+        // Сброс таймеров
+        resetAndStartCounters()
+        val userLanguage = progressManager.getUserLanguage()
+
+        newCurrentTaskPrompt = when (userLanguage) {
+            "en" -> roundData.english_translation
+            "fr" -> roundData.french_translation
+            "es" -> roundData.spanish_translation
+            else -> roundData.russian_translation
+        }
+
+        when (roundData.taskType) {
+            TaskType.ASSEMBLE_TRANSLATION -> {
+                newTaskTitleResId = R.string.game_task_assemble
+                newCurrentHebrewPrompt = ""
+                newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
+
+                newAvailableCards.addAll(
+                    newTargetCards.shuffled().map {
+                        AvailableCardSlot(card = it, isVisible = true)
+                    }
+                )
             }
 
-            Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - Это ${roundData.taskType}. Загрузка...")
+            TaskType.FILL_IN_BLANK -> {
+                newTaskTitleResId = R.string.game_task_fill_in_blank
+                newCurrentHebrewPrompt = roundData.hebrew
 
-            resetAndStartCounters()
+                val correctCards = roundData.task_correct_cards?.map {
+                    Card(text = it.trim(), translation = "")
+                } ?: emptyList()
+                newTargetCards = correctCards
 
-            val userLanguage = progressManager.getUserLanguage()
+                val hebrewPrompt = roundData.hebrew
+                val promptParts = hebrewPrompt.split("___")
+                var correctCardIndex = 0
 
-            currentTaskPrompt = when (userLanguage) {
-                "en" -> roundData.english_translation
-                "fr" -> roundData.french_translation
-                "es" -> roundData.spanish_translation
-                else -> roundData.russian_translation
-            }
-
-            when (roundData.taskType) {
-
-                TaskType.ASSEMBLE_TRANSLATION -> {
-                    currentTaskTitleResId = R.string.game_task_assemble
-                    currentHebrewPrompt = ""
-                    this.targetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
-
-                    availableCards.addAll(
-                        targetCards.shuffled().map {
-                            AvailableCardSlot(card = it, isVisible = true)
-                        }
-                    )
-                }
-
-                TaskType.FILL_IN_BLANK -> {
-                    currentTaskTitleResId = R.string.game_task_fill_in_blank
-                    currentHebrewPrompt = roundData.hebrew
-
-                    val correctCards = roundData.task_correct_cards?.map {
-                        Card(text = it.trim(), translation = "")
-                    } ?: emptyList()
-                    this.targetCards = correctCards
-
-                    val hebrewPrompt = roundData.hebrew
-                    val promptParts = hebrewPrompt.split("___")
-                    var correctCardIndex = 0
-
-                    promptParts.forEachIndexed { index, part ->
-                        if (part.isNotEmpty()) {
-                            assemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
-                        }
-
-                        if (index < promptParts.size - 1) {
-                            if (correctCardIndex < correctCards.size) {
-                                assemblyLine.add(AssemblySlot(
-                                    text = "___",
-                                    isBlank = true,
-                                    filledCard = null,
-                                    targetCard = correctCards[correctCardIndex]
-                                ))
-                                correctCardIndex++
-                            } else {
-                                Log.e("ViewModel", "Mismatch in FILL_IN_BLANK: More '___' than 'task_correct_cards'.")
-                            }
+                promptParts.forEachIndexed { index, part ->
+                    if (part.isNotEmpty()) {
+                        newAssemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
+                    }
+                    if (index < promptParts.size - 1) {
+                        if (correctCardIndex < correctCards.size) {
+                            newAssemblyLine.add(AssemblySlot(
+                                text = "___",
+                                isBlank = true,
+                                filledCard = null,
+                                targetCard = correctCards[correctCardIndex]
+                            ))
+                            correctCardIndex++
+                        } else {
+                            Log.e("ViewModel", "Mismatch in FILL_IN_BLANK: More '___' than 'task_correct_cards'.")
                         }
                     }
-
-                    val distractors = roundData.task_distractor_cards?.map {
-                        Card(text = it.trim(), translation = "")
-                    } ?: emptyList()
-
-                    availableCards.addAll(
-                        (correctCards + distractors).shuffled().map {
-                            AvailableCardSlot(card = it, isVisible = true)
-                        }
-                    )
                 }
 
-                TaskType.MATCHING_PAIRS -> { } // Недостижимо
+                val distractors = roundData.task_distractor_cards?.map {
+                    Card(text = it.trim(), translation = "")
+                } ?: emptyList()
 
-                TaskType.UNKNOWN -> {
-                    currentTaskTitleResId = R.string.game_task_unknown
-                    currentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
-                    currentHebrewPrompt = ""
-                    this.targetCards = emptyList()
-                }
+                newAvailableCards.addAll(
+                    (correctCards + distractors).shuffled().map {
+                        AvailableCardSlot(card = it, isVisible = true)
+                    }
+                )
             }
 
-            val allCompleted = progressManager.getCompletedRounds(currentLevelId)
-            val allArchived = progressManager.getArchivedRounds(currentLevelId)
-            val uncompletedRounds = currentLevelSentences.indices.filter {
-                !allCompleted.contains(it) && !allArchived.contains(it)
+            TaskType.MATCHING_PAIRS -> {
+                Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
+                newTaskTitleResId = R.string.game_task_matching
+                newCurrentHebrewPrompt = ""
+                newTargetCards = emptyList()
             }
-            isLastRoundAvailable = uncompletedRounds.size <= 1
+
+            TaskType.UNKNOWN -> {
+                newTaskTitleResId = R.string.game_task_unknown
+                newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
+                newCurrentHebrewPrompt = ""
+                newTargetCards = emptyList()
+            }
         }
+
+        // --- ATOMIC UPDATE: Step 2 ---
+        // Применяем ВСЕ изменения ОДНОВРЕМЕННО
+        // Это вызовет *только одну* recomposition
+        this.resultSnapshot = null
+        this.isRoundWon = false
+        this.selectedCards.clear() // Этот можно очистить, он используется только для ASSEMBLE
+
+        this.targetCards = newTargetCards
+        this.assemblyLine.clear()
+        this.assemblyLine.addAll(newAssemblyLine)
+        this.availableCards.clear()
+        this.availableCards.addAll(newAvailableCards)
+
+        this.currentTaskPrompt = newCurrentTaskPrompt
+        this.currentHebrewPrompt = newCurrentHebrewPrompt
+        this.currentTaskTitleResId = newTaskTitleResId
+        this.currentTaskType = newTaskType
+        this.currentRoundIndex = newRoundIndex // Это должно быть в конце
+
+        Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
+        // ------------------------------
+
+
+        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
+        val allArchived = progressManager.getArchivedRounds(currentLevelId)
+        val uncompletedRounds = currentLevelSentences.indices.filter {
+            !allCompleted.contains(it) && !allArchived.contains(it)
+        }
+        isLastRoundAvailable = uncompletedRounds.size <= 1
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     private fun resetAndStartCounters() {
         errorCount = 0
@@ -478,6 +516,7 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
     fun proceedToNextRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
@@ -499,12 +538,6 @@ class CardViewModel @Inject constructor(
 
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
-        // --- ИЗМЕНЕНИЕ V15: УДАЛЕНА ПРЕДЗАГРУЗКА ---
-        // if (nextRoundData?.taskType != TaskType.MATCHING_PAIRS) {
-        //     loadRound(nextRound)
-        // }
-        // ----------------------------------------
-
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
                 val uniqueId = System.currentTimeMillis()
@@ -514,7 +547,9 @@ class CardViewModel @Inject constructor(
             }
         }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
+    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
     fun skipToNextAvailableRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
@@ -533,12 +568,6 @@ class CardViewModel @Inject constructor(
 
         val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
-        // --- ИЗМЕНЕНИЕ V15: УДАЛЕНА ПРЕДЗАГРУЗКА ---
-        // if (nextRoundData?.taskType != TaskType.MATCHING_PAIRS) {
-        //     loadRound(nextRound)
-        // }
-        // ----------------------------------------
-
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
                 val uniqueId = System.currentTimeMillis()
@@ -548,6 +577,7 @@ class CardViewModel @Inject constructor(
             }
         }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()
