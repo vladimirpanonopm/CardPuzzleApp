@@ -71,16 +71,16 @@ class MatchingViewModel @Inject constructor(
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
 
-    private val _completionEventChannel = Channel<String>()
+    // --- ИЗМЕНЕНИЕ: Тип Канала изменен ---
+    private val _completionEventChannel = Channel<MatchingCompletionEvent>()
     val completionEvents = _completionEventChannel.receiveAsFlow()
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     // --- Состояние текущего раунда ---
     var currentLevelId: Int by mutableStateOf(1)
         private set
     var currentRoundIndex: Int by mutableStateOf(0)
         private set
-
-    // allLevelSentences УДАЛЕНО. Нам больше не нужно хранить здесь весь уровень.
 
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
         Log.d(TAG, "MatchingViewModel: loadLevelAndRound($levelId, $roundIndex, uid=$uid) CALLED.")
@@ -111,37 +111,26 @@ class MatchingViewModel @Inject constructor(
         currentLoadJob = loadRound(uid)
     }
 
-    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
     private fun loadRound(uid: Long): Job {
         Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (АСИНХРОННАЯ ЗАГРУЗКА) CALLED")
 
         return viewModelScope.launch {
             Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (coroutine started)")
 
-            // 1. УБИРАЕМ clearCache()
-            // levelRepository.clearCache() // <-- УДАЛЕНО
-
-            // 2. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ
             levelRepository.loadLevelDataIfNeeded(currentLevelId)
 
             ensureActive()
 
-            // 3. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER (для получения данных раунда)
             val levelData = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-
-            // 4. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER (для проверки "isLastRoundAvailable")
             val allLevelSentences = levelRepository.getSentencesForLevel(currentLevelId)
-
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
             if (allLevelSentences.isEmpty()) {
                 Log.e(TAG, "MatchingViewModel: ОШИБКА! allLevelSentences == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
-                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
+                loadedUid = uid
                 return@launch
             }
-            // this.allLevelSentences = allData (УДАЛЕНО)
             Log.d(TAG, "MatchingViewModel: allData.size = ${allLevelSentences.size}")
 
             ensureActive()
@@ -150,7 +139,7 @@ class MatchingViewModel @Inject constructor(
                 Log.e(TAG, "MatchingViewModel: ОШИБКА! levelData == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
-                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
+                loadedUid = uid
                 return@launch
             }
 
@@ -158,7 +147,7 @@ class MatchingViewModel @Inject constructor(
                 currentTaskTitleResId = R.string.game_task_unknown
                 Log.e(TAG, "MatchingViewModel: ОШИБКА! 'MATCHING_PAIRS' не найдено.")
                 isLoading = false
-                loadedUid = uid // Помечаем, что загрузка (провальная) завершена
+                loadedUid = uid
                 return@launch
             }
 
@@ -183,7 +172,6 @@ class MatchingViewModel @Inject constructor(
             translationCards = newTranslationList.shuffled()
             Log.d(TAG, "MatchingViewModel: (АСИНХРОННО) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
 
-            // Используем 'allLevelSentences', которые мы загрузили
             updateLastRoundAvailability(allLevelSentences)
 
             Log.d(TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
@@ -193,12 +181,8 @@ class MatchingViewModel @Inject constructor(
             Log.d(TAG, "loadRound: (АСИНХРОННО) ЗАВЕРШЕНО. isLoading = false, loadedUid = $uid. UI должен обновиться.")
         }
     }
-    // ----------------------------------------------------
 
-    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
-    // Метод теперь принимает 'allLevelSentences' как параметр
     private fun updateLastRoundAvailability(allLevelSentences: List<SentenceData>) {
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val uncompletedRounds = allLevelSentences.indices.filter {
@@ -306,12 +290,13 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
+    // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
     fun proceedToNextRound() {
         isGameWon = false
         resultSnapshot = null
         showResultSheet = false
         viewModelScope.launch {
-            _completionEventChannel.send("WIN")
+            _completionEventChannel.send(MatchingCompletionEvent.Win)
         }
     }
 
@@ -321,9 +306,10 @@ class MatchingViewModel @Inject constructor(
 
     fun onTrackClick() {
         viewModelScope.launch {
-            _completionEventChannel.send("TRACK")
+            _completionEventChannel.send(MatchingCompletionEvent.Track)
         }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun showResultSheet() {
         Log.d(TAG, "showResultSheet() CALLED (Кнопка 'Глаз')")
@@ -337,11 +323,13 @@ class MatchingViewModel @Inject constructor(
         Log.d(TAG, "showResultSheet = $showResultSheet")
     }
 
+    // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
     fun skipToNextAvailableRound() {
         viewModelScope.launch {
-            _completionEventChannel.send("SKIP")
+            _completionEventChannel.send(MatchingCompletionEvent.Skip)
         }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()

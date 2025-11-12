@@ -86,13 +86,22 @@ class CardViewModel @Inject constructor(
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
     private var timerJob: Job? = null
-    private val _navigationEvent = Channel<String>()
+
+    // --- ИЗМЕНЕНИЕ: Тип Канала изменен ---
+    private val _navigationEvent = Channel<NavigationEvent>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun updateCurrentRoundIndex(index: Int) {
         this.currentRoundIndex = index
         this.currentTaskType = currentLevelSentences.getOrNull(index)?.taskType ?: TaskType.UNKNOWN
     }
+
+    // --- ИЗМЕНЕНИЕ: Новый метод-геттер ---
+    fun getTaskTypeForRound(roundIndex: Int): TaskType {
+        return currentLevelSentences.getOrNull(roundIndex)?.taskType ?: TaskType.UNKNOWN
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun loadLevelCount() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -100,11 +109,9 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ШАГ 3: Обновление методов для работы с uiState ---
     fun toggleGameFontStyle() {
         if (currentLevelId == 1) {
             val newStyle = if (uiState.fontStyle == FontStyle.CURSIVE) FontStyle.REGULAR else FontStyle.CURSIVE
-            // ИЗМЕНЕНО:
             uiState = uiState.copy(fontStyle = newStyle)
             progressManager.saveLevel1FontStyle(newStyle)
         }
@@ -115,12 +122,10 @@ class CardViewModel @Inject constructor(
     }
 
     fun hideResultSheet() {
-        // ИЗМЕНЕНО:
         uiState = uiState.copy(showResultSheet = false)
     }
 
     fun showResultSheet() {
-        // ИЗМЕНЕНО:
         if (uiState.isRoundWon) {
             uiState = uiState.copy(showResultSheet = true)
         }
@@ -136,15 +141,12 @@ class CardViewModel @Inject constructor(
         var isCorrect = false
         var targetSlotIndex = -1
 
-        // ИЗМЕНЕНО: Читаем 'currentTaskType' из ViewModel (он статичен для раунда)
         when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
-                // ИЗМЕНЕНО: Читаем 'selectedCards' из 'uiState'
                 val nextExpectedCard = targetCards.getOrNull(uiState.selectedCards.size)
                 isCorrect = (nextExpectedCard != null && card.text.trim() == nextExpectedCard.text.trim())
             }
             TaskType.FILL_IN_BLANK -> {
-                // ИЗМЕНЕНО: Читаем 'assemblyLine' из 'uiState'
                 targetSlotIndex = uiState.assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
                 if (targetSlotIndex != -1) {
                     val targetSlot = uiState.assemblyLine[targetSlotIndex]
@@ -161,7 +163,6 @@ class CardViewModel @Inject constructor(
                 _hapticEventChannel.send(HapticEvent.Success)
             }
 
-            // ИЗМЕНЕНО: Обновляем списки внутри uiState
             val newAvailableCards = uiState.availableCards.map {
                 if (it.id == slot.id) it.copy(isVisible = false) else it
             }
@@ -185,7 +186,6 @@ class CardViewModel @Inject constructor(
                     )
                 }
                 TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
-                    // На случай, если нужно обновить только availableCards
                     uiState = uiState.copy(availableCards = newAvailableCards)
                 }
             }
@@ -196,7 +196,6 @@ class CardViewModel @Inject constructor(
             viewModelScope.launch {
                 _hapticEventChannel.send(HapticEvent.Failure)
             }
-            // ИЗМЕНЕНО:
             uiState = uiState.copy(
                 errorCount = uiState.errorCount + 1,
                 errorCardId = card.id
@@ -207,13 +206,11 @@ class CardViewModel @Inject constructor(
     }
 
     fun returnCardFromSlot(slot: AssemblySlot) {
-        // ИЗМЕНЕНО:
         if (uiState.isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return
 
         val card = slot.filledCard ?: return
         ttsPlayer.speak(card.text.trim())
 
-        // ИЗМЕНЕНО:
         val newAssemblyLine = uiState.assemblyLine.map {
             if (it.id == slot.id) it.copy(filledCard = null) else it
         }
@@ -228,13 +225,11 @@ class CardViewModel @Inject constructor(
     }
 
     fun returnLastSelectedCard() {
-        // ИЗМЕНЕНО:
         if (uiState.isRoundWon || currentTaskType != TaskType.ASSEMBLE_TRANSLATION) return
 
         val cardToReturn = uiState.selectedCards.lastOrNull() ?: return
         ttsPlayer.speak(cardToReturn.text.trim())
 
-        // ИЗМЕНЕНО:
         val newSelectedCards = uiState.selectedCards.dropLast(1)
         val newAvailableCards = uiState.availableCards.map {
             if (it.card.id == cardToReturn.id) it.copy(isVisible = true) else it
@@ -247,7 +242,6 @@ class CardViewModel @Inject constructor(
     }
 
     private fun checkWinCondition() {
-        // ИЗМЕНЕНО:
         val didWin = when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
                 uiState.selectedCards.size == targetCards.size
@@ -263,17 +257,10 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
     suspend fun loadLevel(levelId: Int): Boolean {
         Log.d(AppDebug.TAG, "loadLevel($levelId): CALLED")
 
-        // 1. УБИРАЕМ clearCache()
-        // levelRepository.clearCache() // <-- УДАЛЕНО
-
-        // 2. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ
         levelRepository.loadLevelDataIfNeeded(levelId)
-
-        // 3. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER
         val levelData = levelRepository.getSentencesForLevel(levelId)
 
         Log.d(AppDebug.TAG, "loadLevel($levelId): levelData is ${if (levelData.isEmpty()) "EMPTY" else "OK (${levelData.size} sentences)"}")
@@ -323,29 +310,20 @@ class CardViewModel @Inject constructor(
             return true
         }
 
-        val currentRoundData = currentLevelSentences.getOrNull(currentRoundIndex)
+        // --- ИЗМЕНЕНИЕ: Отправляем Событие, а не строку ---
         viewModelScope.launch {
-            if (currentRoundData?.taskType == TaskType.MATCHING_PAIRS) {
-                val uniqueId = System.currentTimeMillis()
-                Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: 'matching_game/${currentLevelId}/${currentRoundIndex}?uid=$uniqueId'")
-                _navigationEvent.send("matching_game/${currentLevelId}/${currentRoundIndex}?uid=$uniqueId")
-            } else {
-                Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: 'game/${currentLevelId}/${currentRoundIndex}'")
-                _navigationEvent.send("game/${currentLevelId}/${currentRoundIndex}")
-            }
+            Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: ShowRound($currentLevelId, $currentRoundIndex)")
+            _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, currentRoundIndex))
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         return false
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
-        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
-        // Данные УЖЕ в кэше, просто берем их
         val roundData = levelRepository.getSingleSentence(currentLevelId, roundIndex)
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         if (roundData == null) {
             Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. roundData is NULL from repository.")
@@ -428,14 +406,12 @@ class CardViewModel @Inject constructor(
                     }
                 )
             }
-            // ... (остальные when)
             TaskType.MATCHING_PAIRS -> {
                 Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
                 newTaskTitleResId = R.string.game_task_matching
                 newCurrentHebrewPrompt = ""
                 newTargetCards = emptyList()
             }
-
             TaskType.UNKNOWN -> {
                 newTaskTitleResId = R.string.game_task_unknown
                 newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
@@ -444,16 +420,11 @@ class CardViewModel @Inject constructor(
             }
         }
 
-        // --- ATOMIC UPDATE: Step 2 ---
-        // Применяем ВСЕ изменения ОДНОВРЕМЕННО
-
-        // 1. Обновляем статичные поля
         this.targetCards = newTargetCards
         this.currentTaskPrompt = newCurrentTaskPrompt
         this.currentHebrewPrompt = newCurrentHebrewPrompt
         this.currentTaskTitleResId = newTaskTitleResId
 
-        // 2. Сбрасываем uiState до нового чистого состояния
         uiState = uiState.copy(
             isRoundWon = false,
             errorCount = 0,
@@ -463,13 +434,9 @@ class CardViewModel @Inject constructor(
             availableCards = newAvailableCards,
             resultSnapshot = null,
             showResultSheet = false
-            // fontStyle НЕ сбрасываем, он сохраняется
         )
 
-
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
-        // ------------------------------
-
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -480,7 +447,6 @@ class CardViewModel @Inject constructor(
     }
 
     private fun resetAndStartCounters() {
-        // ИЗМЕНЕНО: 'errorCount' сбрасывается в 'loadRound'
         timeSpent = 0
         val startTime = System.currentTimeMillis()
         timerJob?.cancel()
@@ -496,9 +462,7 @@ class CardViewModel @Inject constructor(
         timerJob?.cancel()
 
         val userLanguage = progressManager.getUserLanguage()
-        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         val translation = when (userLanguage) {
             "en" -> currentSentence?.english_translation
@@ -524,7 +488,7 @@ class CardViewModel @Inject constructor(
         val newSnapshot = RoundResultSnapshot(
             gameResult = result,
             completedCards = completedCardsList,
-            errorCount = this.uiState.errorCount, // ИЗМЕНЕНО
+            errorCount = this.uiState.errorCount,
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
             hasMoreRounds = hasMoreRounds,
@@ -570,27 +534,22 @@ class CardViewModel @Inject constructor(
 
         if (uncompletedRounds.isEmpty()) {
             isLevelFullyCompleted = true
+            // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
             viewModelScope.launch {
-                _navigationEvent.send("round_track/$currentLevelId")
+                _navigationEvent.send(NavigationEvent.ShowRoundTrack(currentLevelId))
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             return
         }
 
         val nextForwardRound = uncompletedRounds.firstOrNull { it > currentRoundIndex }
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
 
-        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
-        val nextRoundData = levelRepository.getSingleSentence(currentLevelId, nextRound)
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
+        // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
         viewModelScope.launch {
-            if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
-                val uniqueId = System.currentTimeMillis()
-                _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
-            } else {
-                _navigationEvent.send("game/${currentLevelId}/${nextRound}")
-            }
+            _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     fun skipToNextAvailableRound() {
@@ -607,18 +566,11 @@ class CardViewModel @Inject constructor(
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
         val nextRound = activeRounds[nextIndexInActiveList]
 
-        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
-        val nextRoundData = levelRepository.getSingleSentence(currentLevelId, nextRound)
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
+        // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
         viewModelScope.launch {
-            if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
-                val uniqueId = System.currentTimeMillis()
-                _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
-            } else {
-                _navigationEvent.send("game/${currentLevelId}/${nextRound}")
-            }
+            _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     override fun onCleared() {

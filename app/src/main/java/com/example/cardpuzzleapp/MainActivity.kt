@@ -111,59 +111,57 @@ fun AppNavigation(
         }
     }
 
+    // --- LaunchedEffect для cardViewModel (Исправлен) ---
     LaunchedEffect(Unit) {
-        cardViewModel.navigationEvent.collectLatest { route ->
-            Log.e(AppDebug.TAG, ">>> AppNavigation RECV EVENT: '$route'. Current dest: ${navController.currentDestination?.route}")
-
+        cardViewModel.navigationEvent.collectLatest { event ->
+            Log.e(AppDebug.TAG, ">>> AppNavigation RECV CardView EVENT: '$event'. Current dest: ${navController.currentDestination?.route}")
             val currentRoute = navController.currentDestination?.route
 
-            when {
-                route.startsWith("matching_game/") -> {
-                    Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
-                    navController.navigate(route) {
-                        if (currentRoute?.startsWith("game") == true) {
-                            Log.d(NAV_DEBUG_TAG, "AppNavigation: PopUpTo '$currentRoute' (inclusive)")
+            when (event) {
+                is NavigationEvent.ShowRoundTrack -> {
+                    navController.navigate("round_track/${event.levelId}") {
+                        // --- ИСПРАВЛЕНИЕ: Явная проверка на null ---
+                        if (currentRoute != null && (currentRoute.startsWith("game") || currentRoute.startsWith("matching_game"))) {
                             popUpTo(currentRoute) { inclusive = true }
                         }
+                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     }
                 }
 
-                route.startsWith("round_track/") -> {
-                    navController.navigate(route) {
-                        // Если мы переходим на экран "результатов" (паззл)
-                        // с игрового экрана, мы убираем игровой экран из стека.
-                        if (currentRoute?.startsWith("game") == true || currentRoute?.startsWith("matching_game") == true) {
-                            popUpTo(currentRoute) { inclusive = true }
-                        }
-                    }
-                }
+                is NavigationEvent.ShowRound -> {
+                    val taskType = cardViewModel.getTaskTypeForRound(event.roundIndex)
 
-                route.startsWith("game/") -> {
+                    val route = if (taskType == TaskType.MATCHING_PAIRS) {
+                        "matching_game/${event.levelId}/${event.roundIndex}?uid=${System.currentTimeMillis()}"
+                    } else {
+                        "game/${event.levelId}/${event.roundIndex}"
+                    }
+
                     Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
                     navController.navigate(route) {
-                        if (currentRoute?.startsWith("matching_game") == true) {
-                            Log.d(NAV_DEBUG_TAG, "AppNavigation: PopUpTo '$currentRoute' (inclusive)")
-                            popUpTo(currentRoute) { inclusive = true }
+                        // --- ИСПРАВЛЕНИЕ: Явная проверка на null ---
+                        if (currentRoute != null) {
+                            if (currentRoute.startsWith("game") && taskType == TaskType.MATCHING_PAIRS) {
+                                popUpTo(currentRoute) { inclusive = true }
+                            } else if (currentRoute.startsWith("matching_game") && taskType != TaskType.MATCHING_PAIRS) {
+                                popUpTo(currentRoute) { inclusive = true }
+                            }
                         }
+                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     }
                 }
             }
         }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
+    // --- LaunchedEffect для matchingViewModel (Без изменений) ---
     LaunchedEffect(Unit) {
         matchingViewModel.completionEvents.collectLatest { event ->
-            // --- ИЗМЕНЕНИЕ: УБРАЛИ popBackStack() ---
-            if (event == "WIN") {
-                // БЫЛО: navController.popBackStack()
-                cardViewModel.proceedToNextRound() // Теперь VM сам решает, куда идти
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-            if (event == "TRACK") {
-                navController.navigate("round_track/${matchingViewModel.currentLevelId}")
-            }
-            if (event == "SKIP") {
-                cardViewModel.skipToNextAvailableRound()
+            when (event) {
+                MatchingCompletionEvent.Win -> cardViewModel.proceedToNextRound()
+                MatchingCompletionEvent.Track -> navController.navigate("round_track/${matchingViewModel.currentLevelId}")
+                MatchingCompletionEvent.Skip -> cardViewModel.skipToNextAvailableRound()
             }
         }
     }
@@ -235,14 +233,12 @@ fun AppNavigation(
             )
         }
 
-        // --- ИЗМЕНЕНИЕ: АНИМАЦИИ УДАЛЕНЫ ---
         composable(
             route = "game/{levelId}/{roundIndex}",
             arguments = listOf(
                 navArgument("levelId") { type = NavType.IntType },
                 navArgument("roundIndex") { type = NavType.IntType }
             )
-            // Блоки enterTransition, exitTransition, popExitTransition УДАЛЕНЫ
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
@@ -267,8 +263,6 @@ fun AppNavigation(
                 }
             )
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
 
         composable(
             route = "matching_game/{levelId}/{roundIndex}?uid={uid}",
@@ -280,7 +274,6 @@ fun AppNavigation(
                     defaultValue = 0L
                 }
             ),
-            // Анимации ОСТАВЛЕНЫ здесь, т.к. они не конфликтуют
             enterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { it },

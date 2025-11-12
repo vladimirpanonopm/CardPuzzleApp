@@ -71,7 +71,6 @@ import java.util.UUID
 
 private const val TAG = "UI_ROUND_DEBUG"
 
-// --- ИЗМЕНЕНИЕ: УБРАЛИ 'isDataReady' ---
 @Immutable
 private data class GameRoundState(
     val roundIndex: Int,
@@ -79,7 +78,6 @@ private data class GameRoundState(
     val taskType: TaskType,
     val targetCards: List<Card>
 )
-// --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -96,10 +94,8 @@ fun GameScreen(
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
-    // --- Читаем ЕДИНЫЙ uiState ---
     val uiState = viewModel.uiState
 
-    // --- Все динамические переменные читаются из uiState ---
     val isRoundWon = uiState.isRoundWon
     val fontStyle = uiState.fontStyle
     val snapshot = uiState.resultSnapshot
@@ -112,16 +108,13 @@ fun GameScreen(
         viewModel.loadRound(routeRoundIndex)
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.navigationEvent.collectLatest { route ->
-            if (route.startsWith("round_track/")) {
-                val levelId = route.substringAfter("round_track/").toIntOrNull()
-                if (levelId != null) {
-                    onTrackClick(levelId)
-                }
-            }
-        }
-    }
+    // --- ИСПРАВЛЕНИЕ: ЭТОТ БЛОК УДАЛЕН ---
+    // LaunchedEffect(Unit) {
+    //     viewModel.navigationEvent.collectLatest { route ->
+    //         if (route.startsWith("round_track/")) { ... }
+    //     }
+    // }
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -137,10 +130,10 @@ fun GameScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = stringResource(id = viewModel.currentTaskTitleResId), // (Статично)
+                title = stringResource(id = viewModel.currentTaskTitleResId),
                 onBackClick = onHomeClick,
                 actions = {
-                    if (viewModel.currentLevelId == 1) { // (Статично)
+                    if (viewModel.currentLevelId == 1) {
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -156,7 +149,7 @@ fun GameScreen(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            FontToggleIcon(fontStyle = fontStyle) // (Из uiState)
+                            FontToggleIcon(fontStyle = fontStyle)
                         }
                     }
                 }
@@ -174,10 +167,10 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
-                if (isRoundWon) { // (Из uiState)
+                if (isRoundWon) {
                     Spacer(modifier = Modifier.size(48.dp))
                 } else {
-                    IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) { // (isLastRoundAvailable - статично)
+                    IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = stringResource(R.string.button_skip),
@@ -195,7 +188,6 @@ fun GameScreen(
                 .padding(paddingValues)
         ) {
 
-            // --- ИЗМЕНЕНИЕ: УБРАЛИ 'isDataReady' ---
             val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.targetCards) {
                 GameRoundState(
                     roundIndex = viewModel.currentRoundIndex,
@@ -204,9 +196,7 @@ fun GameScreen(
                     targetCards = viewModel.targetCards.toList()
                 )
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-            // Анимация "КНИГИ"
             val enterTransition = slideInHorizontally(
                 animationSpec = tween(500, delayMillis = 100),
                 initialOffsetX = { -it }
@@ -219,7 +209,7 @@ fun GameScreen(
 
 
             AnimatedContent(
-                targetState = roundState, // <-- Ключ теперь 'roundState'
+                targetState = roundState,
                 label = "GameScreenAnimation",
                 transitionSpec = {
                     if (targetState.roundIndex != initialState.roundIndex) {
@@ -228,12 +218,12 @@ fun GameScreen(
                         fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
                     }
                 }
-            ) { staticState -> // 'staticState' - это 'roundState' в момент анимации.
+            ) { staticState ->
 
                 GameScreenLayout(
                     staticState = staticState,
-                    dynamicState = uiState, // <-- Передаем актуальный uiState
-                    viewModel = viewModel // <-- Передаем VM для лямбд
+                    dynamicState = uiState,
+                    viewModel = viewModel
                 )
             }
         }
@@ -247,7 +237,7 @@ fun GameScreen(
             dragHandle = null
         ) {
             ResultSheetContent(
-                snapshot = snapshot, // (snapshot из uiState)
+                snapshot = snapshot,
                 onContinueClick = {
                     coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                         viewModel.hideResultSheet()
@@ -267,20 +257,14 @@ fun GameScreen(
 }
 
 
-/**
- * Этот Composable содержит ВСЮ верстку, которая должна меняться
- */
 @OptIn(ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun GameScreenLayout(
     staticState: GameRoundState,
     dynamicState: CardViewModel.GameUiState,
-    viewModel: CardViewModel // Для вызова функций
+    viewModel: CardViewModel
 ) {
 
-    // --- ИЗМЕНЕНИЕ: УБРАЛИ 'if (!staticState.isDataReady)' И СПИННЕР ---
-
-    // (Код для hebrewTextStyle и animatedFontSize)
     val fontStyle = dynamicState.fontStyle
     val isRoundWon = dynamicState.isRoundWon
 
@@ -316,7 +300,6 @@ private fun GameScreenLayout(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // --- Верхняя "Желтая" часть (70%) ---
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -329,9 +312,8 @@ private fun GameScreenLayout(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // --- Русский текст (Подсказка) ---
                 Text(
-                    text = staticState.taskPrompt ?: "", // <-- (из staticState)
+                    text = staticState.taskPrompt ?: "",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         color = StickyNoteText.copy(alpha = 0.8f),
                         textAlign = TextAlign.Start
@@ -341,20 +323,17 @@ private fun GameScreenLayout(
                         .padding(bottom = 16.dp)
                 )
 
-                // --- Область для Иврита ---
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 100.dp)
                     ) {
-                        if (isRoundWon) { // (из dynamicState)
-                            // --- 1. ЭКРАН ПОБЕДЫ ---
+                        if (isRoundWon) {
                             val assembledText = remember(isRoundWon, staticState.taskType) {
                                 if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION) {
-                                    staticState.targetCards.joinToString(separator = "") { it.text } // (из staticState)
+                                    staticState.targetCards.joinToString(separator = "") { it.text }
                                 } else {
-                                    // (из dynamicState)
                                     dynamicState.assemblyLine.joinToString(separator = "") { slot ->
                                         val filledCard = slot.filledCard
                                         filledCard?.text ?: slot.targetCard?.text ?: slot.text
@@ -367,18 +346,17 @@ private fun GameScreenLayout(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
-                            // --- 2. ЭКРАН ИГРЫ ---
-                            when (staticState.taskType) { // (из staticState)
+                            when (staticState.taskType) {
                                 TaskType.ASSEMBLE_TRANSLATION -> {
                                     Text(
-                                        text = dynamicState.selectedCards.joinToString(separator = "") { it.text }, // (из dynamicState)
+                                        text = dynamicState.selectedCards.joinToString(separator = "") { it.text },
                                         style = hebrewTextStyle,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable(
                                                 interactionSource = remember { MutableInteractionSource() },
                                                 indication = null,
-                                                onClick = { viewModel.returnLastSelectedCard() } // (вызов VM)
+                                                onClick = { viewModel.returnLastSelectedCard() }
                                             )
                                     )
                                 }
@@ -387,14 +365,14 @@ private fun GameScreenLayout(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        dynamicState.assemblyLine.forEach { slot -> // (из dynamicState)
+                                        dynamicState.assemblyLine.forEach { slot ->
                                             key(slot.id) {
                                                 AssemblySlotItem(
                                                     slot = slot,
                                                     textStyle = hebrewTextStyle,
-                                                    fontStyle = fontStyle, // (из dynamicState)
-                                                    taskType = staticState.taskType, // (из staticState)
-                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) } // (вызов VM)
+                                                    fontStyle = fontStyle,
+                                                    taskType = staticState.taskType,
+                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) }
                                                 )
                                             }
                                         }
@@ -406,11 +384,10 @@ private fun GameScreenLayout(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-            } // --- Конец верхней части (Column 0.7) ---
-        } // --- Конец Surface (0.7) ---
+            }
+        }
 
-        // --- Нижний "Банк" карт (30%) ---
-        if (!isRoundWon) { // (из dynamicState)
+        if (!isRoundWon) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 FlowRow(
                     modifier = Modifier
@@ -422,21 +399,21 @@ private fun GameScreenLayout(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    dynamicState.availableCards.forEach { slot -> // (из dynamicState)
+                    dynamicState.availableCards.forEach { slot ->
                         key(slot.id) {
                             Shakeable(
-                                trigger = dynamicState.errorCount, // (из dynamicState)
-                                errorCardId = dynamicState.errorCardId, // (из dynamicState)
+                                trigger = dynamicState.errorCount,
+                                errorCardId = dynamicState.errorCardId,
                                 currentCardId = slot.card.id
                             ) { shakeModifier ->
                                 SelectableCard(
                                     modifier = shakeModifier,
                                     card = slot.card,
                                     onSelect = {
-                                        viewModel.selectCard(slot) // (вызов VM)
+                                        viewModel.selectCard(slot)
                                     },
-                                    fontStyle = fontStyle, // (из dynamicState)
-                                    taskType = staticState.taskType, // (из staticState)
+                                    fontStyle = fontStyle,
+                                    taskType = staticState.taskType,
                                     isAssembledCard = false,
                                     isVisible = slot.isVisible
                                 )
@@ -445,8 +422,6 @@ private fun GameScreenLayout(
                     }
                 }
             }
-        } // --- Конец IF (!isRoundWon) ---
-    } // --- Конец Column
-
-    // --- КОНЕЦ ИЗМЕНЕНИЯ (Убрали `else` и `if`) ---
+        }
+    }
 }
