@@ -5,11 +5,11 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-// --- НОВЫЕ ИМПОРТЫ ДЛЯ АНИМАЦИИ ---
+// --- ИЗМЕНЕНИЕ: ЭТИ ИМПОРТЫ ОСТАЮТСЯ (для MatchingGame) ---
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-// --- КОНЕЦ НОВЫХ ИМПОРТОВ ---
+// --- КОНЕЦ ИЗМЕНЕНИЯ ---
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -225,44 +225,22 @@ fun AppNavigation(
             )
         }
 
-        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+        // --- ИЗМЕНЕНИЕ: АНИМАЦИИ УДАЛЕНЫ ---
         composable(
             route = "game/{levelId}/{roundIndex}",
             arguments = listOf(
                 navArgument("levelId") { type = NavType.IntType },
                 navArgument("roundIndex") { type = NavType.IntType }
-            ),
-            // --- ДОБАВЛЯЕМ АНИМАЦИИ ---
-            enterTransition = {
-                // Слайд-вправо (появление)
-                slideInHorizontally(
-                    initialOffsetX = { it }, // 'it' = full width
-                    animationSpec = tween(300)
-                )
-            },
-            exitTransition = {
-                // Слайд-влево (исчезновение)
-                slideOutHorizontally(
-                    targetOffsetX = { -it }, // '-it' = -full width
-                    animationSpec = tween(300)
-                )
-            },
-            // Анимация при нажатии "назад" (уезжает вправо)
-            popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = tween(300)
-                )
-            }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            )
+            // Блоки enterTransition, exitTransition, popExitTransition УДАЛЕНЫ
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
-            val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0 // <-- 'roundIndex' ОПРЕДЕЛЕН
+            val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
             Log.d(AppDebug.TAG, "NavHost: Composing 'game/$levelId/$roundIndex'")
 
             GameScreen(
                 viewModel = cardViewModel,
-                routeRoundIndex = roundIndex, // <-- 'roundIndex' ПЕРЕДАН
+                routeRoundIndex = roundIndex,
                 onHomeClick = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
@@ -279,7 +257,7 @@ fun AppNavigation(
                 }
             )
         }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
         composable(
@@ -292,7 +270,7 @@ fun AppNavigation(
                     defaultValue = 0L
                 }
             ),
-            // --- ИЗМЕНЕНИЕ (для консистентности) ---
+            // Анимации ОСТАВЛЕНЫ здесь, т.к. они не конфликтуют
             enterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { it },
@@ -311,7 +289,6 @@ fun AppNavigation(
                     animationSpec = tween(300)
                 )
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
