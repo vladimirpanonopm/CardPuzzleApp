@@ -5,6 +5,11 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+// --- НОВЫЕ ИМПОРТЫ ДЛЯ АНИМАЦИИ ---
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+// --- КОНЕЦ НОВЫХ ИМПОРТОВ ---
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -220,13 +225,36 @@ fun AppNavigation(
             )
         }
 
-        // --- ИСПРАВЛЕНИЕ ОШИБКИ 'roundIndex' ---
+        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
         composable(
             route = "game/{levelId}/{roundIndex}",
             arguments = listOf(
                 navArgument("levelId") { type = NavType.IntType },
                 navArgument("roundIndex") { type = NavType.IntType }
-            )
+            ),
+            // --- ДОБАВЛЯЕМ АНИМАЦИИ ---
+            enterTransition = {
+                // Слайд-вправо (появление)
+                slideInHorizontally(
+                    initialOffsetX = { it }, // 'it' = full width
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                // Слайд-влево (исчезновение)
+                slideOutHorizontally(
+                    targetOffsetX = { -it }, // '-it' = -full width
+                    animationSpec = tween(300)
+                )
+            },
+            // Анимация при нажатии "назад" (уезжает вправо)
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(300)
+                )
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0 // <-- 'roundIndex' ОПРЕДЕЛЕН
@@ -263,7 +291,27 @@ fun AppNavigation(
                     type = NavType.LongType
                     defaultValue = 0L
                 }
-            )
+            ),
+            // --- ИЗМЕНЕНИЕ (для консистентности) ---
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { -it },
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(300)
+                )
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
@@ -280,9 +328,7 @@ fun AppNavigation(
                     navController.popBackStack()
                 },
                 onJournalClick = {
-                    // --- ИСПРАВЛЕНИЕ ОПЕЧАТКИ V12 ---
                     navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
-                    // ---------------------------------
                 },
                 onTrackClick = {
                     navController.navigate("round_track/${matchingViewModel.currentLevelId}")

@@ -14,8 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,9 +68,7 @@ private const val TAG = "UI_ROUND_DEBUG"
 @Composable
 fun GameScreen(
     viewModel: CardViewModel,
-    // --- ИСПРАВЛЕНИЕ: Добавлен routeRoundIndex ---
     routeRoundIndex: Int,
-    // ------------------------------------------
     onHomeClick: () -> Unit,
     onJournalClick: () -> Unit,
     onSkipClick: () -> Unit,
@@ -84,25 +80,17 @@ fun GameScreen(
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
 
-    val snapshot = viewModel.resultSnapshot
     val isRoundWon = viewModel.isRoundWon
-
+    val snapshot = viewModel.resultSnapshot
     val showResultSheet = viewModel.showResultSheet
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // --- ИЗМЕНЕНИЕ: ВОЗВРАЩАЕМ К СТАРОЙ ЛОГИКЕ ---
+    // GameScreen *всегда* сообщает ViewModel, какой раунд мы хотим.
+    // А "атомарный" loadRound() в ViewModel позаботится, чтобы не было мерцания.
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
-
-        // --- ИСПРАВЛЕНИЕ: Сообщаем CardViewModel, что мы - активный раунд ---
-        // (Этот вызов был в старой версии, но `loadRound` теперь делает то же самое,
-        // обновляя `currentRoundIndex` в конце)
-        // viewModel.updateCurrentRoundIndex(routeRoundIndex) // <-- Можно удалить
-        // ----------------------------------------------------------------
-
         viewModel.loadRound(routeRoundIndex)
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.navigationEvent.collectLatest { route ->
@@ -189,6 +177,7 @@ fun GameScreen(
             val fontStyle = viewModel.gameFontStyle
 
             val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
+            // Анимация шрифта при победе (ОСТАВЛЯЕМ, т.к. она не конфликтует)
             val animatedFontSize by animateFloatAsState(
                 targetValue = if (isRoundWon) 36f else initialFontSize.value,
                 animationSpec = tween(600),
@@ -196,6 +185,7 @@ fun GameScreen(
             )
 
             val styleConfig = CardStyles.getStyle(fontStyle)
+            // Стиль для иврита (использует анимированный размер)
             val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
                 TextStyle(
                     fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
@@ -220,86 +210,39 @@ fun GameScreen(
                 )
             }
 
-
-            // --- ИЗМЕНЕНИЕ: ЛОГИКА isDataReady ВОЗВРАЩЕНА ---
+            // Проверяем, готов ли UI к показу
             val isDataReady = viewModel.currentRoundIndex == routeRoundIndex && viewModel.currentTaskType != TaskType.MATCHING_PAIRS
 
-            if (isRoundWon) {
-                // --- ЭКРАН ПОБЕДЫ ---
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1.0f),
-                    color = StickyNoteYellow,
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = viewModel.currentTaskPrompt ?: "",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                color = StickyNoteText.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Start
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 16.dp)
-                        )
-
-                        val assembledText = remember(viewModel.isRoundWon, viewModel.currentTaskType) {
-                            if (viewModel.currentTaskType == TaskType.ASSEMBLE_TRANSLATION) {
-                                viewModel.targetCards.joinToString(separator = "") { it.text }
-                            } else {
-                                viewModel.assemblyLine.joinToString(separator = "") { slot ->
-                                    val filledCard = slot.filledCard
-                                    filledCard?.text ?: slot.targetCard?.text ?: slot.text
-                                }
-                            }
-                        }
-
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                            Text(
-                                text = assembledText,
-                                style = hebrewTextStyle,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(150.dp))
-                    }
-                }
-            }
-            // --- ЭКРАН ИГРЫ (ИЛИ ЗАГРУЗКИ) ---
-            else if (!isDataReady) {
-                // --- ВОЗВРАЩАЕМ СПИННЕР ---
+            if (!isDataReady) {
+                // --- СПИННЕР (Только при ПЕРВОЙ загрузке) ---
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
                 }
-                // -----------------------------
-            }
-            else {
+            } else {
                 // --- ЭКРАН ИГРЫ (ДАННЫЕ ГОТОВЫ) ---
+
+                // --- Верхняя "Желтая" часть ---
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(0.7f), // 70%
+                        .weight(1f),
                     color = StickyNoteYellow,
                 ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
-                    ) {
-                        item {
+                    // --- Оборачиваем все в Column ---
+                    Column(modifier = Modifier.fillMaxSize()) {
+
+                        // --- Русский текст и Иврит (Верхняя часть) ---
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(0.7f)
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp),
+                        ) {
+                            // --- Русский текст (Подсказка) ---
                             Text(
                                 text = viewModel.currentTaskPrompt ?: "",
                                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -310,102 +253,118 @@ fun GameScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 16.dp)
                             )
-                        }
 
-                        item {
+                            // --- Область для Иврита ---
                             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-
-                                Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
-
-                                    when (viewModel.currentTaskType) {
-
-                                        TaskType.ASSEMBLE_TRANSLATION -> {
-                                            Text(
-                                                text = viewModel.selectedCards.joinToString(separator = "") { it.text },
-                                                style = hebrewTextStyle,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable(
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = null,
-                                                        onClick = { viewModel.returnLastSelectedCard() }
-                                                    )
-                                            )
-                                        }
-
-                                        TaskType.FILL_IN_BLANK -> {
-                                            FlowRow(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                viewModel.assemblyLine.forEach { slot ->
-                                                    key(slot.id) {
-                                                        AssemblySlotItem(
-                                                            slot = slot,
-                                                            textStyle = hebrewTextStyle,
-                                                            fontStyle = fontStyle,
-                                                            taskType = viewModel.currentTaskType,
-                                                            onReturnCard = { viewModel.returnCardFromSlot(slot) }
-                                                        )
-                                                    }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .defaultMinSize(minHeight = 100.dp)
+                                ) {
+                                    if (isRoundWon) {
+                                        // --- 1. ЭКРАН ПОБЕДЫ ---
+                                        val assembledText = remember(viewModel.isRoundWon, viewModel.currentTaskType) {
+                                            if (viewModel.currentTaskType == TaskType.ASSEMBLE_TRANSLATION) {
+                                                viewModel.targetCards.joinToString(separator = "") { it.text }
+                                            } else {
+                                                viewModel.assemblyLine.joinToString(separator = "") { slot ->
+                                                    val filledCard = slot.filledCard
+                                                    filledCard?.text ?: slot.targetCard?.text ?: slot.text
                                                 }
                                             }
                                         }
-
-                                        TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {
-                                            // Эта ветка теперь защищена
+                                        Text(
+                                            text = assembledText,
+                                            style = hebrewTextStyle, // (Стиль с анимированным шрифтом)
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    } else {
+                                        // --- 2. ЭКРАН ИГРЫ ---
+                                        when (viewModel.currentTaskType) {
+                                            TaskType.ASSEMBLE_TRANSLATION -> {
+                                                Text(
+                                                    text = viewModel.selectedCards.joinToString(separator = "") { it.text },
+                                                    style = hebrewTextStyle, // (Стиль с обычным шрифтом)
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable(
+                                                            interactionSource = remember { MutableInteractionSource() },
+                                                            indication = null,
+                                                            onClick = { viewModel.returnLastSelectedCard() }
+                                                        )
+                                                )
+                                            }
+                                            TaskType.FILL_IN_BLANK -> {
+                                                FlowRow(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    viewModel.assemblyLine.forEach { slot ->
+                                                        key(slot.id) {
+                                                            AssemblySlotItem(
+                                                                slot = slot,
+                                                                textStyle = hebrewTextStyle, // (Стиль с обычным шрифтом)
+                                                                fontStyle = fontStyle,
+                                                                taskType = viewModel.currentTaskType,
+                                                                onReturnCard = { viewModel.returnCardFromSlot(slot) }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
                                         }
                                     }
                                 }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                }
+                        } // --- Конец верхней части (Column 0.7) ---
 
-                // --- Нижний "Банк" карт ---
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    FlowRow(
-                        modifier = Modifier
-                            .weight(0.3f) // 30%
-                            .fillMaxSize()
-                            .background(Color.White)
-                            .verticalScroll(rememberScrollState())
-                            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
-                            .animateContentSize(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        viewModel.availableCards.forEach { slot ->
-                            key(slot.id) {
-                                Shakeable(
-                                    trigger = viewModel.errorCount,
-                                    errorCardId = viewModel.errorCardId,
-                                    currentCardId = slot.card.id
-                                ) { shakeModifier ->
-                                    SelectableCard(
-                                        modifier = shakeModifier
-                                            .graphicsLayer {
-                                                alpha = if (slot.isVisible) 1f else 0f
-                                            },
-                                        card = slot.card,
-                                        onSelect = {
-                                            if (slot.isVisible) {
-                                                viewModel.selectCard(slot)
+                        // --- Нижний "Банк" карт (30%) ---
+                        if (!isRoundWon) {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                FlowRow(
+                                    modifier = Modifier
+                                        .weight(0.3f)
+                                        .fillMaxSize() // (fillMaxSize нужен для weight)
+                                        .background(Color.White)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    viewModel.availableCards.forEach { slot ->
+                                        key(slot.id) {
+                                            Shakeable(
+                                                trigger = viewModel.errorCount,
+                                                errorCardId = viewModel.errorCardId,
+                                                currentCardId = slot.card.id
+                                            ) { shakeModifier ->
+                                                SelectableCard(
+                                                    modifier = shakeModifier,
+                                                    card = slot.card,
+                                                    onSelect = {
+                                                        // --- ИЗМЕНЕНИЕ: Убираем 'if' ---
+                                                        // (Теперь guard в ViewModel)
+                                                        viewModel.selectCard(slot)
+                                                    },
+                                                    fontStyle = fontStyle,
+                                                    taskType = viewModel.currentTaskType,
+                                                    isAssembledCard = false,
+                                                    // --- ИЗМЕНЕНИЕ: Передаем isVisible ---
+                                                    isVisible = slot.isVisible
+                                                )
                                             }
-                                        },
-                                        fontStyle = fontStyle,
-                                        taskType = viewModel.currentTaskType,
-                                        isAssembledCard = false
-                                    )
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                        } // --- Конец IF (!isRoundWon) ---
+                    } // --- Конец Column (внутри Surface) ---
+                } // --- Конец Surface ---
+            } // --- Конец IF (isDataReady) ---
+        } // --- Конец Column (в Scaffold) ---
+    } // --- Конец Scaffold ---
 
     if (showResultSheet && snapshot != null) {
         ModalBottomSheet(

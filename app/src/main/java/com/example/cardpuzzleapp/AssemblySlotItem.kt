@@ -32,7 +32,10 @@ fun AssemblySlotItem(
             onSelect = onReturnCard,
             fontStyle = fontStyle,
             taskType = taskType,
-            isAssembledCard = true
+            isAssembledCard = true,
+            // --- ИСПРАВЛЕНИЕ: Добавляем isVisible = true ---
+            // Если карточка здесь, она по определению видима.
+            isVisible = true
         )
     } else if (slot.isBlank) {
         // --- Слот ПУСТОЙ (___) ---

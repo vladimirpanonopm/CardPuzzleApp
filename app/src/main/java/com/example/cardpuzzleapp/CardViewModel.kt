@@ -122,8 +122,16 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    // ... в CardViewModel.kt ...
+
     fun selectCard(slot: AvailableCardSlot) {
-        if (!slot.isVisible) return
+        // --- ГЛАВНЫЙ GUARD ---
+        if (!slot.isVisible) {
+            Log.w(AppDebug.TAG, "selectCard: GHOST TAP DETECTED on invisible card. Ignoring.")
+            return
+        }
+        // --- КОНЕЦ GUARDA ---
+
         val card = slot.card
 
         var isCorrect = false
@@ -180,6 +188,8 @@ class CardViewModel @Inject constructor(
             ttsPlayer.speak(card.text.trim())
         }
     }
+
+// ... остальной код CardViewModel.kt ...
 
     fun returnCardFromSlot(slot: AssemblySlot) {
         if (isRoundWon || currentTaskType != TaskType.FILL_IN_BLANK) return

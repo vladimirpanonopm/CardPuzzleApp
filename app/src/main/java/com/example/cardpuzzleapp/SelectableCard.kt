@@ -43,7 +43,8 @@ fun SelectableCard(
     onSelect: () -> Unit,
     fontStyle: FontStyle,
     taskType: TaskType,
-    isAssembledCard: Boolean = false
+    isAssembledCard: Boolean = false,
+    isVisible: Boolean
 ) {
     var isFlipped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
@@ -80,26 +81,35 @@ fun SelectableCard(
         )
     }
 
-    // --- ИСПРАВЛЕННАЯ ЛОГИКА ТАПА (Function1<Offset, Unit>) ---
-    val tapHandler: (Offset) -> Unit = remember(taskType, isAssembledCard, onSelect) {
-        // Если это карта в слоте FILL_IN_BLANK, отключаем onTap
+    // Этот обработчик теперь корректно обновляется, т.к. 'isVisible' в 'remember'
+    val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect) {
+
+        if (!isVisible) {
+            return@remember {} // Ничего не делать при нажатии
+        }
+
         if (isAssembledCard && taskType == TaskType.FILL_IN_BLANK) {
-            // Возврат заблокирован, т.к. неверная карта не должна двигаться
             return@remember {}
         }
-        // В остальных случаях (банк карт, или сборочная линия ASSEMBLE_TRANSLATION) разрешаем тапать
-        // Мы игнорируем аргумент 'Offset'
+
         return@remember { offset -> onSelect() }
     }
 
 
     Card(
         modifier = modifier
-            .graphicsLayer { rotationX = rotation }
-            .pointerInput(Unit) {
+            .graphicsLayer {
+                alpha = if (isVisible) 1f else 0f
+                rotationX = rotation
+            }
+            // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ: Меняем 'Unit' на 'isVisible' ---
+            // Это заставит Compose "пере-слушать" нажатия,
+            // когда 'isVisible' изменится
+            .pointerInput(isVisible) {
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                 detectTapGestures(
-                    onTap = tapHandler, // <-- ИСПРАВЛЕНО
-                    onLongPress = { isFlipped = true }
+                    onTap = tapHandler, // 'tapHandler' теперь будет правильным
+                    onLongPress = { if (isVisible) isFlipped = true }
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
@@ -126,10 +136,8 @@ fun SelectableCard(
         ) {
             if (rotation < 90f) {
                 val textToShow = if (isAssembledCard && taskType == TaskType.ASSEMBLE_TRANSLATION) {
-                    // В сборочной линии ASSEMBLE - ПОКАЗЫВАЕМ полный текст (с \n)
                     card.text
                 } else {
-                    // В "банке" или в слоте FILL_IN_BLANK - ОБРЕЗАЕМ
                     card.text.replace('\n', ' ').replace('\r', ' ').trim()
                 }
 
