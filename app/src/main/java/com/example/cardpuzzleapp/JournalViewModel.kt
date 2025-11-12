@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-// --- НОВЫЕ ИМПОРТЫ ---
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,22 +25,17 @@ class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
     private val audioPlayer: AudioPlayer,
     private val levelRepository: LevelRepository,
-    // --- ИЗМЕНЕНИЕ 1: Внедряем TtsPlayer ---
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
     var journalSentences by mutableStateOf<List<SentenceData>>(emptyList())
         private set
 
-    // --- (Код был изменен с mutableStateListOf на State<List> для консистентности) ---
-
     private var currentLevelId: Int = -1
     var currentLevelSentences by mutableStateOf<List<SentenceData>>(emptyList())
         private set
 
-    // --- ИЗМЕНЕНИЕ 2: Добавляем Job для управления воспроизведением ---
     private var audioPlaybackJob: Job? = null
-    // -----------------------------------------------------------
 
     /**
      * Главный метод инициализации.
@@ -51,9 +45,13 @@ class JournalViewModel @Inject constructor(
         if (levelId == -1) return
         this.currentLevelId = levelId
 
+        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
         viewModelScope.launch(Dispatchers.IO) {
-            // Загружаем все предложения для данного уровня.
-            val levelData = levelRepository.getLevelData(levelId)
+            // 1. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ (асинхронно)
+            levelRepository.loadLevelDataIfNeeded(levelId)
+
+            // 2. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER
+            val levelData = levelRepository.getSentencesForLevel(levelId)
 
             withContext(Dispatchers.Main) {
                 this@JournalViewModel.currentLevelSentences = levelData ?: emptyList()
@@ -61,6 +59,7 @@ class JournalViewModel @Inject constructor(
                 loadJournalSentences()
             }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     /**
@@ -102,7 +101,6 @@ class JournalViewModel @Inject constructor(
 
     // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
-    // --- ИЗМЕНЕНИЕ 3: Обновляем playSoundForPage (для пролистывания) ---
     /**
      * Воспроизводит звук для одной страницы (обычное нажатие или пролистывание).
      */
@@ -124,9 +122,7 @@ class JournalViewModel @Inject constructor(
             }
         }
     }
-    // -----------------------------------------------------------------
 
-    // --- ИЗМЕНЕНИЕ 4: Обновляем playAndAwait (для A-B повторения) ---
     /**
      * Воспроизводит звук и ЖДЕТ завершения. Используется циклом A-B.
      */
@@ -138,7 +134,7 @@ class JournalViewModel @Inject constructor(
             val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
             for (word in words) {
                 ttsPlayer.speakAndAwait(word) // Ждем завершения слова
-                // Пауза 1 сек, как Вы просили (с поправкой на скорость)
+                // Пауза 1 сек (с поправкой на скорость)
                 delay((1000 / speed).toLong())
             }
         } else if (sentence.audioFilename != null) {
@@ -146,9 +142,7 @@ class JournalViewModel @Inject constructor(
             audioPlayer.playAndAwaitCompletion(sentence.audioFilename, speed)
         }
     }
-    // ----------------------------------------------------------------
 
-    // --- ИЗМЕНЕНИЕ 5: Обновляем stopAudio и releaseAudio ---
     /**
      * Останавливает любое воспроизведение (и AudioPlayer, и TTS).
      */
@@ -171,9 +165,6 @@ class JournalViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         releaseAudio()
-        // TTSPlayer - это Singleton, им управляет Hilt.
-        // Но мы должны остановить звук, если он играет.
         ttsPlayer.stop()
     }
-    // -------------------------------------------------------
 }

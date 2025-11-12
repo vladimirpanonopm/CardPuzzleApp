@@ -5,101 +5,110 @@ import android.util.Log
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import java.io.IOException
-// --- УДАЛЕН ИМПОРТ LevelEntry ---
 import com.example.cardpuzzleapp.SentenceData
-// --- ДОБАВЛЕН ИМПОРТ LevelFile ---
 import com.example.cardpuzzleapp.LevelFile
-// --- ИСПРАВЛЕНИЕ ДЛЯ 'InternalSerializationApi' ---
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
-// -----------------------------
-
 @Singleton
 class LevelRepository @Inject constructor(
     private val context: Context
 ) {
 
-    // levelCache остается без изменений
+    // levelCache остается, он теперь наш главный источник правды
     private val levelCache = mutableMapOf<Int, List<SentenceData>>()
-    // hebrewListCache УДАЛЕН
 
-    // jsonParser остается без изменений
+    // Mutex (мьютекс) гарантирует, что мы не пытаемся загрузить один и тот же файл
+    // из двух разных ViewModel одновременно (предотвращает гонку)
+    private val mutex = Mutex()
+
     private val jsonParser = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
 
-    // --- ФУНКЦИЯ loadHebrewListForLevel УДАЛЕНА ---
-
-    fun clearCache() {
-        Log.d(DEBUG_TAG, "LevelRepository: Cache cleared.")
-        levelCache.clear()
-        // hebrewListCache.clear() УДАЛЕНО
-    }
-
+    // --- НОВЫЙ ГЛАВНЫЙ МЕТОД ---
     /**
-     * --- ЛОГИКА ПОЛНОСТЬЮ ПЕРЕПИСАНА ---
-     * Загружает данные уровня из ЕДИНОГО JSON-файла.
+     * Асинхронно загружает данные уровня, ЕСЛИ их еще нет в кэше.
+     * ViewModel'ы должны вызывать это ПЕРЕД тем, как запрашивать данные.
      */
-    suspend fun getLevelData(levelId: Int): List<SentenceData>? = withContext(Dispatchers.IO) {
-        Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) called.")
-
-        // 1. Проверяем кэш (логика осталась)
-        levelCache[levelId]?.let {
-            Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) from CACHE.")
-            return@withContext it
+    suspend fun loadLevelDataIfNeeded(levelId: Int) = withContext(Dispatchers.IO) {
+        // Если данные уже в кэше, ничего не делаем. Мгновенный выход.
+        if (levelCache.containsKey(levelId)) {
+            Log.d(DEBUG_TAG, "LevelRepository: loadLevelDataIfNeeded($levelId) -> CACHE HIT")
+            return@withContext
         }
 
-        // 2. Загружаем ЕДИНСТВЕННЫЙ файл
-        val fileName = "level_$levelId.json"
-        Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) loading SINGLE file: $fileName")
-        return@withContext try {
-            val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
+        // Используем Mutex, чтобы только один поток мог выполнять этот код
+        mutex.withLock {
+            // Двойная проверка (на случай, если другой поток уже загрузил, пока мы ждали lock)
+            if (levelCache.containsKey(levelId)) {
+                return@withLock
+            }
 
-            // 3. Парсим в новый корневой объект LevelFile
-            val levelFile = jsonParser.decodeFromString<LevelFile>(jsonString)
+            Log.d(DEBUG_TAG, "LevelRepository: loadLevelDataIfNeeded($levelId) -> LOADING from assets...")
+            val fileName = "level_$levelId.json"
+            try {
+                val jsonString = context.assets.open(fileName).bufferedReader().use { it.readText() }
+                val levelFile = jsonParser.decodeFromString<LevelFile>(jsonString)
+                val sentences = levelFile.cards
 
-            // 4. Получаем список карточек (уже в формате List<SentenceData> благодаря @SerialName)
-            val sentences = levelFile.cards
-
-            // 5. Кэшируем и возвращаем
-            levelCache[levelId] = sentences
-            Log.d(DEBUG_TAG, "LevelRepository: getLevelData($levelId) SUCCESS. ${sentences.size} sentences loaded from new format.")
-            sentences
-
-        } catch (e: Exception) {
-            Log.e(DEBUG_TAG, "LevelRepository: ERROR loading or parsing $fileName", e)
-            null
+                // Сохраняем в кэш
+                levelCache[levelId] = sentences
+                Log.d(DEBUG_TAG, "LevelRepository: loadLevelDataIfNeeded($levelId) -> SUCCESS. ${sentences.size} sentences loaded.")
+            } catch (e: Exception) {
+                Log.e(DEBUG_TAG, "LevelRepository: ERROR loading or parsing $fileName", e)
+                // Кэшируем пустой список, чтобы не пытаться снова
+                levelCache[levelId] = emptyList()
+            }
         }
     }
-    // --- КОНЕЦ ПЕРЕПИСАННОЙ ЛОГИКИ ---
 
+    // --- НОВЫЙ СИНХРОННЫЙ GETTER (для CardViewModel и JournalViewModel) ---
+    /**
+     * Синхронно возвращает ВСЕ предложения для уровня из кэша.
+     * ВНИМАНИЕ: `loadLevelDataIfNeeded` должен быть вызван первым!
+     */
+    fun getSentencesForLevel(levelId: Int): List<SentenceData> {
+        return levelCache[levelId] ?: emptyList()
+    }
 
-    // getLevelCount остается без изменений. Он и раньше искал 'level_X.json'.
+    // --- НОВЫЙ СИНХРОННЫЙ GETTER (для MatchingViewModel) ---
+    /**
+     * Синхронно возвращает ОДНО предложение из кэша.
+     * ВНИМАНИЕ: `loadLevelDataIfNeeded` должен быть вызван первым!
+     */
+    fun getSingleSentence(levelId: Int, roundIndex: Int): SentenceData? {
+        return levelCache[levelId]?.getOrNull(roundIndex)
+    }
+
+    // --- УДАЛЕНО ---
+    // `getLevelData(levelId)` был удален.
+    // `clearCache()` был удален.
+
+    // getLevelCount остается без изменений.
     suspend fun getLevelCount(): Int = withContext(Dispatchers.IO) {
-        Log.d(DEBUG_TAG, "LevelRepository: getLevelCount() called.")
         return@withContext try {
-            Log.d(DEBUG_TAG, "LevelRepository: Accessing context.assets.list()...")
             val files = context.assets.list("")
             val count = files?.count { it.startsWith("level_") && it.endsWith(".json") } ?: 0
-            Log.d(DEBUG_TAG, "LevelRepository: getLevelCount() SUCCESS. Count: $count")
             count
         } catch (e: IOException) {
             Log.e(DEBUG_TAG, "LevelRepository: ERROR in getLevelCount()", e)
-            e.printStackTrace()
             0
         }
     }
 
-    // findLongestSentence остается без изменений. Он работает с getLevelData.
+    // findLongestSentence должен быть обновлен, чтобы использовать новую логику
     suspend fun findLongestSentence(): SentenceData? {
-        clearCache()
+        // Мы больше не чистим кэш
+        // levelRepository.clearCache() // <-- УДАЛЕНО
 
         val levelCount = getLevelCount()
         if (levelCount == 0) return null
@@ -108,8 +117,11 @@ class LevelRepository @Inject constructor(
         Log.d(DEBUG_TAG, "LevelRepository: --- Finding longest sentence ---")
 
         for (levelId in 1..levelCount) {
-            val levelData = getLevelData(levelId)
-            levelData?.forEach { sentence ->
+            // Используем новую логику
+            loadLevelDataIfNeeded(levelId)
+            val levelData = getSentencesForLevel(levelId)
+
+            levelData.forEach { sentence ->
                 if (sentence.hebrew.length > (longestSentence?.hebrew?.length ?: -1)) {
                     longestSentence = sentence
                     Log.d(DEBUG_TAG, "--> New longest sentence found in level $levelId (length ${longestSentence?.hebrew?.length})")

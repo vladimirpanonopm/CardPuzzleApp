@@ -11,10 +11,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-// --- ИЗМЕНЕНИЕ 1: Добавить импорты ---
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
-// ---------------------------------
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -31,10 +29,7 @@ data class MatchItem(
 )
 // ---------------------------------
 
-// --- ЛОГ-ТЕГ ДЛЯ БАГА ---
-//private const val TAG = "MATCHING_CARDS_DEBUG"
 private const val TAG = AppDebug.TAG
-// -------------------------
 
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
@@ -50,12 +45,8 @@ class MatchingViewModel @Inject constructor(
     // --- ФЛАГ ЗАГРУЗКИ ---
     var isLoading by mutableStateOf(true)
         private set
-
-    // <<< ----- НОВЫЙ КЛЮЧЕВОЙ STATE V11 ----- >>>
-    /** Хранит UID, который был *успешно* загружен в ViewModel. */
     var loadedUid by mutableStateOf(0L)
         private set
-    // <<< --------------------------------- >>>
 
     // --- Состояние UI ---
     var currentTaskTitleResId by mutableStateOf(R.string.game_task_matching)
@@ -74,9 +65,7 @@ class MatchingViewModel @Inject constructor(
     var selectedItem by mutableStateOf<MatchItem?>(null)
         private set
 
-    // --- ИЗМЕНЕНИЕ 2: Добавить Job для отслеживания загрузки ---
     private var currentLoadJob: Job? = null
-    // ----------------------------------------------------
 
     // --- Каналы событий ---
     private val _hapticEventChannel = Channel<HapticEvent>()
@@ -90,31 +79,24 @@ class MatchingViewModel @Inject constructor(
         private set
     var currentRoundIndex: Int by mutableStateOf(0)
         private set
-    private var allLevelSentences = listOf<SentenceData>() // Храним все раунды уровня
 
+    // allLevelSentences УДАЛЕНО. Нам больше не нужно хранить здесь весь уровень.
 
-    // --- ИСПРАВЛЕНИЕ V11: Принимаем UID ---
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
         Log.d(TAG, "MatchingViewModel: loadLevelAndRound($levelId, $roundIndex, uid=$uid) CALLED.")
         Log.d(TAG, "  > Текущее состояние VM: loadedUid=$loadedUid, isLoading=$isLoading")
 
-        // --- НОВЫЙ ЛОГ: Проверка, актуальны ли данные ---
         if (loadedUid == uid && !isLoading) {
             Log.w(TAG, "  > ОТМЕНА ЗАГРУЗКИ: Этот UID ($uid) уже загружен.")
             return
         }
-        // ---------------------------------------------
 
-        // --- ИЗМЕНЕНИЕ 3: Отменить предыдущую активную загрузку ---
         currentLoadJob?.cancel()
         Log.d(TAG, "loadLevelAndRound: Предыдущий Job (если был) отменен.")
-        // ------------------------------------------------------
 
-        // 1. Синхронно ставим флаг "Загрузка"
         isLoading = true
         Log.d(TAG, "loadLevelAndRound: СИНХРОННЫЙ СБРОС UI (isLoading = true)")
 
-        // 2. Сбрасываем *все* состояние раунда
         hebrewCards = emptyList()
         translationCards = emptyList()
         isGameWon = false
@@ -126,44 +108,43 @@ class MatchingViewModel @Inject constructor(
         this.currentLevelId = levelId
         this.currentRoundIndex = roundIndex
 
-        // --- ИЗМЕНЕНИЕ 4: Запустить и сохранить новый Job ---
-        // 3. Запускаем асинхронную загрузку, передавая UID
         currentLoadJob = loadRound(uid)
-        // ------------------------------------------------
     }
 
-    // --- ИЗМЕНЕНИЕ 5: Метод теперь возвращает Job ---
+    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
     private fun loadRound(uid: Long): Job {
-        // -------------------------------------------
         Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (АСИНХРОННАЯ ЗАГРУЗКА) CALLED")
 
-        // --- ИЗМЕНЕНИЕ 6: Возвращаем Job из launch ---
         return viewModelScope.launch {
-            // ------------------------------------------
             Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (coroutine started)")
 
-            levelRepository.clearCache()
-            val allData = levelRepository.getLevelData(currentLevelId)
+            // 1. УБИРАЕМ clearCache()
+            // levelRepository.clearCache() // <-- УДАЛЕНО
 
-            // --- ИЗМЕНЕНИЕ 7: Проверять, не отменена ли корутина ---
+            // 2. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ
+            levelRepository.loadLevelDataIfNeeded(currentLevelId)
+
             ensureActive()
-            // ---------------------------------------------------
 
-            if (allData == null) {
-                Log.e(TAG, "MatchingViewModel: ОШИБКА! allData == null.")
+            // 3. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER (для получения данных раунда)
+            val levelData = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
+
+            // 4. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER (для проверки "isLastRoundAvailable")
+            val allLevelSentences = levelRepository.getSentencesForLevel(currentLevelId)
+
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+            if (allLevelSentences.isEmpty()) {
+                Log.e(TAG, "MatchingViewModel: ОШИБКА! allLevelSentences == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
                 loadedUid = uid // Помечаем, что загрузка (провальная) завершена
                 return@launch
             }
-            allLevelSentences = allData
-            Log.d(TAG, "MatchingViewModel: allData.size = ${allData.size}")
+            // this.allLevelSentences = allData (УДАЛЕНО)
+            Log.d(TAG, "MatchingViewModel: allData.size = ${allLevelSentences.size}")
 
-            val levelData = allData.getOrNull(currentRoundIndex)
-
-            // --- ИЗМЕНЕНИЕ 8: Проверять, не отменена ли корутина ---
             ensureActive()
-            // ---------------------------------------------------
 
             if (levelData == null) {
                 Log.e(TAG, "MatchingViewModel: ОШИБКА! levelData == null.")
@@ -181,7 +162,6 @@ class MatchingViewModel @Inject constructor(
                 return@launch
             }
 
-            // Генерируем карточки
             val pairs = levelData.task_pairs ?: emptyList()
             val newHebrewList = mutableListOf<MatchItem>()
             val newTranslationList = mutableListOf<MatchItem>()
@@ -197,30 +177,28 @@ class MatchingViewModel @Inject constructor(
                 }
             }
 
-            // --- ИЗМЕНЕНИЕ 9: ГЛАВНАЯ ПРОВЕРКА. Не обновлять UI, если Job отменен ---
             ensureActive()
-            // -------------------------------------------------------------------
 
-            // --- Обновляем State через присваивание ---
             hebrewCards = newHebrewList.shuffled()
             translationCards = newTranslationList.shuffled()
             Log.d(TAG, "MatchingViewModel: (АСИНХРОННО) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
 
-            updateLastRoundAvailability()
+            // Используем 'allLevelSentences', которые мы загрузили
+            updateLastRoundAvailability(allLevelSentences)
 
             Log.d(TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
 
-            // <<< КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ V11 >>>
-            // 4. Снимаем флаг "Загрузка" И помечаем UID как загруженный
             isLoading = false
             loadedUid = uid
             Log.d(TAG, "loadRound: (АСИНХРОННО) ЗАВЕРШЕНО. isLoading = false, loadedUid = $uid. UI должен обновиться.")
-            // <<< --------------------------- >>>
         }
     }
     // ----------------------------------------------------
 
-    private fun updateLastRoundAvailability() {
+    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
+    // Метод теперь принимает 'allLevelSentences' как параметр
+    private fun updateLastRoundAvailability(allLevelSentences: List<SentenceData>) {
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val uncompletedRounds = allLevelSentences.indices.filter {
@@ -338,10 +316,7 @@ class MatchingViewModel @Inject constructor(
     }
 
     fun restartCurrentRound() {
-        // --- ИЗМЕНЕНИЕ V11: Мы должны передать UID, чтобы инициировать перезагрузку ---
-        // Мы используем 0L, чтобы он гарантированно отличался от loadedUid
         loadLevelAndRound(currentLevelId, currentRoundIndex, 0L)
-        // --------------------------------------------------------------------------
     }
 
     fun onTrackClick() {

@@ -61,10 +61,8 @@ class CardViewModel @Inject constructor(
     var currentTaskTitleResId by mutableStateOf(R.string.game_task_unknown)
         private set
 
-    // --- ИСПРАВЛЕНИЕ: ВОТ НЕДОСТАЮЩАЯ СТРОКА ---
     var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
         private set
-    // ------------------------------------------
 
     var levelCount by mutableStateOf(0)
         private set
@@ -265,25 +263,31 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
     suspend fun loadLevel(levelId: Int): Boolean {
         Log.d(AppDebug.TAG, "loadLevel($levelId): CALLED")
 
-        levelRepository.clearCache()
-        val levelData = levelRepository.getLevelData(levelId)
-        Log.d(AppDebug.TAG, "loadLevel($levelId): levelData is ${if (levelData == null) "NULL" else "OK (${levelData.size} sentences)"}")
+        // 1. УБИРАЕМ clearCache()
+        // levelRepository.clearCache() // <-- УДАЛЕНО
 
-        if (levelData == null) {
-            Log.e(AppDebug.TAG, "loadLevel($levelId): FAILED. levelData is null.")
+        // 2. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ
+        levelRepository.loadLevelDataIfNeeded(levelId)
+
+        // 3. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER
+        val levelData = levelRepository.getSentencesForLevel(levelId)
+
+        Log.d(AppDebug.TAG, "loadLevel($levelId): levelData is ${if (levelData.isEmpty()) "EMPTY" else "OK (${levelData.size} sentences)"}")
+
+        if (levelData.isEmpty()) {
+            Log.e(AppDebug.TAG, "loadLevel($levelId): FAILED. levelData is empty.")
             return false
         }
 
         this.currentLevelSentences = levelData
         this.currentLevelId = levelId
 
-        // ИЗМЕНЕНО: Устанавливаем fontStyle в uiState
         val newFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
         uiState = uiState.copy(fontStyle = newFontStyle)
-        // ---
 
         val userLanguage = progressManager.getUserLanguage()
         wordDictionary = levelData
@@ -313,7 +317,6 @@ class CardViewModel @Inject constructor(
 
         if (nextRoundToPlay != null) {
             this.currentRoundIndex = nextRoundToPlay
-            // ИЗМЕНЕНО: 'currentTaskType' теперь обновляется в ViewModel
             this.currentTaskType = currentLevelSentences.getOrNull(nextRoundToPlay)?.taskType ?: TaskType.UNKNOWN
         } else {
             isLevelFullyCompleted = true
@@ -334,16 +337,21 @@ class CardViewModel @Inject constructor(
 
         return false
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
-        if (roundIndex >= currentLevelSentences.size) {
-            Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. Index out of bounds.")
+        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
+        // Данные УЖЕ в кэше, просто берем их
+        val roundData = levelRepository.getSingleSentence(currentLevelId, roundIndex)
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+        if (roundData == null) {
+            Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. roundData is NULL from repository.")
             return
         }
 
-        val roundData = currentLevelSentences[roundIndex]
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val newAvailableCards = mutableListOf<AvailableCardSlot>()
         var newTargetCards: List<Card>
@@ -351,7 +359,6 @@ class CardViewModel @Inject constructor(
         var newCurrentTaskPrompt: String?
         var newCurrentHebrewPrompt: String?
 
-        // ИЗМЕНЕНО: 'newTaskType' теперь локальная
         val newTaskType = roundData.taskType
         this.currentRoundIndex = roundIndex
         this.currentTaskType = newTaskType // Обновляем статическое поле
@@ -487,11 +494,12 @@ class CardViewModel @Inject constructor(
 
     private fun endRound(result: GameResult) {
         timerJob?.cancel()
-        // ИЗМЕНЕНО: 'isRoundWon' устанавливается в uiState
-        // isRoundWon = true (УДАЛЕНО)
 
         val userLanguage = progressManager.getUserLanguage()
-        val currentSentence = currentLevelSentences.getOrNull(currentRoundIndex)
+        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
+        val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
         val translation = when (userLanguage) {
             "en" -> currentSentence?.english_translation
             "fr" -> currentSentence?.french_translation
@@ -507,14 +515,12 @@ class CardViewModel @Inject constructor(
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
-        // ИЗМЕНЕНО: Читаем 'selectedCards' и 'assemblyLine' из 'uiState'
         val completedCardsList = when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> uiState.selectedCards.toList()
             TaskType.FILL_IN_BLANK -> uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> emptyList()
         }
 
-        // ИЗМЕНЕНО: Читаем 'errorCount' из 'uiState'
         val newSnapshot = RoundResultSnapshot(
             gameResult = result,
             completedCards = completedCardsList,
@@ -525,7 +531,6 @@ class CardViewModel @Inject constructor(
             audioFilename = if (result == GameResult.WIN) currentSentence?.audioFilename else null
         )
 
-        // ИЗМЕНЕНО: Обновляем uiState
         uiState = uiState.copy(
             isRoundWon = true,
             resultSnapshot = newSnapshot
@@ -533,7 +538,6 @@ class CardViewModel @Inject constructor(
 
         viewModelScope.launch {
             delay(650)
-            // ИЗМЕНЕНО:
             uiState = uiState.copy(showResultSheet = true)
             if (result == GameResult.WIN) {
                 newSnapshot.audioFilename?.let { audioPlayer.play(it) }
@@ -554,16 +558,12 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ ДЛЯ БАГА С 'HomeScreen' ---
     fun proceedToNextRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
-        // --- ИСПРАВЛЕНИЕ "ГОНКИ": УЧИТЫВАЕМ РЕЗУЛЬТАТ ТЕКУЩЕЙ ОПЕРАЦИИ ---
         val nowCompletedSet = completedRounds + currentRoundIndex
-        // ---------------------------------------------------
 
-        // Используем 'nowCompletedSet' вместо 'completedRounds'
         val uncompletedRounds = (0 until currentLevelSentences.size).filter {
             !nowCompletedSet.contains(it) && !archivedRounds.contains(it)
         }
@@ -578,23 +578,21 @@ class CardViewModel @Inject constructor(
 
         val nextForwardRound = uncompletedRounds.firstOrNull { it > currentRoundIndex }
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
-        val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
-        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
+        val nextRoundData = levelRepository.getSingleSentence(currentLevelId, nextRound)
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
-                // Тип экрана меняется, НУЖНА навигация
                 val uniqueId = System.currentTimeMillis()
                 _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
             } else {
-                // Тип экрана тот же, отправляем событие навигации
                 _navigationEvent.send("game/${currentLevelId}/${nextRound}")
             }
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
-    // --- ИЗМЕНЕНИЕ ДЛЯ БАГА С 'HomeScreen' ---
     fun skipToNextAvailableRound() {
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
@@ -608,20 +606,19 @@ class CardViewModel @Inject constructor(
         val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
         val nextRound = activeRounds[nextIndexInActiveList]
-        val nextRoundData = currentLevelSentences.getOrNull(nextRound)
 
-        // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
+        val nextRoundData = levelRepository.getSingleSentence(currentLevelId, nextRound)
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
         viewModelScope.launch {
             if (nextRoundData?.taskType == TaskType.MATCHING_PAIRS) {
-                // Тип экрана меняется, НУЖНА навигация
                 val uniqueId = System.currentTimeMillis()
                 _navigationEvent.send("matching_game/${currentLevelId}/${nextRound}?uid=$uniqueId")
             } else {
-                // Тип экрана тот же, отправляем событие навигации
                 _navigationEvent.send("game/${currentLevelId}/${nextRound}")
             }
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     override fun onCleared() {
