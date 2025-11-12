@@ -22,7 +22,9 @@ import kotlinx.coroutines.delay
  */
 @HiltViewModel
 class JournalViewModel @Inject constructor(
+    // --- ИСПРАВЛЕНИЕ: Делаем progressManager приватным ---
     private val progressManager: GameProgressManager,
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     private val audioPlayer: AudioPlayer,
     private val levelRepository: LevelRepository,
     private val ttsPlayer: TtsPlayer
@@ -37,6 +39,13 @@ class JournalViewModel @Inject constructor(
 
     private var audioPlaybackJob: Job? = null
 
+    val initialFontSize: Float = progressManager.getJournalFontSize()
+    val initialFontStyle: FontStyle = progressManager.getJournalFontStyle()
+
+    // --- ИСПРАВЛЕНИЕ: ViewModel теперь предоставляет язык ---
+    val userLanguage: String = progressManager.getUserLanguage() ?: "ru"
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
     /**
      * Главный метод инициализации.
      * Загружает данные для конкретного уровня и обновляет список карточек в журнале.
@@ -45,21 +54,15 @@ class JournalViewModel @Inject constructor(
         if (levelId == -1) return
         this.currentLevelId = levelId
 
-        // --- ИЗМЕНЕНИЕ ДЛЯ "ПРОБЛЕМЫ 2" ---
         viewModelScope.launch(Dispatchers.IO) {
-            // 1. ВЫЗЫВАЕМ НОВЫЙ МЕТОД ЗАГРУЗКИ (асинхронно)
             levelRepository.loadLevelDataIfNeeded(levelId)
-
-            // 2. ВЫЗЫВАЕМ НОВЫЙ СИНХРОННЫЙ GETTER
             val levelData = levelRepository.getSentencesForLevel(levelId)
 
             withContext(Dispatchers.Main) {
                 this@JournalViewModel.currentLevelSentences = levelData ?: emptyList()
-                // Обновляем список карточек для отображения.
                 loadJournalSentences()
             }
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     /**
@@ -71,7 +74,6 @@ class JournalViewModel @Inject constructor(
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
 
-        // В журнале показываем только те, что пройдены, но не в архиве.
         val activeJournalIndices = allCompleted - allArchived
 
         journalSentences = currentLevelSentences.filterIndexed { index, _ ->
@@ -85,83 +87,69 @@ class JournalViewModel @Inject constructor(
     fun resetSingleRoundProgress(roundIndex: Int) {
         if (currentLevelId == -1) return
         progressManager.removeSingleRoundProgress(currentLevelId, roundIndex)
-        // Перезагружаем список, чтобы убранная карточка исчезла из UI.
         loadJournalSentences()
     }
 
     /**
-     * "Удаляет" карточку, перемещая ее в архив. Она больше не будет появляться ни в игре, ни в журнале.
+     * "Удаляет" карточку, перемещая ее в архив.
      */
     fun archiveJournalCard(roundIndex: Int) {
         if (currentLevelId == -1) return
         progressManager.archiveRound(currentLevelId, roundIndex)
-        // Перезагружаем список, чтобы архивированная карточка исчезла из UI.
         loadJournalSentences()
+    }
+
+    fun saveJournalFontSize(size: Float) {
+        progressManager.saveJournalFontSize(size)
+    }
+
+    fun saveJournalFontStyle(style: FontStyle) {
+        progressManager.saveJournalFontStyle(style)
     }
 
     // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
-    /**
-     * Воспроизводит звук для одной страницы (обычное нажатие или пролистывание).
-     */
     fun playSoundForPage(pageIndex: Int) {
-        audioPlaybackJob?.cancel() // Отменяем предыдущее воспроизведение
+        audioPlaybackJob?.cancel()
         audioPlaybackJob = viewModelScope.launch {
             val sentence = journalSentences.getOrNull(pageIndex) ?: return@launch
 
             if (sentence.taskType == TaskType.MATCHING_PAIRS) {
-                // Для "Соедини пары" - озвучиваем слова по очереди
                 val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
                 for (word in words) {
-                    ttsPlayer.speakAndAwait(word) // Ждем завершения слова
-                    delay(500) // Небольшая пауза между словами
+                    ttsPlayer.speakAndAwait(word)
+                    delay(500)
                 }
             } else if (sentence.audioFilename != null) {
-                // Для остальных - проигрываем аудиофайл
                 audioPlayer.play(sentence.audioFilename)
             }
         }
     }
 
-    /**
-     * Воспроизводит звук и ЖДЕТ завершения. Используется циклом A-B.
-     */
     suspend fun playAndAwait(pageIndex: Int, speed: Float) {
         val sentence = journalSentences.getOrNull(pageIndex) ?: return
 
         if (sentence.taskType == TaskType.MATCHING_PAIRS) {
-            // Для "Соедини пары" - озвучиваем слова по очереди
             val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
             for (word in words) {
-                ttsPlayer.speakAndAwait(word) // Ждем завершения слова
-                // Пауза 1 сек (с поправкой на скорость)
+                ttsPlayer.speakAndAwait(word)
                 delay((1000 / speed).toLong())
             }
         } else if (sentence.audioFilename != null) {
-            // Для остальных - проигрываем аудиофайл
             audioPlayer.playAndAwaitCompletion(sentence.audioFilename, speed)
         }
     }
 
-    /**
-     * Останавливает любое воспроизведение (и AudioPlayer, и TTS).
-     */
     fun stopAudio() {
         audioPlaybackJob?.cancel()
         audioPlayer.stop()
         ttsPlayer.stop()
     }
 
-    /**
-     * Вызывается, когда экран Журнала закрывается (DisposableEffect).
-     */
     fun releaseAudio() {
         stopAudio()
     }
 
-    /**
-     * Вызывается, когда ViewModel уничтожается.
-     */
     override fun onCleared() {
         super.onCleared()
         releaseAudio()

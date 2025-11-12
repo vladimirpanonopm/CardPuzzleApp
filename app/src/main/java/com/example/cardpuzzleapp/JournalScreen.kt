@@ -51,11 +51,12 @@ fun JournalScreen(
     val context = LocalContext.current
     val journalSentences = journalViewModel.journalSentences
     val coroutineScope = rememberCoroutineScope()
-    val progressManager = remember { GameProgressManager(context) }
 
     var isFlipped by remember { mutableStateOf(false) }
-    var journalFontSize by remember { mutableStateOf(progressManager.getJournalFontSize().sp) }
-    var journalFontStyle by remember { mutableStateOf(progressManager.getJournalFontStyle()) }
+
+    var journalFontSize by remember { mutableStateOf(journalViewModel.initialFontSize.sp) }
+    var journalFontStyle by remember { mutableStateOf(journalViewModel.initialFontStyle) }
+
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var cardToDelete by remember { mutableStateOf<SentenceData?>(null) }
@@ -210,7 +211,7 @@ fun JournalScreen(
                                             shape = RoundedCornerShape(16.dp),
                                             onClick = {
                                                 journalFontStyle = style
-                                                progressManager.saveJournalFontStyle(style)
+                                                journalViewModel.saveJournalFontStyle(style)
                                             },
                                             selected = journalFontStyle == style
                                         ) {
@@ -229,7 +230,7 @@ fun JournalScreen(
                                         onValueChange = { journalFontSize = it.sp },
                                         valueRange = 28f..56f,
                                         onValueChangeFinished = {
-                                            progressManager.saveJournalFontSize(journalFontSize.value)
+                                            journalViewModel.saveJournalFontSize(journalFontSize.value)
                                         }
                                     )
                                     Text("A", fontSize = 32.sp)
@@ -348,6 +349,9 @@ fun JournalScreen(
                             fontSize = journalFontSize,
                             fontStyle = journalFontStyle,
                             isFlipped = isFlipped,
+                            // --- ИСПРАВЛЕНИЕ: Передаем язык ---
+                            userLanguage = journalViewModel.userLanguage,
+                            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                             modifier = Modifier
                                 .graphicsLayer {
                                     scaleY = 1f - (abs(pageOffset) * 0.15f)
@@ -372,6 +376,7 @@ fun FlippableJournalCard(
     fontSize: TextUnit,
     fontStyle: FontStyle,
     isFlipped: Boolean,
+    userLanguage: String, // <-- ИСПРАВЛЕНИЕ: Принимаем язык
     modifier: Modifier = Modifier
 ) {
     val animatedRotation by animateFloatAsState(
@@ -394,6 +399,7 @@ fun FlippableJournalCard(
                 isHebrewSide = true,
                 fontSize = fontSize,
                 fontStyle = fontStyle,
+                userLanguage = userLanguage // <-- ИСПРАВЛЕНИЕ: Передаем дальше
             )
         } else {
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
@@ -402,6 +408,7 @@ fun FlippableJournalCard(
                     isHebrewSide = false,
                     fontSize = fontSize,
                     fontStyle = fontStyle,
+                    userLanguage = userLanguage // <-- ИСПРАВЛЕНИЕ: Передаем дальше
                 )
             }
         }
@@ -416,6 +423,7 @@ private fun JournalPageContent(
     isHebrewSide: Boolean,
     fontSize: TextUnit,
     fontStyle: FontStyle,
+    userLanguage: String // <-- ИСПРАВЛЕНИЕ: Принимаем язык
 ) {
 
     Box(
@@ -446,7 +454,6 @@ private fun JournalPageContent(
                     // 2. ТЕКСТ (Иврит)
                     if (isHebrewSide) {
 
-                        // --- ИСПРАВЛЕНИЕ: Логика для MATCHING_PAIRS и FILL_IN_BLANK ---
                         val (textToShow, alignment) = when (sentence.taskType) {
                             TaskType.MATCHING_PAIRS -> {
                                 val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(0) ?: "" } ?: ""
@@ -470,7 +477,6 @@ private fun JournalPageContent(
                                 sentence.hebrew to TextAlign.Right
                             }
                         }
-                        // ---------------------------------------------
 
                         val styleConfig = CardStyles.getStyle(fontStyle)
 
@@ -481,7 +487,7 @@ private fun JournalPageContent(
                                     FontVariation.width(styleConfig.fontWidth)
                                 ))),
                                 fontSize = fontSize,
-                                textAlign = alignment, // Используем alignment
+                                textAlign = alignment,
                                 color = StickyNoteText,
                                 textDirection = TextDirection.Rtl
                             )
@@ -489,28 +495,29 @@ private fun JournalPageContent(
                             TextStyle(
                                 fontFamily = fontStyle.fontFamily,
                                 fontSize = fontSize,
-                                textAlign = alignment, // Используем alignment
+                                textAlign = alignment,
                                 fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
                                 color = StickyNoteText,
                                 textDirection = TextDirection.Rtl
                             )
                         }
                         Text(
-                            text = textToShow, // Используем textToShow
+                            text = textToShow,
                             style = hebrewTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         // 3. ТЕКСТ (Перевод)
                     } else {
-                        val userLanguage = GameProgressManager(LocalContext.current).getUserLanguage()
+                        // --- ИСПРАВЛЕНИЕ: УДАЛЯЕМ ЛОКАЛЬНЫЙ ВЫЗОВ ---
+                        // val userLanguage = journalViewModel.progressManager.getUserLanguage() // <-- УДАЛЕНО
+                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-                        // --- ИСПРАВЛЕНИЕ (для Оборота): Логика для MATCHING_PAIRS ---
                         val (textToShow, alignment) = if (sentence.taskType == TaskType.MATCHING_PAIRS) {
                             val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(1) ?: "" } ?: ""
                             pairsText to TextAlign.Left
                         } else {
-                            val translation = when (userLanguage) {
+                            val translation = when (userLanguage) { // <-- Используем 'userLanguage' из параметров
                                 "en" -> sentence.english_translation
                                 "fr" -> sentence.french_translation
                                 "es" -> sentence.spanish_translation
@@ -518,15 +525,14 @@ private fun JournalPageContent(
                             }
                             translation to TextAlign.Left
                         }
-                        // ---------------------------------------------
 
                         val translationTextStyle = MaterialTheme.typography.headlineMedium.copy(
                             fontSize = fontSize,
-                            textAlign = alignment, // Используем alignment
+                            textAlign = alignment,
                             color = StickyNoteText
                         )
                         Text(
-                            text = textToShow ?: "", // Используем textToShow
+                            text = textToShow ?: "",
                             style = translationTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
