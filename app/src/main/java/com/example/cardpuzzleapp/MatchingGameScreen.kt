@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ: Иконка MenuBook ---
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
@@ -24,6 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+// --- ДОБАВЛЕНЫ ИМПОРТЫ ---
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.flow.collectLatest
+// --- КОНЕЦ ---
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 // --- TAG ИЗМЕНЕН ДЛЯ УДОБСТВА ФИЛЬТРАЦИИ ---
 private const val TAG = "MATCHING_DEBUG"
@@ -55,6 +63,9 @@ fun MatchingGameScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snapshot = viewModel.resultSnapshot
+    // --- ДОБАВЛЕНО: Получаем Haptics ---
+    val haptics = LocalHapticFeedback.current
+    // --- КОНЕЦ ---
 
     LaunchedEffect(routeUid) {
         // --- ЛОГ ---
@@ -67,6 +78,18 @@ fun MatchingGameScreen(
 
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
+
+    // --- ДОБАВЛЕНО: 'LaunchedEffect' для Haptic Events ---
+    LaunchedEffect(Unit) {
+        viewModel.hapticEvents.collectLatest { event ->
+            Log.d("VIBRATE_DEBUG", "MatchingGameScreen received event: $event")
+            when (event) {
+                HapticEvent.Success -> haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                HapticEvent.Failure -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+    }
+    // --- КОНЕЦ ---
 
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
 
@@ -87,7 +110,9 @@ fun MatchingGameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.MenuBook,
+                    // --- ИСПРАВЛЕНИЕ: Deprecated иконка ---
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
@@ -143,20 +168,32 @@ fun MatchingGameScreen(
                 ) {
                     MatchColumn(
                         items = viewModel.hebrewCards,
+                        // --- ИСПРАВЛЕНИЕ: Правильное имя функции ---
                         onItemClick = viewModel::onMatchItemClicked,
+                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                         modifier = Modifier.weight(1f),
                         isHebrewColumn = true,
-                        roundIndex = viewModel.currentRoundIndex
+                        roundIndex = viewModel.currentRoundIndex,
+                        // --- ДОБАВЛЕНО: Передаем trigger'ы для "тряски" ---
+                        errorCount = viewModel.errorCount,
+                        errorItemId = viewModel.errorItemId
+                        // --- КОНЕЦ ---
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
 
                     MatchColumn(
                         items = viewModel.translationCards,
+                        // --- ИСПРАВЛЕНИЕ: Правильное имя функции ---
                         onItemClick = viewModel::onMatchItemClicked,
+                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                         modifier = Modifier.weight(1f),
                         isHebrewColumn = false,
-                        roundIndex = viewModel.currentRoundIndex
+                        roundIndex = viewModel.currentRoundIndex,
+                        // --- ДОБАВЛЕНО: Передаем trigger'ы для "тряски" ---
+                        errorCount = viewModel.errorCount,
+                        errorItemId = viewModel.errorItemId
+                        // --- КОНЕЦ ---
                     )
                 }
             } else {
@@ -226,18 +263,34 @@ private fun MatchColumn(
     onItemClick: (MatchItem) -> Unit,
     modifier: Modifier = Modifier,
     isHebrewColumn: Boolean,
-    roundIndex: Int
+    roundIndex: Int,
+    // --- ДОБАВЛЕНО: Принимаем trigger'ы ---
+    errorCount: Int,
+    errorItemId: UUID?
+    // --- КОНЕЦ ---
 ) {
+    val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
+    Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
+
     LazyColumn(
         modifier = modifier.fillMaxHeight(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(items, key = { it.id }) { item ->
-            MatchLineItem(
-                item = item,
-                onItemClick = onItemClick,
-                isHebrew = isHebrewColumn
-            )
+            // --- ИЗМЕНЕНИЕ: Оборачиваем в Shakeable ---
+            Shakeable(
+                trigger = errorCount,
+                errorCardId = errorItemId,
+                currentCardId = item.id
+            ) { shakeModifier ->
+                MatchLineItem(
+                    item = item,
+                    onItemClick = onItemClick,
+                    isHebrew = isHebrewColumn,
+                    modifier = shakeModifier // <-- Передаем модификатор
+                )
+            }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         }
     }
 }
@@ -246,23 +299,27 @@ private fun MatchColumn(
 private fun MatchLineItem(
     item: MatchItem,
     onItemClick: (MatchItem) -> Unit,
-    isHebrew: Boolean
+    isHebrew: Boolean,
+    modifier: Modifier = Modifier // <-- ДОБАВЛЕНО: Принимаем модификатор
 ) {
     val cornerRadius = 8.dp
+
+    // --- ИЗМЕНЕНИЕ ЗДЕСЬ (ПО ЗАПРОСУ) ---
     val cardColor = when {
-        item.isMatched -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f)
+        item.isMatched -> StickyNoteYellow // <-- ИЗМЕНЕНО
         item.isSelected -> StickyNoteYellow
         else -> MaterialTheme.colorScheme.surface
     }
 
     val borderColor = when {
-        item.isMatched -> Color.Transparent
+        item.isMatched -> StickyNoteText // <-- ИЗМЕНЕНО
         item.isSelected -> StickyNoteText
         else -> MaterialTheme.colorScheme.outline
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     Card(
-        modifier = Modifier
+        modifier = modifier // <-- ИСПОЛЬЗУЕМ модификатор
             .fillMaxWidth()
             .clickable(
                 enabled = !item.isMatched,

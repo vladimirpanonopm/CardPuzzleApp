@@ -57,6 +57,10 @@ class MatchingViewModel @Inject constructor(
         private set
     var errorCount by mutableStateOf(0)
         private set
+    // --- ДОБАВЛЕНО: ID для анимации "тряски" ---
+    var errorItemId by mutableStateOf<UUID?>(null)
+        private set
+    // --- КОНЕЦ ---
     var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
         private set
     var showResultSheet by mutableStateOf(false)
@@ -114,6 +118,7 @@ class MatchingViewModel @Inject constructor(
         showResultSheet = false
         selectedItem = null
         errorCount = 0
+        errorItemId = null // <-- ДОБАВЛЕНО: Сброс ID ошибки
 
         this.currentLevelId = levelId
         this.currentRoundIndex = roundIndex
@@ -217,6 +222,7 @@ class MatchingViewModel @Inject constructor(
         if (currentSelection == null) {
             setSelection(item, true)
             selectedItem = item
+            errorItemId = null // <-- Сброс ошибки
 
         } else if (currentSelection.isHebrew == item.isHebrew) {
             if (currentSelection.id == item.id) {
@@ -227,12 +233,15 @@ class MatchingViewModel @Inject constructor(
                 setSelection(item, true)
                 selectedItem = item
             }
+            errorItemId = null // <-- Сброс ошибки
+
         } else {
             if (currentSelection.pairId == item.pairId) {
                 setCardsAsMatched(currentSelection.pairId)
                 selectedItem = null
+                errorItemId = null // <-- Сброс ошибки
                 viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
-                Log.d(TAG, "  > VM: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
+                Log.d(AppDebug.TAG, "MatchViewModel: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
 
                 if (hebrewCards.all { it.isMatched }) {
                     handleWin()
@@ -240,14 +249,16 @@ class MatchingViewModel @Inject constructor(
 
             } else {
                 errorCount++
+                errorItemId = item.id // <-- УСТАНОВКА ID ОШИБКИ
                 viewModelScope.launch {
                     _hapticEventChannel.send(HapticEvent.Failure)
                     delay(500)
                     setSelection(currentSelection, false)
                     setSelection(item, false)
                     selectedItem = null
+                    // Не сбрасываем errorItemId здесь, чтобы Shakeable мог его прочитать
                 }
-                Log.d(TAG, "  > VM: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
+                Log.d(AppDebug.TAG, "MatchViewModel: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
             }
         }
     }

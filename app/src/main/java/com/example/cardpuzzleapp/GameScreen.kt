@@ -276,9 +276,7 @@ private fun GameScreenLayout(
 
     val fontStyle = dynamicState.fontStyle
     val isRoundWon = dynamicState.isRoundWon
-    // --- ДОБАВЛЕНО: Получаем новое состояние ---
     val isInteractionEnabled = !dynamicState.isAudioPlaying
-    // --- КОНЕЦ ---
 
     val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
     val animatedFontSize by animateFloatAsState(
@@ -329,9 +327,7 @@ private fun GameScreenLayout(
                     // Большая кнопка "Слушать"
                     OutlinedButton(
                         onClick = { viewModel.replayAuditionAudio() },
-                        // --- ДОБАВЛЕНО: Блокируем кнопку "Слушать", пока играет аудио ---
                         enabled = isInteractionEnabled,
-                        // --- КОНЕЦ ---
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
@@ -372,66 +368,51 @@ private fun GameScreenLayout(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 100.dp)
                     ) {
+                        // --- РЕФАКТОРИНГ №3: Логика 'when' вынесена ---
                         if (isRoundWon) {
-                            // --- ИЗМЕНЕНО: Добавлен AUDITION ---
                             val assembledText = remember(isRoundWon, staticState.taskType) {
+                                // Эта логика дублирует VM, но она нужна для анимации победы
+                                // ДО того, как uiState обновится snapshot-ом
                                 if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION || staticState.taskType == TaskType.AUDITION) {
                                     staticState.targetCards.joinToString(separator = "") { it.text }
-                                } else {
+                                } else { // FILL_IN_BLANK
                                     dynamicState.assemblyLine.joinToString(separator = "") { slot ->
                                         val filledCard = slot.filledCard
                                         filledCard?.text ?: slot.targetCard?.text ?: slot.text
                                     }
                                 }
                             }
+                            // Отображаем собранный текст (общий для всех)
                             Text(
                                 text = assembledText,
                                 style = hebrewTextStyle,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
+                            // Экран в процессе игры
                             when (staticState.taskType) {
-                                // --- ИЗМЕНЕНО: Добавлен AUDITION ---
                                 TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
-                                    Text(
-                                        text = dynamicState.selectedCards.joinToString(separator = "") { it.text },
-                                        style = hebrewTextStyle,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable(
-                                                // --- ДОБАВЛЕНО: Проверяем блокировку ---
-                                                enabled = isInteractionEnabled,
-                                                // --- КОНЕЦ ---
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = { viewModel.returnLastSelectedCard() }
-                                            )
+                                    AssemblyTaskLayout(
+                                        assembledText = dynamicState.selectedCards.joinToString(separator = "") { it.text },
+                                        textStyle = hebrewTextStyle,
+                                        isInteractionEnabled = isInteractionEnabled,
+                                        onReturnCard = { viewModel.returnLastSelectedCard() }
                                     )
                                 }
                                 TaskType.FILL_IN_BLANK -> {
-                                    FlowRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        dynamicState.assemblyLine.forEach { slot ->
-                                            key(slot.id) {
-                                                AssemblySlotItem(
-                                                    slot = slot,
-                                                    textStyle = hebrewTextStyle,
-                                                    fontStyle = fontStyle,
-                                                    taskType = staticState.taskType,
-                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) },
-                                                    // --- ДОБАЛЕНО: Передаем состояние ---
-                                                    isInteractionEnabled = isInteractionEnabled
-                                                    // --- КОНЕЦ ---
-                                                )
-                                            }
-                                        }
-                                    }
+                                    FillInBlankTaskLayout(
+                                        assemblyLine = dynamicState.assemblyLine,
+                                        textStyle = hebrewTextStyle,
+                                        fontStyle = fontStyle,
+                                        taskType = staticState.taskType,
+                                        isInteractionEnabled = isInteractionEnabled,
+                                        onReturnCardFromSlot = { slot -> viewModel.returnCardFromSlot(slot) }
+                                    )
                                 }
                                 TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
                             }
                         }
+                        // --- КОНЕЦ РЕФАКТОРИНГА №3 ---
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -467,9 +448,7 @@ private fun GameScreenLayout(
                                     taskType = staticState.taskType,
                                     isAssembledCard = false,
                                     isVisible = slot.isVisible,
-                                    // --- ДОБАВЛЕНО: Передаем состояние ---
                                     isInteractionEnabled = isInteractionEnabled
-                                    // --- КОНЕЦ ---
                                 )
                             }
                         }
@@ -479,3 +458,62 @@ private fun GameScreenLayout(
         }
     }
 }
+
+// --- РЕФАКТОРИНГ №3: Новые Composable-функции ---
+
+/**
+ * Отображает поле для ASSEMBLE_TRANSLATION и AUDITION (собранный текст).
+ */
+@Composable
+private fun AssemblyTaskLayout(
+    assembledText: String,
+    textStyle: TextStyle,
+    isInteractionEnabled: Boolean,
+    onReturnCard: () -> Unit
+) {
+    Text(
+        text = assembledText,
+        style = textStyle,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = isInteractionEnabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onReturnCard
+            )
+    )
+}
+
+/**
+ * Отображает поле для FILL_IN_BLANK (текст с пропусками и карточками).
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
+@Composable
+private fun FillInBlankTaskLayout(
+    assemblyLine: List<AssemblySlot>,
+    textStyle: TextStyle,
+    fontStyle: FontStyle,
+    taskType: TaskType,
+    isInteractionEnabled: Boolean,
+    onReturnCardFromSlot: (AssemblySlot) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        assemblyLine.forEach { slot ->
+            key(slot.id) {
+                AssemblySlotItem(
+                    slot = slot,
+                    textStyle = textStyle,
+                    fontStyle = fontStyle,
+                    taskType = taskType,
+                    onReturnCard = { onReturnCardFromSlot(slot) },
+                    isInteractionEnabled = isInteractionEnabled
+                )
+            }
+        }
+    }
+}
+// --- КОНЕЦ РЕФАКТОРИНГА №3 ---
