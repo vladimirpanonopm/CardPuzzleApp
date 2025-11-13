@@ -91,15 +91,22 @@ class GameProgressManager(context: Context) {
         val archiveKey = getLevelArchiveKey(levelId)
         val currentProgress = getCompletedRounds(levelId).toMutableSet()
         val currentArchive = getArchivedRounds(levelId).toMutableSet()
-        if (currentProgress.remove(roundIndex)) {
-            currentArchive.add(roundIndex)
-            val newProgressSet = currentProgress.map { it.toString() }.toSet()
-            val newArchiveSet = currentArchive.map { it.toString() }.toSet()
-            prefs.edit()
-                .putStringSet(progressKey, newProgressSet)
-                .putStringSet(archiveKey, newArchiveSet)
-                .apply()
-        }
+
+        // --- ИЗМЕНЕНИЕ: Логика изменена ---
+        // 1. Убираем из "прогресса", если он там был
+        currentProgress.remove(roundIndex)
+
+        // 2. Добавляем в "архив" (даже если его не было в прогрессе)
+        currentArchive.add(roundIndex)
+
+        // 3. Сохраняем оба обновленных списка
+        val newProgressSet = currentProgress.map { it.toString() }.toSet()
+        val newArchiveSet = currentArchive.map { it.toString() }.toSet()
+        prefs.edit()
+            .putStringSet(progressKey, newProgressSet)
+            .putStringSet(archiveKey, newArchiveSet)
+            .apply()
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     fun resetLevelProgress(levelId: Int) {

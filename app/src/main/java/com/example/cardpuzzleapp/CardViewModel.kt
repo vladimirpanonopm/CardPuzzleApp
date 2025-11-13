@@ -48,7 +48,7 @@ class CardViewModel @Inject constructor(
         val fontStyle: FontStyle = FontStyle.REGULAR,
         val resultSnapshot: RoundResultSnapshot? = null,
         val showResultSheet: Boolean = false,
-        val isAudioPlaying: Boolean = false // <-- (Состояние блокировки из прошлого шага)
+        val isAudioPlaying: Boolean = false
     )
 
     // --- ШАГ 2: ЗАМЕНА СТАРЫХ СОСТОЯНИЙ ---
@@ -65,6 +65,11 @@ class CardViewModel @Inject constructor(
 
     var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
         private set
+
+    // --- РЕФАКТОРИНГ №1: Группируем логику типов задач ---
+    private val isAssemblyTask: Boolean
+        get() = currentTaskType == TaskType.ASSEMBLE_TRANSLATION || currentTaskType == TaskType.AUDITION
+    // --- КОНЕЦ РЕФАКТОРИНГА ---
 
     var levelCount by mutableStateOf(0)
         private set
@@ -154,7 +159,7 @@ class CardViewModel @Inject constructor(
         var targetSlotIndex = -1
 
         when (currentTaskType) {
-            // --- ИЗМЕНЕНО: Добавлен AUDITION ---
+            // --- ИЗМЕНЕНО: Используем 'isAssemblyTask' ---
             TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
                 val nextExpectedCard = targetCards.getOrNull(uiState.selectedCards.size)
                 isCorrect = (nextExpectedCard != null && card.text.trim() == nextExpectedCard.text.trim())
@@ -181,7 +186,7 @@ class CardViewModel @Inject constructor(
             }
 
             when (currentTaskType) {
-                // --- ИЗМЕНЕНО: Добавлен AUDITION ---
+                // --- ИЗМЕНЕНО: Используем 'isAssemblyTask' ---
                 TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
                     val newSelectedCards = uiState.selectedCards + card
                     uiState = uiState.copy(
@@ -239,8 +244,9 @@ class CardViewModel @Inject constructor(
     }
 
     fun returnLastSelectedCard() {
-        // --- ИЗМЕНЕНО: Добавлен AUDITION ---
-        if (uiState.isRoundWon || (currentTaskType != TaskType.ASSEMBLE_TRANSLATION && currentTaskType != TaskType.AUDITION)) return
+        // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
+        if (uiState.isRoundWon || !isAssemblyTask) return
+        // --- КОНЕЦ РЕФАКТОРИНГА ---
 
         val cardToReturn = uiState.selectedCards.lastOrNull() ?: return
         ttsPlayer.speak(cardToReturn.text.trim())
@@ -257,15 +263,16 @@ class CardViewModel @Inject constructor(
     }
 
     private fun checkWinCondition() {
-        val didWin = when (currentTaskType) {
-            // --- ИЗМЕНЕНО: Добавлен AUDITION ---
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
+        val didWin = when {
+            // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
+            isAssemblyTask -> {
                 uiState.selectedCards.size == targetCards.size
             }
-            TaskType.FILL_IN_BLANK -> {
+            // --- КОНЕЦ РЕФАКТОРИНГА ---
+            currentTaskType == TaskType.FILL_IN_BLANK -> {
                 uiState.assemblyLine.none { it.isBlank && it.filledCard == null }
             }
-            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> false
+            else -> false // MATCHING_PAIRS (обрабатывается в своем VM) или UNKNOWN
         }
 
         if (didWin) {
@@ -531,20 +538,28 @@ class CardViewModel @Inject constructor(
             else -> currentSentence?.russian_translation
         }
 
-        // --- ИЗМЕНЕНО: Не сохраняем AUDITION ---
-        if (result == GameResult.WIN && currentTaskType != TaskType.AUDITION) {
-            progressManager.saveProgress(currentLevelId, currentRoundIndex)
+        // --- ИЗМЕНЕНИЕ: Теперь мы ОБРАБАТЫВАЕМ AUDITION ---
+        if (result == GameResult.WIN) {
+            if (currentTaskType == TaskType.AUDITION) {
+                // ПУНКТ 2: Помечаем как пройденный, но НЕ для журнала
+                progressManager.archiveRound(currentLevelId, currentRoundIndex)
+            } else {
+                // ПУНКТ 1: Обычное сохранение в журнал
+                progressManager.saveProgress(currentLevelId, currentRoundIndex)
+            }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
-        val completedCardsList = when (currentTaskType) {
-            // --- ИЗМЕНЕНО: Добавлен AUDITION ---
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> uiState.selectedCards.toList()
-            TaskType.FILL_IN_BLANK -> uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
-            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> emptyList()
+        val completedCardsList = when {
+            // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
+            isAssemblyTask -> uiState.selectedCards.toList()
+            // --- КОНЕЦ РЕФАКТОРИНГА ---
+            currentTaskType == TaskType.FILL_IN_BLANK -> uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
+            else -> emptyList() // MATCHING_PAIRS или UNKNOWN
         }
 
         val newSnapshot = RoundResultSnapshot(
@@ -576,7 +591,6 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ДОБАВЛЕНА НОВАЯ ФУНКЦИЯ ---
     /**
      * Повторно воспроизводит аудиофайл для текущего раунда.
      * Вызывается кнопкой "Слушать" в режиме AUDITION.
@@ -587,7 +601,6 @@ class CardViewModel @Inject constructor(
             audioPlayer.play(audioFile)
         }
     }
-    // --- КОНЕЦ ---
 
     fun restartCurrentRound() {
         if (isLevelFullyCompleted) isLevelFullyCompleted = false
@@ -661,7 +674,7 @@ class CardViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         ttsPlayer.stop()
-        audioPlayer.release() // <-- ДОБАВЛЕНО: Освобождаем AudioPlayer
+        audioPlayer.release()
     }
 
     companion object {
