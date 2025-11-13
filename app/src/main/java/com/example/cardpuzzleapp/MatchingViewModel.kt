@@ -29,7 +29,9 @@ data class MatchItem(
 )
 // ---------------------------------
 
-private const val TAG = AppDebug.TAG
+// --- TAG ИЗМЕНЕН ДЛЯ УДОБСТВА ФИЛЬТРАЦИИ ---
+private const val TAG = "MATCHING_DEBUG"
+// ------------------------------------------
 
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
@@ -83,19 +85,27 @@ class MatchingViewModel @Inject constructor(
         private set
 
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
-        Log.d(TAG, "MatchingViewModel: loadLevelAndRound($levelId, $roundIndex, uid=$uid) CALLED.")
-        Log.d(TAG, "  > Текущее состояние VM: loadedUid=$loadedUid, isLoading=$isLoading")
+        // --- ЛОГ ---
+        Log.w(TAG, "VM: loadLevelAndRound(uid=$uid) CALLED.")
+        Log.i(TAG, "  > VM: Текущее состояние: loadedUid=$loadedUid, isLoading=$isLoading")
+        // ---------
 
         if (loadedUid == uid && !isLoading) {
-            Log.w(TAG, "  > ОТМЕНА ЗАГРУЗКИ: Этот UID ($uid) уже загружен.")
+            // --- ЛОГ ---
+            Log.e(TAG, "  > VM: ОТМЕНА ЗАГРУЗКИ: Этот UID ($uid) уже загружен и не в процессе загрузки.")
+            // ---------
             return
         }
 
         currentLoadJob?.cancel()
-        Log.d(TAG, "loadLevelAndRound: Предыдущий Job (если был) отменен.")
+        // --- ЛОГ ---
+        Log.i(TAG, "  > VM: Предыдущий Job (если был) отменен.")
+        // ---------
 
         isLoading = true
-        Log.d(TAG, "loadLevelAndRound: СИНХРОННЫЙ СБРОС UI (isLoading = true)")
+        // --- ЛОГ ---
+        Log.w(TAG, "  > VM: СИНХРОННЫЙ СБРОС UI (isLoading = true)")
+        // ---------
 
         hebrewCards = emptyList()
         translationCards = emptyList()
@@ -112,10 +122,12 @@ class MatchingViewModel @Inject constructor(
     }
 
     private fun loadRound(uid: Long): Job {
-        Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (АСИНХРОННАЯ ЗАГРУЗКА) CALLED")
+        // --- ЛОГ ---
+        Log.w(TAG, "  > VM: loadRound(uid=$uid) (КОРУТИНА) CALLED")
+        // ---------
 
         return viewModelScope.launch {
-            Log.d(TAG, "MatchingViewModel: loadRound(uid=$uid) (coroutine started)")
+            Log.i(TAG, "  > VM: loadRound(uid=$uid) (coroutine started)")
 
             levelRepository.loadLevelDataIfNeeded(currentLevelId)
 
@@ -125,18 +137,18 @@ class MatchingViewModel @Inject constructor(
             val allLevelSentences = levelRepository.getSentencesForLevel(currentLevelId)
 
             if (allLevelSentences.isEmpty()) {
-                Log.e(TAG, "MatchingViewModel: ОШИБКА! allLevelSentences == null.")
+                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! allLevelSentences == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
                 loadedUid = uid
                 return@launch
             }
-            Log.d(TAG, "MatchingViewModel: allData.size = ${allLevelSentences.size}")
+            Log.i(TAG, "  > VM: loadRound(uid=$uid) allData.size = ${allLevelSentences.size}")
 
             ensureActive()
 
             if (levelData == null) {
-                Log.e(TAG, "MatchingViewModel: ОШИБКА! levelData == null.")
+                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! levelData == null.")
                 currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
                 loadedUid = uid
@@ -145,7 +157,7 @@ class MatchingViewModel @Inject constructor(
 
             if (levelData.taskType != TaskType.MATCHING_PAIRS) {
                 currentTaskTitleResId = R.string.game_task_unknown
-                Log.e(TAG, "MatchingViewModel: ОШИБКА! 'MATCHING_PAIRS' не найдено.")
+                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! 'MATCHING_PAIRS' не найдено.")
                 isLoading = false
                 loadedUid = uid
                 return@launch
@@ -170,15 +182,17 @@ class MatchingViewModel @Inject constructor(
 
             hebrewCards = newHebrewList.shuffled()
             translationCards = newTranslationList.shuffled()
-            Log.d(TAG, "MatchingViewModel: (АСИНХРОННО) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
+            Log.i(TAG, "  > VM: loadRound(uid=$uid) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
 
             updateLastRoundAvailability(allLevelSentences)
 
-            Log.d(TAG, "MatchingViewModel: Поле сгенерировано. ${hebrewCards.size} пар.")
+            Log.i(TAG, "  > VM: loadRound(uid=$uid) Поле сгенерировано. ${hebrewCards.size} пар.")
 
             isLoading = false
             loadedUid = uid
-            Log.d(TAG, "loadRound: (АСИНХРОННО) ЗАВЕРШЕНО. isLoading = false, loadedUid = $uid. UI должен обновиться.")
+            // --- ЛОГ ---
+            Log.w(TAG, "  > VM: loadRound(uid=$uid) (КОРУТИНА) ЗАВЕРШЕНА. isLoading = false, loadedUid = $uid. UI должен обновиться.")
+            // ---------
         }
     }
 
@@ -218,7 +232,7 @@ class MatchingViewModel @Inject constructor(
                 setCardsAsMatched(currentSelection.pairId)
                 selectedItem = null
                 viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
-                Log.d(AppDebug.TAG, "MatchViewModel: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
+                Log.d(TAG, "  > VM: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
 
                 if (hebrewCards.all { it.isMatched }) {
                     handleWin()
@@ -233,7 +247,7 @@ class MatchingViewModel @Inject constructor(
                     setSelection(item, false)
                     selectedItem = null
                 }
-                Log.d(AppDebug.TAG, "MatchViewModel: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
+                Log.d(TAG, "  > VM: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
             }
         }
     }
@@ -266,9 +280,9 @@ class MatchingViewModel @Inject constructor(
     }
 
     private fun handleWin() {
-        Log.d(TAG, "handleWin() CALLED")
+        Log.d(TAG, "VM: handleWin() CALLED")
         isGameWon = true
-        Log.d(TAG, "isGameWon = $isGameWon")
+        Log.d(TAG, "  > VM: isGameWon = $isGameWon")
 
         progressManager.saveProgress(currentLevelId, currentRoundIndex)
 
@@ -281,12 +295,12 @@ class MatchingViewModel @Inject constructor(
             hasMoreRounds = !isLastRoundAvailable,
             audioFilename = null
         )
-        Log.d(TAG, "resultSnapshot CREATED: ${resultSnapshot != null}")
+        Log.d(TAG, "  > VM: resultSnapshot CREATED: ${resultSnapshot != null}")
 
         viewModelScope.launch {
             delay(650)
             showResultSheet = true
-            Log.d(TAG, "АВТО-ПОДЪЕМ ШТОРКИ: showResultSheet = true")
+            Log.d(TAG, "  > VM: АВТО-ПОДЪЕМ ШТОРКИ: showResultSheet = true")
         }
     }
 
@@ -300,9 +314,23 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
+    // --- ИЗМЕНЕНИЕ ЗДЕСЬ (НОВЫЙ БАГФИКС) ---
     fun restartCurrentRound() {
-        loadLevelAndRound(currentLevelId, currentRoundIndex, 0L)
+        // Запоминаем UID, который *хочет* этот экран
+        val currentScreenUid = loadedUid
+
+        Log.w(TAG, "VM: restartCurrentRound() CALLED. (target UID: $currentScreenUid)")
+
+        // 1. Немедленно сбрасываем 'loadedUid', чтобы guard в loadLevelAndRound пропустил вызов
+        loadedUid = 0L
+
+        // 2. Немедленно включаем спиннер
+        isLoading = true
+
+        // 3. Вызываем перезагрузку с ТЕМ ЖЕ UID, который был у экрана
+        loadLevelAndRound(currentLevelId, currentRoundIndex, currentScreenUid)
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun onTrackClick() {
         viewModelScope.launch {
@@ -312,15 +340,15 @@ class MatchingViewModel @Inject constructor(
     // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun showResultSheet() {
-        Log.d(TAG, "showResultSheet() CALLED (Кнопка 'Глаз')")
+        Log.d(TAG, "VM: showResultSheet() CALLED (Кнопка 'Глаз')")
         showResultSheet = true
-        Log.d(TAG, "showResultSheet = $showResultSheet")
+        Log.d(TAG, "  > VM: showResultSheet = $showResultSheet")
     }
 
     fun hideResultSheet() {
-        Log.d(TAG, "hideResultSheet() CALLED (Свайп)")
+        Log.d(TAG, "VM: hideResultSheet() CALLED (Свайп)")
         showResultSheet = false
-        Log.d(TAG, "showResultSheet = $showResultSheet")
+        Log.d(TAG, "  > VM: showResultSheet = $showResultSheet")
     }
 
     // --- ИЗМЕНЕНИЕ: Отправляем Событие ---

@@ -343,148 +343,79 @@ class CardViewModel @Inject constructor(
         return false
     }
 
+
+    // --- РЕФАКТОРИНГ №2: 'loadRound' очищена ---
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
         val roundData = levelRepository.getSingleSentence(currentLevelId, roundIndex)
-
         if (roundData == null) {
             Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. roundData is NULL from repository.")
             return
         }
 
-        val newAssemblyLine = mutableListOf<AssemblySlot>()
-        val newAvailableCards = mutableListOf<AvailableCardSlot>()
-        var newTargetCards: List<Card>
-        var newTaskTitleResId: Int
-        var newCurrentTaskPrompt: String?
-        var newCurrentHebrewPrompt: String?
-
         val newTaskType = roundData.taskType
         this.currentRoundIndex = roundIndex
-        this.currentTaskType = newTaskType // Обновляем статическое поле
-
+        this.currentTaskType = newTaskType
         resetAndStartCounters()
+
         val userLanguage = progressManager.getUserLanguage()
 
-        // --- ИЗМЕНЕНО: Логика для newCurrentTaskPrompt перенесена ВНУТРЬ when ---
-        // newCurrentTaskPrompt = when (userLanguage) { ... } // <-- УДАЛЕНО ОТСЮДА
+        var newAssemblyLine: List<AssemblySlot> = emptyList()
+        var newAvailableCards: List<AvailableCardSlot> = emptyList()
+        var newTaskTitleResId: Int
+        var newCurrentTaskPrompt: String? = ""
+        var newCurrentHebrewPrompt: String? = ""
 
-        when (roundData.taskType) {
+        when (newTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
                 newTaskTitleResId = R.string.game_task_assemble
+                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
                 newCurrentHebrewPrompt = ""
-                // --- ДОБАВЛЕНО: Загружаем prompt здесь ---
-                newCurrentTaskPrompt = when (userLanguage) {
-                    "en" -> roundData.english_translation
-                    "fr" -> roundData.french_translation
-                    "es" -> roundData.spanish_translation
-                    else -> roundData.russian_translation
-                }
-                // --- КОНЕЦ ---
 
-                // --- ИЗМЕНЕНИЕ: Добавляем дистракторы ---
-                newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
-                val distractors = roundData.task_distractor_cards?.map {
-                    Card(text = it.trim(), translation = "")
-                } ?: emptyList()
+                val (target, available) = setupAssemblyTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
+            }
 
-                newAvailableCards.addAll(
-                    (newTargetCards + distractors).shuffled().map {
-                        AvailableCardSlot(card = it, isVisible = true)
-                    }
-                )
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            TaskType.AUDITION -> {
+                newTaskTitleResId = R.string.game_task_audition
+                newCurrentTaskPrompt = "" // Пусто по требованию
+                newCurrentHebrewPrompt = "" // Пусто по требованию
+
+                val (target, available) = setupAssemblyTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
             }
 
             TaskType.FILL_IN_BLANK -> {
                 newTaskTitleResId = R.string.game_task_fill_in_blank
+                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
                 newCurrentHebrewPrompt = roundData.hebrew
-                // --- ДОБАВЛЕНО: Загружаем prompt здесь ---
-                newCurrentTaskPrompt = when (userLanguage) {
-                    "en" -> roundData.english_translation
-                    "fr" -> roundData.french_translation
-                    "es" -> roundData.spanish_translation
-                    else -> roundData.russian_translation
-                }
-                // --- КОНЕЦ ---
 
-                val correctCards = roundData.task_correct_cards?.map {
-                    Card(text = it.trim(), translation = "")
-                } ?: emptyList()
-                newTargetCards = correctCards
-// ... (остальная логика FILL_IN_BLANK без изменений)
-                val hebrewPrompt = roundData.hebrew
-                val promptParts = hebrewPrompt.split("___")
-                var correctCardIndex = 0
-
-                promptParts.forEachIndexed { index, part ->
-                    if (part.isNotEmpty()) {
-                        newAssemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
-                    }
-                    if (index < promptParts.size - 1) {
-                        if (correctCardIndex < correctCards.size) {
-                            newAssemblyLine.add(AssemblySlot(
-                                text = "___",
-                                isBlank = true,
-                                filledCard = null,
-                                targetCard = correctCards[correctCardIndex]
-                            ))
-                            correctCardIndex++
-                        } else {
-                            Log.e("ViewModel", "Mismatch in FILL_IN_BLANK: More '___' than 'task_correct_cards'.")
-                        }
-                    }
-                }
-
-                val distractors = roundData.task_distractor_cards?.map {
-                    Card(text = it.trim(), translation = "")
-                } ?: emptyList()
-
-                newAvailableCards.addAll(
-                    (correctCards + distractors).shuffled().map {
-                        AvailableCardSlot(card = it, isVisible = true)
-                    }
-                )
+                val (target, available, assembly) = setupFillInBlankTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
+                newAssemblyLine = assembly
             }
-
-            // --- ДОБАВЛЕНА НОВАЯ ВЕТКА ДЛЯ AUDITION ---
-            TaskType.AUDITION -> {
-                newTaskTitleResId = R.string.game_task_audition // <-- НОВЫЙ ЗАГОЛОВОК
-                newCurrentHebrewPrompt = "" // <-- ПУСТО
-                newCurrentTaskPrompt = "" // <-- ПУСТО
-
-                // --- ИЗМЕНЕНИЕ: Добавляем дистракторы ---
-                newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
-                val distractors = roundData.task_distractor_cards?.map {
-                    Card(text = it.trim(), translation = "")
-                } ?: emptyList()
-
-                newAvailableCards.addAll(
-                    (newTargetCards + distractors).shuffled().map {
-                        AvailableCardSlot(card = it, isVisible = true)
-                    }
-                )
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-            }
-            // --- КОНЕЦ НОВОЙ ВЕТКИ ---
 
             TaskType.MATCHING_PAIRS -> {
                 Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
                 newTaskTitleResId = R.string.game_task_matching
-                newCurrentHebrewPrompt = ""
-                newCurrentTaskPrompt = "" // <-- Установлено в ""
-                newTargetCards = emptyList()
+                // --- ИСПРАВЛЕНИЕ: Устанавливаем this.targetCards ---
+                this.targetCards = emptyList()
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             }
+
             TaskType.UNKNOWN -> {
                 newTaskTitleResId = R.string.game_task_unknown
                 newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
-                newCurrentHebrewPrompt = ""
-                newTargetCards = emptyList()
+                // --- ИСПРАВЛЕНИЕ: Устанавливаем this.targetCards ---
+                this.targetCards = emptyList()
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             }
         }
 
-        this.targetCards = newTargetCards
         this.currentTaskPrompt = newCurrentTaskPrompt
         this.currentHebrewPrompt = newCurrentHebrewPrompt
         this.currentTaskTitleResId = newTaskTitleResId
@@ -498,20 +429,102 @@ class CardViewModel @Inject constructor(
             availableCards = newAvailableCards,
             resultSnapshot = null,
             showResultSheet = false
-            // 'isAudioPlaying' будет обновлен через 'collect' в 'init'
         )
 
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
 
+        // Проверка на "последний раунд" (осталась без изменений)
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val uncompletedRounds = currentLevelSentences.indices.filter {
             !allCompleted.contains(it) && !allArchived.contains(it)
         }
         isLastRoundAvailable = uncompletedRounds.size <= 1
-
-        // --- ИЗМЕНЕНИЕ: Блок авто-воспроизведения УДАЛЕН отсюда ---
     }
+    // --- КОНЕЦ РЕФАКТОРИНГА №2 ---
+
+    // --- РЕФАКТОРИНГ №2: Новые приватные хелперы ---
+
+    /**
+     * Готовит данные для 'ASSEMBLE_TRANSLATION' и 'AUDITION'.
+     */
+    private fun setupAssemblyTask(roundData: SentenceData): Pair<List<Card>, List<AvailableCardSlot>> {
+        val newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
+
+        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
+        val distractors = roundData.task_distractor_cards?.map {
+            Card(text = it.trim(), translation = "")
+        } ?: emptyList<Card>()
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        val newAvailableCards = (newTargetCards + distractors).shuffled().map {
+            AvailableCardSlot(card = it, isVisible = true)
+        }
+
+        return Pair(newTargetCards, newAvailableCards)
+    }
+
+    /**
+     * Готовит данные для 'FILL_IN_BLANK'.
+     */
+    private fun setupFillInBlankTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
+        val newAssemblyLine = mutableListOf<AssemblySlot>()
+
+        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
+        val correctCards = roundData.task_correct_cards?.map {
+            Card(text = it.trim(), translation = "")
+        } ?: emptyList<Card>()
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        val hebrewPrompt = roundData.hebrew
+        val promptParts = hebrewPrompt.split("___")
+        var correctCardIndex = 0
+
+        promptParts.forEachIndexed { index, part ->
+            if (part.isNotEmpty()) {
+                newAssemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
+            }
+            if (index < promptParts.size - 1) {
+                if (correctCardIndex < correctCards.size) {
+                    newAssemblyLine.add(AssemblySlot(
+                        text = "___",
+                        isBlank = true,
+                        filledCard = null,
+                        targetCard = correctCards[correctCardIndex]
+                    ))
+                    correctCardIndex++
+                } else {
+                    Log.e("ViewModel", "Mismatch in FILL_IN_BLANK: More '___' than 'task_correct_cards'.")
+                }
+            }
+        }
+
+        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
+        val distractors = roundData.task_distractor_cards?.map {
+            Card(text = it.trim(), translation = "")
+        } ?: emptyList<Card>()
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        val newAvailableCards = (correctCards + distractors).shuffled().map {
+            AvailableCardSlot(card = it, isVisible = true)
+        }
+
+        return Triple(correctCards, newAvailableCards, newAssemblyLine)
+    }
+
+    /**
+     * Хелпер для получения перевода на основе языка пользователя.
+     */
+    private fun SentenceData.translationForLanguage(language: String?): String? {
+        return when (language) {
+            "en" -> this.english_translation
+            "fr" -> this.french_translation
+            "es" -> this.spanish_translation
+            else -> this.russian_translation
+        }
+    }
+    // --- КОНЕЦ РЕФАКТОРИНГА №2 ---
+
 
     private fun resetAndStartCounters() {
         timeSpent = 0
@@ -530,13 +543,7 @@ class CardViewModel @Inject constructor(
 
         val userLanguage = progressManager.getUserLanguage()
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-
-        val translation = when (userLanguage) {
-            "en" -> currentSentence?.english_translation
-            "fr" -> currentSentence?.french_translation
-            "es" -> currentSentence?.spanish_translation
-            else -> currentSentence?.russian_translation
-        }
+        val translation = currentSentence?.translationForLanguage(userLanguage) // Используем хелпер
 
         // --- ИЗМЕНЕНИЕ: Теперь мы ОБРАБАТЫВАЕМ AUDITION ---
         if (result == GameResult.WIN) {

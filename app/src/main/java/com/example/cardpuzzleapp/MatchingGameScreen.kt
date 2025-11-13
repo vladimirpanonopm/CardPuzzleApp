@@ -17,14 +17,14 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility // <-- ДОБАВЛЕН ИМПОРТ
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource // <-- ДОБАВЛЕН ИМПОРТ
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,9 +32,9 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 
-// --- TAG ---
-private const val TAG = "UI_ROUND_DEBUG"
-// -----------------------------
+// --- TAG ИЗМЕНЕН ДЛЯ УДОБСТВА ФИЛЬТРАЦИИ ---
+private const val TAG = "MATCHING_DEBUG"
+// ------------------------------------------
 
 /**
  * Экран для механики "Соедини пары" (Match-to-Line).
@@ -57,7 +57,9 @@ fun MatchingGameScreen(
     val snapshot = viewModel.resultSnapshot
 
     LaunchedEffect(routeUid) {
-        Log.i(AppDebug.TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
+        // --- ЛОГ ---
+        Log.d(TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
+        // ---------
 
         // --- ИЗМЕНЕНИЕ V12: Сообщаем CardViewModel, что мы - активный раунд ---
         cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
@@ -68,11 +70,12 @@ fun MatchingGameScreen(
 
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
 
-    Log.d(TAG, "MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
+    // --- ЛОГ ---
+    Log.d(TAG, ">>> MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
     Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
     Log.d(TAG, "  > viewModel.loadedUid = ${viewModel.loadedUid}")
-    Log.d(TAG, "  > ==>> shouldShowLoading = $shouldShowLoading (isLoading || ${viewModel.loadedUid} != $routeUid)")
-    Log.d(TAG, "  > hebrewCards.size = ${viewModel.hebrewCards.size}")
+    Log.d(TAG, "  > ==>> shouldShowLoading = $shouldShowLoading (isLoading: ${viewModel.isLoading} || ${viewModel.loadedUid} != $routeUid)")
+    // ---------
 
     Scaffold(
         topBar = {
@@ -128,7 +131,9 @@ fun MatchingGameScreen(
         ) {
 
             if (!shouldShowLoading) {
-                Log.d(TAG, "MatchingGameScreen: shouldShowLoading=false. Отрисовка колонок с карточками (size=${viewModel.hebrewCards.size}).")
+                // --- ЛОГ ---
+                Log.d(TAG, "  > UI: Рисуем КОЛОНКИ (shouldShowLoading=false)")
+                // ---------
 
                 Row(
                     modifier = Modifier
@@ -155,22 +160,30 @@ fun MatchingGameScreen(
                     )
                 }
             } else {
-                Log.d(TAG, "MatchingGameScreen: shouldShowLoading=true. Отрисовка CircularProgressIndicator.")
+                // --- ЛОГ ---
+                Log.d(TAG, "  > UI: Рисуем СПИННЕР (shouldShowLoading=true)")
+                // ---------
                 CircularProgressIndicator(
                     modifier = Modifier.size(64.dp)
                 )
             }
 
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
-            Log.d(TAG, "ModalBottomSheet Check: shouldShowSheet = $shouldShowSheet")
+            // --- ЛОГ ---
+            Log.d(TAG, "  > UI: Проверка шторки (shouldShowSheet = $shouldShowSheet)")
+            // ---------
 
             if (shouldShowSheet) {
-                Log.d(TAG, "ModalBottomSheet RECOMPOSING (SHOULD BE VISIBLE)")
+                // --- ЛОГ ---
+                Log.d(TAG, "  > UI: Рисуем BottomSheet")
+                // ---------
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                 ModalBottomSheet(
                     onDismissRequest = {
-                        Log.d(TAG, "ModalBottomSheet: onDismissRequest CALLED")
+                        // --- ЛОГ ---
+                        Log.d(TAG, "  > UI: Шторка закрыта (onDismissRequest). Вызов hideResultSheet().")
+                        // ---------
                         viewModel.hideResultSheet()
                     },
                     sheetState = sheetState,
@@ -186,6 +199,9 @@ fun MatchingGameScreen(
                             }
                         },
                         onRepeatClick = {
+                            // --- ЛОГ ---
+                            Log.d(TAG, "  > UI: Нажата кнопка ПОВТОРИТЬ (onRepeatClick). Вызов restartCurrentRound().")
+                            // ---------
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
                                 viewModel.restartCurrentRound()
@@ -212,9 +228,6 @@ private fun MatchColumn(
     isHebrewColumn: Boolean,
     roundIndex: Int
 ) {
-    val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
-    Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
-
     LazyColumn(
         modifier = modifier.fillMaxHeight(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
