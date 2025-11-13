@@ -22,41 +22,60 @@ fun ResultSheetContent(
     onRepeatClick: () -> Unit,
     onTrackClick: () -> Unit
 ) {
-    // --- ИСПРАВЛЕНИЕ: Убираем Column и Text("Отлично") ---
-    // Оставляем ТОЛЬКО Row с кнопками
-
-    Row(
+    // --- ИЗМЕНЕНИЕ: Оборачиваем в Column ---
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            // Добавляем padding, который был у Column
             .padding(vertical = 24.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally // <-- Выравниваем текст по центру
     ) {
-        IconButton(onClick = onTrackClick) {
-            Icon(
-                imageVector = Icons.Default.Extension,
-                contentDescription = stringResource(R.string.round_track_title, snapshot.levelId),
-                modifier = Modifier.size(32.dp)
-            )
-        }
 
-        IconButton(onClick = onRepeatClick) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = stringResource(R.string.button_repeat_round),
-                modifier = Modifier.size(32.dp)
-            )
+        // --- ИЗМЕНЕНИЕ: Показываем русский текст, если он есть ---
+        snapshot.translationText?.let { translation ->
+            if (translation.isNotBlank()) {
+                Text(
+                    text = translation,
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Start, // <-- ВЫРАВНИВАНИЕ ПО ЛЕВОМУ КРАЮ
+                    modifier = Modifier
+                        .fillMaxWidth() // <-- ЗАПОЛНЯЕМ ШИРИНУ
+                        .padding(bottom = 24.dp)
+                )
+            }
         }
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        Button(
-            onClick = onContinueClick,
-            modifier = Modifier
-                .weight(1f)
-                .height(50.dp)
+        // Существующий Row с кнопками
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = stringResource(R.string.button_continue), fontSize = 20.sp)
+            IconButton(onClick = onTrackClick) {
+                Icon(
+                    imageVector = Icons.Default.Extension,
+                    contentDescription = stringResource(R.string.round_track_title, snapshot.levelId),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            IconButton(onClick = onRepeatClick) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.button_repeat_round),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Button(
+                onClick = onContinueClick,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+            ) {
+                Text(text = stringResource(R.string.button_continue), fontSize = 20.sp)
+            }
         }
     }
 }

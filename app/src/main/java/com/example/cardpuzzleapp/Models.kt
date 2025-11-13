@@ -22,7 +22,7 @@ enum class GameResult {
 data class RoundResultSnapshot(
     val gameResult: GameResult,
     val completedCards: List<Card>,
-    // val translation: String, // <-- УДАЛЕНО
+    val translationText: String? = null, // <-- ДОБАВЛЕНО
     val errorCount: Int,
     val timeSpent: Int,
     val levelId: Int,

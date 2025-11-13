@@ -1,8 +1,6 @@
 # --- Карточка 0 ---
 TASK: MATCHING_PAIRS
 
-RUSSIAN: Найди одинаковые пары. # (Это будет заголовок)
-
 # Мы просто перечисляем пары. Скрипт должен будет
 # убедиться, что кол-во строк в 'CORRECT' и 'DISTRACTORS' совпадает.
 
@@ -12,7 +10,7 @@ HEBREW_CORRECT:
 חתול
 כלב
 
-HEBREW_DISTRACTORS:
+RUSSIAN_CORRECT:
 Я
 Иду
 Кошка
@@ -26,7 +24,7 @@ HEBREW_DISTRACTORS:
 # --- Карточка 1 ---
 
 # 1. Текст для UI (RTL)
-TASK: ASSEMBLE_TRANSLATION
+TASK: AUDITION
 HEBREW:
 מִי אַתְ?
 אֲנִי אַנָה.

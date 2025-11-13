@@ -4,7 +4,7 @@
     {
       "taskType": "MATCHING_PAIRS",
       "audioFilename": null,
-      "uiDisplayTitle": "Найди одинаковые пары. # (Это будет заголовок)",
+      "uiDisplayTitle": "",
       "taskPairs": [
         [
           "אני",
@@ -25,7 +25,7 @@
       ]
     },
     {
-      "taskType": "ASSEMBLE_TRANSLATION",
+      "taskType": "AUDITION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Анна.\nКак тебя зовут?\nЯ Нина."

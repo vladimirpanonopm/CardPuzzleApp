@@ -21,7 +21,8 @@ fun AssemblySlotItem(
     textStyle: TextStyle,
     fontStyle: FontStyle,
     taskType: TaskType,
-    onReturnCard: () -> Unit
+    onReturnCard: () -> Unit,
+    isInteractionEnabled: Boolean // <-- ДОБАВЛЕНО
 ) {
     val filledCard = slot.filledCard
 
@@ -35,7 +36,8 @@ fun AssemblySlotItem(
             isAssembledCard = true,
             // --- ИСПРАВЛЕНИЕ: Добавляем isVisible = true ---
             // Если карточка здесь, она по определению видима.
-            isVisible = true
+            isVisible = true,
+            isInteractionEnabled = isInteractionEnabled // <-- ДОБАВЛЕНО
         )
     } else if (slot.isBlank) {
         // --- Слот ПУСТОЙ (___) ---

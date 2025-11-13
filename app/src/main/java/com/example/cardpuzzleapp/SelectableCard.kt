@@ -44,7 +44,8 @@ fun SelectableCard(
     fontStyle: FontStyle,
     taskType: TaskType,
     isAssembledCard: Boolean = false,
-    isVisible: Boolean
+    isVisible: Boolean,
+    isInteractionEnabled: Boolean // <-- ДОБАВЛЕНО
 ) {
     var isFlipped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
@@ -81,10 +82,10 @@ fun SelectableCard(
         )
     }
 
-    // Этот обработчик теперь корректно обновляется, т.к. 'isVisible' в 'remember'
-    val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect) {
+    // --- ИЗМЕНЕНИЕ: 'tapHandler' теперь зависит от 'isInteractionEnabled' ---
+    val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect, isInteractionEnabled) {
 
-        if (!isVisible) {
+        if (!isVisible || !isInteractionEnabled) { // <-- ИЗМЕНЕНО
             return@remember {} // Ничего не делать при нажатии
         }
 
@@ -94,6 +95,7 @@ fun SelectableCard(
 
         return@remember { offset -> onSelect() }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
     Card(
@@ -102,14 +104,14 @@ fun SelectableCard(
                 alpha = if (isVisible) 1f else 0f
                 rotationX = rotation
             }
-            // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ: Меняем 'Unit' на 'isVisible' ---
-            // Это заставит Compose "пере-слушать" нажатия,
-            // когда 'isVisible' изменится
-            .pointerInput(isVisible) {
-                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+            // --- ИЗМЕНЕНИЕ: Ключ 'pointerInput' теперь также зависит от 'isInteractionEnabled' ---
+            .pointerInput(isVisible, isInteractionEnabled) {
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 detectTapGestures(
                     onTap = tapHandler, // 'tapHandler' теперь будет правильным
-                    onLongPress = { if (isVisible) isFlipped = true }
+                    // --- ИЗМЕНЕНО: LongPress также блокируется ---
+                    onLongPress = { if (isVisible && isInteractionEnabled) isFlipped = true }
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),

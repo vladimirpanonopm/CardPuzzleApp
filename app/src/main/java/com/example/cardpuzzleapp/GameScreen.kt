@@ -25,12 +25,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+// --- ДОБАВЛЕН ИМПОРТ ---
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+// -----------------------
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Visibility // <-- ДОБАВЛЕН ИМПОРТ
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,18 +106,14 @@ fun GameScreen(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // --- ИЗМЕНЕНИЕ: Автовоспроизведение выключено ---
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
         viewModel.loadRound(routeRoundIndex)
-    }
 
-    // --- ИСПРАВЛЕНИЕ: ЭТОТ БЛОК УДАЛЕН ---
-    // LaunchedEffect(Unit) {
-    //     viewModel.navigationEvent.collectLatest { route ->
-    //         if (route.startsWith("round_track/")) { ... }
-    //     }
-    // }
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+        // --- БЛОК АВТО-ВОСПРОИЗВЕДЕНИЯ УДАЛЕН ---
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -167,9 +166,16 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ (БАГФИКС) ---
                 if (isRoundWon) {
-                    Spacer(modifier = Modifier.size(48.dp))
+                    // Заменяем Spacer на кнопку, которая повторно показывает шторку
+                    AppBottomBarIcon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = stringResource(R.string.button_show_result), // (Нужно добавить R.string.button_show_result)
+                        onClick = { viewModel.showResultSheet() }
+                    )
                 } else {
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                     IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
@@ -197,15 +203,18 @@ fun GameScreen(
                 )
             }
 
+            // --- ИСПРАВЛЕНИЕ АНИМАЦИИ ---
+            // Анимация "КНИГИ"
             val enterTransition = slideInHorizontally(
                 animationSpec = tween(500, delayMillis = 100),
-                initialOffsetX = { -it }
+                initialOffsetX = { it } // БЫЛО: -it (Въезд справа)
             ) + fadeIn(animationSpec = tween(500, delayMillis = 100))
 
             val exitTransition = slideOutHorizontally(
                 animationSpec = tween(500),
-                targetOffsetX = { it }
+                targetOffsetX = { -it } // БЫЛО: it (Выезд влево)
             ) + fadeOut(animationSpec = tween(500))
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 
             AnimatedContent(
@@ -267,6 +276,9 @@ private fun GameScreenLayout(
 
     val fontStyle = dynamicState.fontStyle
     val isRoundWon = dynamicState.isRoundWon
+    // --- ДОБАВЛЕНО: Получаем новое состояние ---
+    val isInteractionEnabled = !dynamicState.isAudioPlaying
+    // --- КОНЕЦ ---
 
     val initialFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
     val animatedFontSize by animateFloatAsState(
@@ -312,16 +324,47 @@ private fun GameScreenLayout(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                Text(
-                    text = staticState.taskPrompt ?: "",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        color = StickyNoteText.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Start
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
+                // --- ИЗМЕНЕНИЕ: Либо кнопка "Слушать", либо подсказка ---
+                if (staticState.taskType == TaskType.AUDITION) {
+                    // Большая кнопка "Слушать"
+                    OutlinedButton(
+                        onClick = { viewModel.replayAuditionAudio() },
+                        // --- ДОБАВЛЕНО: Блокируем кнопку "Слушать", пока играет аудио ---
+                        enabled = isInteractionEnabled,
+                        // --- КОНЕЦ ---
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .padding(bottom = 16.dp), // Отступ, который был у Text
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = StickyNoteText
+                        ),
+                        border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = stringResource(R.string.button_listen)
+                        )
+                        Text(
+                            text = stringResource(R.string.button_listen),
+                            fontSize = 20.sp,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                } else {
+                    // Старая логика для ASSEMBLE_TRANSLATION / FILL_IN_BLANK
+                    Text(
+                        text = staticState.taskPrompt ?: "",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            color = StickyNoteText.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Start
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    )
+                }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Box(
@@ -330,8 +373,9 @@ private fun GameScreenLayout(
                             .defaultMinSize(minHeight = 100.dp)
                     ) {
                         if (isRoundWon) {
+                            // --- ИЗМЕНЕНО: Добавлен AUDITION ---
                             val assembledText = remember(isRoundWon, staticState.taskType) {
-                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION) {
+                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION || staticState.taskType == TaskType.AUDITION) {
                                     staticState.targetCards.joinToString(separator = "") { it.text }
                                 } else {
                                     dynamicState.assemblyLine.joinToString(separator = "") { slot ->
@@ -347,13 +391,17 @@ private fun GameScreenLayout(
                             )
                         } else {
                             when (staticState.taskType) {
-                                TaskType.ASSEMBLE_TRANSLATION -> {
+                                // --- ИЗМЕНЕНО: Добавлен AUDITION ---
+                                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
                                     Text(
                                         text = dynamicState.selectedCards.joinToString(separator = "") { it.text },
                                         style = hebrewTextStyle,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable(
+                                                // --- ДОБАВЛЕНО: Проверяем блокировку ---
+                                                enabled = isInteractionEnabled,
+                                                // --- КОНЕЦ ---
                                                 interactionSource = remember { MutableInteractionSource() },
                                                 indication = null,
                                                 onClick = { viewModel.returnLastSelectedCard() }
@@ -372,7 +420,10 @@ private fun GameScreenLayout(
                                                     textStyle = hebrewTextStyle,
                                                     fontStyle = fontStyle,
                                                     taskType = staticState.taskType,
-                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) }
+                                                    onReturnCard = { viewModel.returnCardFromSlot(slot) },
+                                                    // --- ДОБАЛЕНО: Передаем состояние ---
+                                                    isInteractionEnabled = isInteractionEnabled
+                                                    // --- КОНЕЦ ---
                                                 )
                                             }
                                         }
@@ -415,7 +466,10 @@ private fun GameScreenLayout(
                                     fontStyle = fontStyle,
                                     taskType = staticState.taskType,
                                     isAssembledCard = false,
-                                    isVisible = slot.isVisible
+                                    isVisible = slot.isVisible,
+                                    // --- ДОБАВЛЕНО: Передаем состояние ---
+                                    isInteractionEnabled = isInteractionEnabled
+                                    // --- КОНЕЦ ---
                                 )
                             }
                         }

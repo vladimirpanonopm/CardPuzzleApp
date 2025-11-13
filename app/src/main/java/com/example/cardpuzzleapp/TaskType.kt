@@ -19,9 +19,12 @@ enum class TaskType {
     FILL_IN_BLANK,
 
     // --- ДОБАВЛЕНО ---
+    @SerialName("AUDITION")
+    AUDITION,
+    // -----------------
+
     @SerialName("MATCHING_PAIRS")
     MATCHING_PAIRS,
-    // -----------------
 
     // Тип по умолчанию, если парсинг не удался
     @SerialName("UNKNOWN")

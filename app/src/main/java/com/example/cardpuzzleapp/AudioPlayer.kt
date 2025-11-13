@@ -3,11 +3,19 @@ package com.example.cardpuzzleapp
 import android.content.Context
 import android.media.MediaPlayer
 import android.os.Build
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 class AudioPlayer(private val context: Context) {
     private var mediaPlayer: MediaPlayer? = null
+
+    // --- ДОБАВЛЕНО: StateFlow для отслеживания состояния ---
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+    // --- КОНЕЦ ДОБАВЛЕНИЯ ---
 
     // ИЗМЕНЕНИЕ: Новая suspend-функция, которая ждет окончания проигрывания
     suspend fun playAndAwaitCompletion(filename: String, playbackSpeed: Float = 1.0f) {
@@ -29,16 +37,23 @@ class AudioPlayer(private val context: Context) {
             return
         }
 
+        // --- ДОБАВЛЕНО: Обновляем состояние ---
+        _isPlaying.value = true
+        // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
         // Эта магия позволяет "превратить" callback в suspend-функцию
         suspendCancellableCoroutine<Unit> { continuation ->
             mediaPlayer?.setOnCompletionListener {
+                // --- ДОБАВЛЕНО: Обновляем состояние ---
+                _isPlaying.value = false
+                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
                 if (continuation.isActive) {
                     continuation.resume(Unit)
                 }
             }
             mediaPlayer?.start()
             continuation.invokeOnCancellation {
-                stop()
+                stop() // 'stop()' также установит _isPlaying.value = false
             }
         }
     }
@@ -55,14 +70,20 @@ class AudioPlayer(private val context: Context) {
                 }
                 prepare()
                 start()
+                // --- ДОБАВЛЕНО: Обновляем состояние ---
+                _isPlaying.value = true
+                // --- КОНЕЦ ДОБАВЛЕНИЯ ---
                 setOnCompletionListener {
+                    // --- ДОБАВЛЕНО: Обновляем состояние ---
+                    _isPlaying.value = false
+                    // --- КОНЕЦ ДОБАВЛЕНИЯ ---
                     it.release()
                     mediaPlayer = null
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            release()
+            release() // 'release()' вызовет 'stop()', который обновит состояние
         }
     }
 
@@ -70,6 +91,9 @@ class AudioPlayer(private val context: Context) {
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
+        // --- ДОБАВЛЕНО: Обновляем состояние ---
+        _isPlaying.value = false
+        // --- КОНЕЦ ДОБАВЛЕНИЯ ---
     }
 
     fun release() {

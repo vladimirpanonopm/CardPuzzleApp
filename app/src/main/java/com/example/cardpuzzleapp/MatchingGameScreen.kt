@@ -17,14 +17,14 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Visibility // <-- ДОБАВЛЕН ИМПОРТ
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringResource // <-- ДОБАВЛЕН ИМПОРТ
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,9 +94,16 @@ fun MatchingGameScreen(
                     onClick = onTrackClick
                 )
 
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ (БАГФИКС) ---
                 if (viewModel.isGameWon) {
-                    Spacer(modifier = Modifier.size(48.dp))
+                    // Заменяем Spacer на кнопку, которая повторно показывает шторку
+                    AppBottomBarIcon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = stringResource(R.string.button_show_result),
+                        onClick = { viewModel.showResultSheet() }
+                    )
                 } else {
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
                         enabled = !viewModel.isLastRoundAvailable

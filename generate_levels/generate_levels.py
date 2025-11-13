@@ -57,7 +57,8 @@ def parse_card_block(block_text):
         "HEBREW": [],
         "HEBREW_PROMPT": [],
         "HEBREW_CORRECT": [],
-        "HEBREW_DISTRACTORS": [],
+        "HEBREW_DISTRACTORS":[],
+        "RUSSIAN_CORRECT": [],
         "RUSSIAN": [],
         "VOICES": []
     }
@@ -79,6 +80,9 @@ def parse_card_block(block_text):
             is_tag = True
         elif line.startswith("HEBREW_CORRECT:"):
             current_key = "HEBREW_CORRECT"
+            is_tag = True
+        elif line.startswith("RUSSIAN_CORRECT:"):
+            current_key = "RUSSIAN_CORRECT"
             is_tag = True
         elif line.startswith("HEBREW_DISTRACTORS:"):
             current_key = "HEBREW_DISTRACTORS"
@@ -182,7 +186,7 @@ def process_level_file(txt_filepath, assets_path):
 
         try:
             # --- Логика для разных taskType ---
-            if task_type == 'ASSEMBLE_TRANSLATION':
+            if task_type == 'ASSEMBLE_TRANSLATION' or task_type == 'AUDITION':
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
 
@@ -202,7 +206,7 @@ def process_level_file(txt_filepath, assets_path):
             elif task_type == 'MATCHING_PAIRS':
                 card_json['uiDisplayTitle'] = data['russian_translation_text']
                 list_A = data['HEBREW_CORRECT']
-                list_B = data['HEBREW_DISTRACTORS']
+                list_B = data['RUSSIAN_CORRECT']
 
                 if len(list_A) != len(list_B) or len(list_A) == 0:
                     print(
