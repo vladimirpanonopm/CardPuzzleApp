@@ -147,6 +147,9 @@ RUSSIAN:
 Лили учительница.
 Эла учительница?
 Эла не учительница.
+HEBREW_DISTRACTORS:
+חתול
+שולחן
 
 VOICES:
 female_a,500

@@ -48,7 +48,7 @@ class CardViewModel @Inject constructor(
         val fontStyle: FontStyle = FontStyle.REGULAR,
         val resultSnapshot: RoundResultSnapshot? = null,
         val showResultSheet: Boolean = false,
-        val isAudioPlaying: Boolean = false // <-- ДОБАВЛЕНО
+        val isAudioPlaying: Boolean = false // <-- (Состояние блокировки из прошлого шага)
     )
 
     // --- ШАГ 2: ЗАМЕНА СТАРЫХ СОСТОЯНИЙ ---
@@ -94,7 +94,7 @@ class CardViewModel @Inject constructor(
     val navigationEvent = _navigationEvent.receiveAsFlow()
     // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    // --- ДОБАВЛЕНО: 'init' блок для подписки на AudioPlayer ---
+    // --- 'init' блок для подписки на AudioPlayer ---
     init {
         viewModelScope.launch {
             audioPlayer.isPlaying.collect { isPlaying ->
@@ -102,7 +102,7 @@ class CardViewModel @Inject constructor(
             }
         }
     }
-    // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+    // --- КОНЕЦ ---
 
     fun updateCurrentRoundIndex(index: Int) {
         this.currentRoundIndex = index
@@ -375,13 +375,19 @@ class CardViewModel @Inject constructor(
                     else -> roundData.russian_translation
                 }
                 // --- КОНЕЦ ---
+
+                // --- ИЗМЕНЕНИЕ: Добавляем дистракторы ---
                 newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
+                val distractors = roundData.task_distractor_cards?.map {
+                    Card(text = it.trim(), translation = "")
+                } ?: emptyList()
 
                 newAvailableCards.addAll(
-                    newTargetCards.shuffled().map {
+                    (newTargetCards + distractors).shuffled().map {
                         AvailableCardSlot(card = it, isVisible = true)
                     }
                 )
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             }
 
             TaskType.FILL_IN_BLANK -> {
@@ -441,12 +447,18 @@ class CardViewModel @Inject constructor(
                 newCurrentHebrewPrompt = "" // <-- ПУСТО
                 newCurrentTaskPrompt = "" // <-- ПУСТО
 
+                // --- ИЗМЕНЕНИЕ: Добавляем дистракторы ---
                 newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
+                val distractors = roundData.task_distractor_cards?.map {
+                    Card(text = it.trim(), translation = "")
+                } ?: emptyList()
+
                 newAvailableCards.addAll(
-                    newTargetCards.shuffled().map {
+                    (newTargetCards + distractors).shuffled().map {
                         AvailableCardSlot(card = it, isVisible = true)
                     }
                 )
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             }
             // --- КОНЕЦ НОВОЙ ВЕТКИ ---
 

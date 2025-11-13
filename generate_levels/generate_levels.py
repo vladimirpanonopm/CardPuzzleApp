@@ -57,7 +57,7 @@ def parse_card_block(block_text):
         "HEBREW": [],
         "HEBREW_PROMPT": [],
         "HEBREW_CORRECT": [],
-        "HEBREW_DISTRACTORS":[],
+        "HEBREW_DISTRACTORS": [],
         "RUSSIAN_CORRECT": [],
         "RUSSIAN": [],
         "VOICES": []
@@ -190,6 +190,10 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
 
+                # --- ИЗМЕНЕНИЕ: Добавляем "неправильные" карточки ---
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
+                # --------------------------------------------------
+
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
 
@@ -255,7 +259,7 @@ def process_level_file(txt_filepath, assets_path):
 
                     google_voice_name = VOICE_MAP.get(voice_key)
                     if not google_voice_name:
-                        print(f"    !!! ОШИБКА: Голос '{voice_key}' не найден в VOICE_MAP.")
+                        print(f"    !!! ОШИBКА: Голос '{voice_key}' не найден в VOICE_MAP.")
                         generation_success = False
                         break
 
