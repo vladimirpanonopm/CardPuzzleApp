@@ -23,11 +23,11 @@
           "мама"
         ],
         [
-          "מִי",
+          "מִי?",
           "кто?"
         ],
         [
-          "מָה",
+          "מָה?",
           "что?"
         ],
         [
@@ -39,6 +39,13 @@
           "Нина"
         ]
       ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
+      "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
+      "distractorOptions": []
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",

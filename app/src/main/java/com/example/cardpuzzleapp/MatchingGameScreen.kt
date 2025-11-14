@@ -28,7 +28,18 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.res.stringResource
+// --- ИЗМЕНЕНЫ ИМПОРТЫ ---
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+// --- (NotoSansHebrewFontFamily больше не нужен) ---
+import kotlin.math.roundToInt
+// --- КОНЕЦ ---
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
@@ -43,7 +54,7 @@ private const val TAG = "MATCHING_DEBUG"
 /**
  * Экран для механики "Соедини пары" (Match-to-Line).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class) // <-- Добавлен ExperimentalTextApi
 @Composable
 fun MatchingGameScreen(
     cardViewModel: CardViewModel,
@@ -103,23 +114,19 @@ fun MatchingGameScreen(
                     onClick = onTrackClick
                 )
 
-                // --- ИЗМЕНЕНИЕ: Логика кнопки зависит от isExamMode ---
                 if (viewModel.isGameWon) {
-                    // 1. Игра выиграна -> Показываем "Глаз"
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.button_show_result),
                         onClick = { viewModel.showResultSheet() }
                     )
                 } else if (!viewModel.isExamMode) {
-                    // 2. Режим обучения -> Показываем "Начать экзамен" (Refresh)
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Refresh,
-                        contentDescription = stringResource(R.string.button_start_exam), // (Нужно добавить R.string.button_start_exam)
+                        contentDescription = stringResource(R.string.button_start_exam),
                         onClick = { viewModel.startExamMode() }
                     )
                 } else {
-                    // 3. Режим экзамена (не выигран) -> Показываем "Пропустить"
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
                         enabled = !viewModel.isLastRoundAvailable
@@ -132,7 +139,6 @@ fun MatchingGameScreen(
                         )
                     }
                 }
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             }
         }
     ) { paddingValues ->
@@ -151,31 +157,42 @@ fun MatchingGameScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    MatchColumn(
-                        items = viewModel.hebrewCards,
-                        onItemClick = viewModel::onMatchItemClicked,
-                        modifier = Modifier.weight(1f),
-                        isHebrewColumn = true,
-                        roundIndex = viewModel.currentRoundIndex,
-                        errorCount = viewModel.errorCount,
-                        errorItemId = viewModel.errorItemId,
-                        isExamMode = viewModel.isExamMode // <-- Передаем режим
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        HintText(
+                            text = if (viewModel.isExamMode) "" else stringResource(R.string.hint_tap_to_listen)
+                        )
+
+                        MatchColumn(
+                            items = viewModel.hebrewCards,
+                            onItemClick = viewModel::onMatchItemClicked,
+                            modifier = Modifier.fillMaxWidth(),
+                            isHebrewColumn = true,
+                            roundIndex = viewModel.currentRoundIndex,
+                            errorCount = viewModel.errorCount,
+                            errorItemId = viewModel.errorItemId,
+                            isExamMode = viewModel.isExamMode
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    MatchColumn(
-                        items = viewModel.translationCards,
-                        onItemClick = viewModel::onMatchItemClicked,
-                        modifier = Modifier.weight(1f),
-                        isHebrewColumn = false,
-                        roundIndex = viewModel.currentRoundIndex,
-                        errorCount = viewModel.errorCount,
-                        errorItemId = viewModel.errorItemId,
-                        isExamMode = viewModel.isExamMode // <-- Передаем режим
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        HintText(text = "")
+
+                        MatchColumn(
+                            items = viewModel.translationCards,
+                            onItemClick = viewModel::onMatchItemClicked,
+                            modifier = Modifier.fillMaxWidth(),
+                            isHebrewColumn = false,
+                            roundIndex = viewModel.currentRoundIndex,
+                            errorCount = viewModel.errorCount,
+                            errorItemId = viewModel.errorItemId,
+                            isExamMode = viewModel.isExamMode
+                        )
+                    }
                 }
             } else {
                 Log.d(TAG, "  > UI: Рисуем СПИННЕР (shouldShowLoading=true)")
@@ -237,17 +254,16 @@ private fun MatchColumn(
     roundIndex: Int,
     errorCount: Int,
     errorItemId: UUID?,
-    isExamMode: Boolean // <-- Принимаем режим
+    isExamMode: Boolean
 ) {
     val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
     Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
 
     LazyColumn(
-        modifier = modifier.fillMaxHeight(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(items, key = { it.id }) { item ->
-            // --- ИЗМЕНЕНИЕ: Shakeable только в режиме экзамена ---
             if (isExamMode) {
                 Shakeable(
                     trigger = errorCount,
@@ -262,7 +278,6 @@ private fun MatchColumn(
                     )
                 }
             } else {
-                // В режиме обучения "тряска" не нужна
                 MatchLineItem(
                     item = item,
                     onItemClick = onItemClick,
@@ -270,11 +285,11 @@ private fun MatchColumn(
                     modifier = Modifier
                 )
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         }
     }
 }
 
+@OptIn(ExperimentalTextApi::class) // <-- ДОБАВЛЕНО
 @Composable
 private fun MatchLineItem(
     item: MatchItem,
@@ -296,13 +311,14 @@ private fun MatchLineItem(
         else -> MaterialTheme.colorScheme.outline
     }
 
+    val styleConfig = CardStyles.getStyle(FontStyle.REGULAR)
+
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .defaultMinSize(minHeight = 56.dp)
             .clickable(
-                // --- ИЗМЕНЕНИЕ: Клик всегда разрешен (VM решает, что делать) ---
                 enabled = true,
-                // --- КОНЕЦ ---
                 onClick = { onItemClick(item) },
                 interactionSource = remember { MutableInteractionSource() },
                 indication = rememberRipple()
@@ -312,14 +328,57 @@ private fun MatchLineItem(
         border = BorderStroke(2.dp, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Text(
-            text = item.text,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp, horizontal = 16.dp),
-            textAlign = if (isHebrew) TextAlign.Right else TextAlign.Left,
-            fontSize = 18.sp,
-            color = StickyNoteText
-        )
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // --- ИЗМЕНЕНИЕ: Используем 'TextStyle' и 'FontVariation.Settings' ---
+            val textStyle = if (isHebrew) {
+                TextStyle(
+                    fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                        FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                        FontVariation.width(styleConfig.fontWidth)
+                    ))),
+                    textAlign = TextAlign.Right,
+                    textDirection = TextDirection.Rtl,
+                    fontSize = 18.sp,
+                    color = StickyNoteText
+                )
+            } else {
+                TextStyle(
+                    fontFamily = FontFamily.Default,
+                    textAlign = TextAlign.Left,
+                    textDirection = TextDirection.Ltr,
+                    fontSize = 18.sp,
+                    color = StickyNoteText
+                )
+            }
+
+            Text(
+                text = item.text,
+                modifier = Modifier.fillMaxWidth(),
+                style = textStyle
+            )
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        }
     }
+}
+
+/**
+ * Composable-хелпер, который рисует подсказку или (если текст пуст)
+ * занимает то же место для выравнивания.
+ */
+@Composable
+private fun HintText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(bottom = 8.dp) // Этот отступ синхронизирует высоту
+            .fillMaxWidth(),
+        textAlign = TextAlign.Center
+    )
 }
