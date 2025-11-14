@@ -87,12 +87,19 @@ fun JournalScreen(
         }
     }
 
-    LaunchedEffect(pagerState.isScrollInProgress, isFlipped) {
-        if (!pagerState.isScrollInProgress && !isFlipped && !isLooping && journalSentences.isNotEmpty()) {
+    // --- БАГ 1 и 2: ФИКС ---
+    LaunchedEffect(pagerState.isScrollInProgress, isFlipped, journalSentences.size) {
+        if (pagerState.isScrollInProgress) {
+            // БАГ 1: Немедленно останавливаем аудио, как только начинается прокрутка
+            journalViewModel.stopAudio()
+        } else if (!isFlipped && !isLooping && journalSentences.isNotEmpty()) {
+            // БАГ 2: (journalSentences.size) как ключ, запускает это при загрузке
+            // Также запускается, когда isScrollInProgress меняется с true на false (прокрутка окончена)
             val currentPage = pagerState.currentPage.coerceIn(0, journalSentences.size - 1)
             journalViewModel.playSoundForPage(currentPage)
         }
     }
+    // --- КОНЕЦ ФИКСА ---
 
     LaunchedEffect(isLooping, pointA, pointB) {
         val localPointA = pointA

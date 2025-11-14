@@ -110,6 +110,11 @@ class JournalViewModel @Inject constructor(
     // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
     fun playSoundForPage(pageIndex: Int) {
+        // --- БАГ 1: ФИКС ---
+        // Немедленно останавливаем любое предыдущее аудио (из Job'а или AudioPlayer'а)
+        stopAudio()
+        // --- КОНЕЦ ФИКСА ---
+
         audioPlaybackJob?.cancel()
         audioPlaybackJob = viewModelScope.launch {
             val sentence = journalSentences.getOrNull(pageIndex) ?: return@launch

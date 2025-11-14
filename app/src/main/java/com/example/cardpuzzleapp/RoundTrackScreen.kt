@@ -34,15 +34,9 @@ fun RoundTrackScreen(
 ) {
     val context = LocalContext.current
 
-    // --- ИЗМЕНЕНИЕ 1: Больше не читаем из Репозитория ---
-    // val levelData = remember { LevelRepository.getLevelData(context, levelId) } // <-- УДАЛЕНО (блокирующий I/O)
-
-    // --- ИЗМЕНЕНИЕ 2: Берем данные из ViewModel ---
-    // (Предполагается, что loadLevel был вызван ПЕРЕД навигацией сюда)
     val levelData = viewModel.currentLevelSentences
-    // -----------------------------------------
 
-    if (levelData.isEmpty()) { // <-- Изменено с null на isEmpty()
+    if (levelData.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Ошибка: не удалось загрузить данные уровня $levelId")
         }
@@ -50,7 +44,12 @@ fun RoundTrackScreen(
     }
 
     val progressManager = remember { viewModel.progressManager }
-    val completedRounds = progressManager.getCompletedRounds(levelId).size
+
+    // --- ИЗМЕНЕНИЕ: Считаем ОБА списка ---
+    val journalRounds = progressManager.getCompletedRounds(levelId).size
+    val archivedRounds = progressManager.getArchivedRounds(levelId).size
+    val completedRounds = journalRounds + archivedRounds
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     val sourceBitmap = remember {
         BitmapFactory.decodeResource(context.resources, R.drawable.tesy).asImageBitmap()

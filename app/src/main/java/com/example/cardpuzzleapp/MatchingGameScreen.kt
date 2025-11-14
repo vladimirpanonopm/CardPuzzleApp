@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
+import androidx.compose.material.icons.filled.QuestionMark // <-- ДОБАВЛЕН ИМПОРТ
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
@@ -121,11 +122,13 @@ fun MatchingGameScreen(
                         onClick = { viewModel.showResultSheet() }
                     )
                 } else if (!viewModel.isExamMode) {
+                    // --- ИЗМЕНЕНИЕ: Иконка заменена ---
                     AppBottomBarIcon(
-                        imageVector = Icons.Default.Refresh,
+                        imageVector = Icons.Default.QuestionMark, // <-- БЫЛО Icons.Default.Refresh
                         contentDescription = stringResource(R.string.button_start_exam),
                         onClick = { viewModel.startExamMode() }
                     )
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 } else {
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
@@ -289,7 +292,7 @@ private fun MatchColumn(
     }
 }
 
-@OptIn(ExperimentalTextApi::class) // <-- ДОБАВЛЕНО
+@OptIn(ExperimentalTextApi::class)
 @Composable
 private fun MatchLineItem(
     item: MatchItem,

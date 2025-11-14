@@ -55,6 +55,20 @@
       "distractorOptions": []
     },
     {
+      "taskType": "AUDITION",
+      "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
+      "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
+      "translationPrompt": "Как тебя зовут?\nЯ Нати. Как тебя зовут?\nЯ Мати.",
+      "distractorOptions": []
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
+      "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
+      "translationPrompt": "Как тебя зовут?\nЯ Нати. Как тебя зовут?\nЯ Мати.",
+      "distractorOptions": []
+    },
+    {
       "taskType": "FILL_IN_BLANK",
       "audioFilename": "1ca0d9e336706e1f597957119f5ee946.mp3",
       "uiDisplayTitle": "אני ___ וגם ___ הביתה.",
