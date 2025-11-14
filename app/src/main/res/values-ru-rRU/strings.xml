@@ -67,5 +67,8 @@
     <string name="game_task_unknown">Задание</string>
     <string name="game_task_audition">Аудирование</string>
     <string name="button_show_result">Показать результат</string>
+    <string name="button_start_exam">Тест</string>
 
+
+    <string name="game_task_new_words">Новые слова</string>
 </resources>

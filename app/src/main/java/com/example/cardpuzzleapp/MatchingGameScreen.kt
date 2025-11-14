@@ -12,9 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ: Иконка MenuBook ---
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
@@ -26,11 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-// --- ДОБАВЛЕНЫ ИМПОРТЫ ---
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.flow.collectLatest
-// --- КОНЕЦ ---
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,9 +46,7 @@ private const val TAG = "MATCHING_DEBUG"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchingGameScreen(
-    // --- ИЗМЕНЕНИЕ V12: Добавлена cardViewModel ---
     cardViewModel: CardViewModel,
-    // ------------------------------------------
     viewModel: MatchingViewModel,
     routeLevelId: Int,
     routeRoundIndex: Int,
@@ -63,23 +57,14 @@ fun MatchingGameScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snapshot = viewModel.resultSnapshot
-    // --- ДОБАВЛЕНО: Получаем Haptics ---
     val haptics = LocalHapticFeedback.current
-    // --- КОНЕЦ ---
 
     LaunchedEffect(routeUid) {
-        // --- ЛОГ ---
         Log.d(TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
-        // ---------
-
-        // --- ИЗМЕНЕНИЕ V12: Сообщаем CardViewModel, что мы - активный раунд ---
         cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
-        // ----------------------------------------------------------------
-
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
 
-    // --- ДОБАВЛЕНО: 'LaunchedEffect' для Haptic Events ---
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
             Log.d("VIBRATE_DEBUG", "MatchingGameScreen received event: $event")
@@ -89,16 +74,14 @@ fun MatchingGameScreen(
             }
         }
     }
-    // --- КОНЕЦ ---
 
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
 
-    // --- ЛОГ ---
     Log.d(TAG, ">>> MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
     Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
     Log.d(TAG, "  > viewModel.loadedUid = ${viewModel.loadedUid}")
+    Log.d(TAG, "  > viewModel.isExamMode = ${viewModel.isExamMode}")
     Log.d(TAG, "  > ==>> shouldShowLoading = $shouldShowLoading (isLoading: ${viewModel.isLoading} || ${viewModel.loadedUid} != $routeUid)")
-    // ---------
 
     Scaffold(
         topBar = {
@@ -110,9 +93,7 @@ fun MatchingGameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    // --- ИСПРАВЛЕНИЕ: Deprecated иконка ---
                     imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
@@ -122,16 +103,23 @@ fun MatchingGameScreen(
                     onClick = onTrackClick
                 )
 
-                // --- ИЗМЕНЕНИЕ ЗДЕСЬ (БАГФИКС) ---
+                // --- ИЗМЕНЕНИЕ: Логика кнопки зависит от isExamMode ---
                 if (viewModel.isGameWon) {
-                    // Заменяем Spacer на кнопку, которая повторно показывает шторку
+                    // 1. Игра выиграна -> Показываем "Глаз"
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.button_show_result),
                         onClick = { viewModel.showResultSheet() }
                     )
+                } else if (!viewModel.isExamMode) {
+                    // 2. Режим обучения -> Показываем "Начать экзамен" (Refresh)
+                    AppBottomBarIcon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = stringResource(R.string.button_start_exam), // (Нужно добавить R.string.button_start_exam)
+                        onClick = { viewModel.startExamMode() }
+                    )
                 } else {
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                    // 3. Режим экзамена (не выигран) -> Показываем "Пропустить"
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
                         enabled = !viewModel.isLastRoundAvailable
@@ -144,6 +132,7 @@ fun MatchingGameScreen(
                         )
                     }
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             }
         }
     ) { paddingValues ->
@@ -156,9 +145,7 @@ fun MatchingGameScreen(
         ) {
 
             if (!shouldShowLoading) {
-                // --- ЛОГ ---
                 Log.d(TAG, "  > UI: Рисуем КОЛОНКИ (shouldShowLoading=false)")
-                // ---------
 
                 Row(
                     modifier = Modifier
@@ -168,59 +155,45 @@ fun MatchingGameScreen(
                 ) {
                     MatchColumn(
                         items = viewModel.hebrewCards,
-                        // --- ИСПРАВЛЕНИЕ: Правильное имя функции ---
                         onItemClick = viewModel::onMatchItemClicked,
-                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                         modifier = Modifier.weight(1f),
                         isHebrewColumn = true,
                         roundIndex = viewModel.currentRoundIndex,
-                        // --- ДОБАВЛЕНО: Передаем trigger'ы для "тряски" ---
                         errorCount = viewModel.errorCount,
-                        errorItemId = viewModel.errorItemId
-                        // --- КОНЕЦ ---
+                        errorItemId = viewModel.errorItemId,
+                        isExamMode = viewModel.isExamMode // <-- Передаем режим
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
 
                     MatchColumn(
                         items = viewModel.translationCards,
-                        // --- ИСПРАВЛЕНИЕ: Правильное имя функции ---
                         onItemClick = viewModel::onMatchItemClicked,
-                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                         modifier = Modifier.weight(1f),
                         isHebrewColumn = false,
                         roundIndex = viewModel.currentRoundIndex,
-                        // --- ДОБАВЛЕНО: Передаем trigger'ы для "тряски" ---
                         errorCount = viewModel.errorCount,
-                        errorItemId = viewModel.errorItemId
-                        // --- КОНЕЦ ---
+                        errorItemId = viewModel.errorItemId,
+                        isExamMode = viewModel.isExamMode // <-- Передаем режим
                     )
                 }
             } else {
-                // --- ЛОГ ---
                 Log.d(TAG, "  > UI: Рисуем СПИННЕР (shouldShowLoading=true)")
-                // ---------
                 CircularProgressIndicator(
                     modifier = Modifier.size(64.dp)
                 )
             }
 
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
-            // --- ЛОГ ---
             Log.d(TAG, "  > UI: Проверка шторки (shouldShowSheet = $shouldShowSheet)")
-            // ---------
 
             if (shouldShowSheet) {
-                // --- ЛОГ ---
                 Log.d(TAG, "  > UI: Рисуем BottomSheet")
-                // ---------
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                 ModalBottomSheet(
                     onDismissRequest = {
-                        // --- ЛОГ ---
                         Log.d(TAG, "  > UI: Шторка закрыта (onDismissRequest). Вызов hideResultSheet().")
-                        // ---------
                         viewModel.hideResultSheet()
                     },
                     sheetState = sheetState,
@@ -236,9 +209,7 @@ fun MatchingGameScreen(
                             }
                         },
                         onRepeatClick = {
-                            // --- ЛОГ ---
                             Log.d(TAG, "  > UI: Нажата кнопка ПОВТОРИТЬ (onRepeatClick). Вызов restartCurrentRound().")
-                            // ---------
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
                                 viewModel.restartCurrentRound()
@@ -264,10 +235,9 @@ private fun MatchColumn(
     modifier: Modifier = Modifier,
     isHebrewColumn: Boolean,
     roundIndex: Int,
-    // --- ДОБАВЛЕНО: Принимаем trigger'ы ---
     errorCount: Int,
-    errorItemId: UUID?
-    // --- КОНЕЦ ---
+    errorItemId: UUID?,
+    isExamMode: Boolean // <-- Принимаем режим
 ) {
     val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
     Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
@@ -277,17 +247,27 @@ private fun MatchColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(items, key = { it.id }) { item ->
-            // --- ИЗМЕНЕНИЕ: Оборачиваем в Shakeable ---
-            Shakeable(
-                trigger = errorCount,
-                errorCardId = errorItemId,
-                currentCardId = item.id
-            ) { shakeModifier ->
+            // --- ИЗМЕНЕНИЕ: Shakeable только в режиме экзамена ---
+            if (isExamMode) {
+                Shakeable(
+                    trigger = errorCount,
+                    errorCardId = errorItemId,
+                    currentCardId = item.id
+                ) { shakeModifier ->
+                    MatchLineItem(
+                        item = item,
+                        onItemClick = onItemClick,
+                        isHebrew = isHebrewColumn,
+                        modifier = shakeModifier
+                    )
+                }
+            } else {
+                // В режиме обучения "тряска" не нужна
                 MatchLineItem(
                     item = item,
                     onItemClick = onItemClick,
                     isHebrew = isHebrewColumn,
-                    modifier = shakeModifier // <-- Передаем модификатор
+                    modifier = Modifier
                 )
             }
             // --- КОНЕЦ ИЗМЕНЕНИЯ ---
@@ -300,29 +280,29 @@ private fun MatchLineItem(
     item: MatchItem,
     onItemClick: (MatchItem) -> Unit,
     isHebrew: Boolean,
-    modifier: Modifier = Modifier // <-- ДОБАВЛЕНО: Принимаем модификатор
+    modifier: Modifier = Modifier
 ) {
     val cornerRadius = 8.dp
 
-    // --- ИЗМЕНЕНИЕ ЗДЕСЬ (ПО ЗАПРОСУ) ---
     val cardColor = when {
-        item.isMatched -> StickyNoteYellow // <-- ИЗМЕНЕНО
+        item.isMatched -> StickyNoteYellow
         item.isSelected -> StickyNoteYellow
         else -> MaterialTheme.colorScheme.surface
     }
 
     val borderColor = when {
-        item.isMatched -> StickyNoteText // <-- ИЗМЕНЕНО
+        item.isMatched -> StickyNoteText
         item.isSelected -> StickyNoteText
         else -> MaterialTheme.colorScheme.outline
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     Card(
-        modifier = modifier // <-- ИСПОЛЬЗУЕМ модификатор
+        modifier = modifier
             .fillMaxWidth()
             .clickable(
-                enabled = !item.isMatched,
+                // --- ИЗМЕНЕНИЕ: Клик всегда разрешен (VM решает, что делать) ---
+                enabled = true,
+                // --- КОНЕЦ ---
                 onClick = { onItemClick(item) },
                 interactionSource = remember { MutableInteractionSource() },
                 indication = rememberRipple()

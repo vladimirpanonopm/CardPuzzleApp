@@ -7,74 +7,45 @@
       "uiDisplayTitle": "",
       "taskPairs": [
         [
-          "אני",
-          "Я"
+          "אֲנִי",
+          "я"
         ],
         [
-          "הולך",
-          "Иду"
+          "אַתָה",
+          "ты (м)"
         ],
         [
-          "חתול",
-          "Кошка"
+          "אַתְ",
+          "ты (ж)"
         ],
         [
-          "כלב",
-          "Собака"
+          "אִמָא",
+          "мама"
+        ],
+        [
+          "מִי",
+          "кто?"
+        ],
+        [
+          "מָה",
+          "что?"
+        ],
+        [
+          "אַנָה",
+          "Анна"
+        ],
+        [
+          "נִינָה",
+          "Нина"
         ]
       ]
     },
     {
-      "taskType": "AUDITION",
+      "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Анна.\nКак тебя зовут?\nЯ Нина.",
+      "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
       "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
-      "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
-      "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
-      "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "c53d940d781fa7127985fda049ca8ae3.mp3",
-      "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאַת אִמָא?\nאֲנִי אִמָא.",
-      "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
-      "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
-      "translationPrompt": "Тами — это кто?\nТами это мама.",
-      "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "dc49a0a8103530d98e7ac1e0b6301d6e.mp3",
-      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַת מוֹרָה?\nאֲנִי מוֹרָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
-      "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "4006ea283efd438b8df26a08b575b8da.mp3",
-      "uiDisplayTitle": "מַתִי, אַתָה מוֹרֶה?\nאֲנִי מוֹרֶה.",
-      "translationPrompt": "Мати, ты учитель?\nЯ учитель.",
-      "distractorOptions": []
-    },
-    {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "95c4a88caae2e526946df959788a84d9.mp3",
-      "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.",
-      "translationPrompt": "Лили учительница?\nЛили учительница.\nЭла учительница?\nЭла не учительница.",
-      "distractorOptions": [
-        "חתול",
-        "שולחן"
-      ]
     },
     {
       "taskType": "FILL_IN_BLANK",

@@ -25,15 +25,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-// --- ДОБАВЛЕН ИМПОРТ ---
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-// -----------------------
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility // <-- ДОБАВЛЕН ИМПОРТ
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -203,18 +201,18 @@ fun GameScreen(
                 )
             }
 
-            // --- ИСПРАВЛЕНИЕ АНИМАЦИИ ---
+            // --- ИЗМЕНЕНИЕ СКОРОСТИ АНИМАЦИИ ---
             // Анимация "КНИГИ"
             val enterTransition = slideInHorizontally(
-                animationSpec = tween(500, delayMillis = 100),
-                initialOffsetX = { it } // БЫЛО: -it (Въезд справа)
-            ) + fadeIn(animationSpec = tween(500, delayMillis = 100))
+                animationSpec = tween(550, delayMillis = 100), // <-- БЫЛО 500
+                initialOffsetX = { it }
+            ) + fadeIn(animationSpec = tween(550, delayMillis = 100)) // <-- БЫЛО 500
 
             val exitTransition = slideOutHorizontally(
-                animationSpec = tween(500),
-                targetOffsetX = { -it } // БЫЛО: it (Выезд влево)
-            ) + fadeOut(animationSpec = tween(500))
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+                animationSpec = tween(550), // <-- БЫЛО 500
+                targetOffsetX = { -it }
+            ) + fadeOut(animationSpec = tween(550)) // <-- БЫЛО 500
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
             AnimatedContent(

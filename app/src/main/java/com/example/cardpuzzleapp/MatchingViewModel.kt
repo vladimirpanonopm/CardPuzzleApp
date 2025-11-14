@@ -44,6 +44,8 @@ class MatchingViewModel @Inject constructor(
     var hebrewCards by mutableStateOf<List<MatchItem>>(emptyList())
     var translationCards by mutableStateOf<List<MatchItem>>(emptyList())
 
+    private var originalTranslationCards = listOf<MatchItem>()
+
     // --- ФЛАГ ЗАГРУЗКИ ---
     var isLoading by mutableStateOf(true)
         private set
@@ -51,16 +53,18 @@ class MatchingViewModel @Inject constructor(
         private set
 
     // --- Состояние UI ---
-    var currentTaskTitleResId by mutableStateOf(R.string.game_task_matching)
+    // --- ИЗМЕНЕНИЕ: Заголовок по умолчанию ---
+    var currentTaskTitleResId by mutableStateOf(R.string.game_task_new_words) // <-- БЫЛО R.string.game_task_matching
         private set
+    // --- КОНЕЦ ---
     var isGameWon by mutableStateOf(false)
         private set
     var errorCount by mutableStateOf(0)
         private set
-    // --- ДОБАВЛЕНО: ID для анимации "тряски" ---
     var errorItemId by mutableStateOf<UUID?>(null)
         private set
-    // --- КОНЕЦ ---
+    var isExamMode by mutableStateOf(false)
+        private set
     var resultSnapshot by mutableStateOf<RoundResultSnapshot?>(null)
         private set
     var showResultSheet by mutableStateOf(false)
@@ -77,10 +81,8 @@ class MatchingViewModel @Inject constructor(
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
 
-    // --- ИЗМЕНЕНИЕ: Тип Канала изменен ---
     private val _completionEventChannel = Channel<MatchingCompletionEvent>()
     val completionEvents = _completionEventChannel.receiveAsFlow()
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     // --- Состояние текущего раунда ---
     var currentLevelId: Int by mutableStateOf(1)
@@ -89,27 +91,19 @@ class MatchingViewModel @Inject constructor(
         private set
 
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
-        // --- ЛОГ ---
         Log.w(TAG, "VM: loadLevelAndRound(uid=$uid) CALLED.")
         Log.i(TAG, "  > VM: Текущее состояние: loadedUid=$loadedUid, isLoading=$isLoading")
-        // ---------
 
         if (loadedUid == uid && !isLoading) {
-            // --- ЛОГ ---
             Log.e(TAG, "  > VM: ОТМЕНА ЗАГРУЗКИ: Этот UID ($uid) уже загружен и не в процессе загрузки.")
-            // ---------
             return
         }
 
         currentLoadJob?.cancel()
-        // --- ЛОГ ---
         Log.i(TAG, "  > VM: Предыдущий Job (если был) отменен.")
-        // ---------
 
         isLoading = true
-        // --- ЛОГ ---
         Log.w(TAG, "  > VM: СИНХРОННЫЙ СБРОС UI (isLoading = true)")
-        // ---------
 
         hebrewCards = emptyList()
         translationCards = emptyList()
@@ -118,7 +112,12 @@ class MatchingViewModel @Inject constructor(
         showResultSheet = false
         selectedItem = null
         errorCount = 0
-        errorItemId = null // <-- ДОБАВЛЕНО: Сброс ID ошибки
+        errorItemId = null
+        isExamMode = false
+
+        // --- ИЗМЕНЕНИЕ: Установка заголовка "Новые слова" при сбросе ---
+        currentTaskTitleResId = R.string.game_task_new_words
+        // --- КОНЕЦ ---
 
         this.currentLevelId = levelId
         this.currentRoundIndex = roundIndex
@@ -127,42 +126,19 @@ class MatchingViewModel @Inject constructor(
     }
 
     private fun loadRound(uid: Long): Job {
-        // --- ЛОГ ---
         Log.w(TAG, "  > VM: loadRound(uid=$uid) (КОРУТИНА) CALLED")
-        // ---------
 
         return viewModelScope.launch {
             Log.i(TAG, "  > VM: loadRound(uid=$uid) (coroutine started)")
 
             levelRepository.loadLevelDataIfNeeded(currentLevelId)
-
             ensureActive()
-
             val levelData = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
             val allLevelSentences = levelRepository.getSentencesForLevel(currentLevelId)
 
-            if (allLevelSentences.isEmpty()) {
-                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! allLevelSentences == null.")
-                currentTaskTitleResId = R.string.game_task_unknown
-                isLoading = false
-                loadedUid = uid
-                return@launch
-            }
-            Log.i(TAG, "  > VM: loadRound(uid=$uid) allData.size = ${allLevelSentences.size}")
-
-            ensureActive()
-
-            if (levelData == null) {
-                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! levelData == null.")
-                currentTaskTitleResId = R.string.game_task_unknown
-                isLoading = false
-                loadedUid = uid
-                return@launch
-            }
-
-            if (levelData.taskType != TaskType.MATCHING_PAIRS) {
-                currentTaskTitleResId = R.string.game_task_unknown
-                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! 'MATCHING_PAIRS' не найдено.")
+            if (allLevelSentences.isEmpty() || levelData == null || levelData.taskType != TaskType.MATCHING_PAIRS) {
+                Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! Данные уровня некорректны.")
+                currentTaskTitleResId = R.string.game_task_unknown // <-- (Оставляем, это для ошибки)
                 isLoading = false
                 loadedUid = uid
                 return@launch
@@ -185,19 +161,17 @@ class MatchingViewModel @Inject constructor(
 
             ensureActive()
 
-            hebrewCards = newHebrewList.shuffled()
-            translationCards = newTranslationList.shuffled()
+            hebrewCards = newHebrewList
+            originalTranslationCards = newTranslationList
+            translationCards = newTranslationList
+
             Log.i(TAG, "  > VM: loadRound(uid=$uid) Карточки загружены. hebrewCards.size = ${hebrewCards.size}")
-
             updateLastRoundAvailability(allLevelSentences)
-
             Log.i(TAG, "  > VM: loadRound(uid=$uid) Поле сгенерировано. ${hebrewCards.size} пар.")
 
             isLoading = false
             loadedUid = uid
-            // --- ЛОГ ---
             Log.w(TAG, "  > VM: loadRound(uid=$uid) (КОРУТИНА) ЗАВЕРШЕНА. isLoading = false, loadedUid = $uid. UI должен обновиться.")
-            // ---------
         }
     }
 
@@ -210,8 +184,27 @@ class MatchingViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
+    fun startExamMode() {
+        Log.d(TAG, "VM: startExamMode() CALLED.")
+        isExamMode = true
+        // --- ИЗМЕНЕНИЕ: Меняем заголовок на "Соедини пары" ---
+        currentTaskTitleResId = R.string.game_task_matching
+        // --- КОНЕЦ ---
+        selectedItem = null
+        errorCount = 0
+        errorItemId = null
+        translationCards = originalTranslationCards.shuffled()
+    }
+
     fun onMatchItemClicked(item: MatchItem) {
         if (item.isMatched || isGameWon || isLoading) return
+
+        if (!isExamMode) {
+            if (item.isHebrew) {
+                ttsPlayer.speak(item.text)
+            }
+            return
+        }
 
         if (item.isHebrew) {
             ttsPlayer.speak(item.text)
@@ -222,7 +215,7 @@ class MatchingViewModel @Inject constructor(
         if (currentSelection == null) {
             setSelection(item, true)
             selectedItem = item
-            errorItemId = null // <-- Сброс ошибки
+            errorItemId = null
 
         } else if (currentSelection.isHebrew == item.isHebrew) {
             if (currentSelection.id == item.id) {
@@ -233,13 +226,13 @@ class MatchingViewModel @Inject constructor(
                 setSelection(item, true)
                 selectedItem = item
             }
-            errorItemId = null // <-- Сброс ошибки
+            errorItemId = null
 
         } else {
             if (currentSelection.pairId == item.pairId) {
                 setCardsAsMatched(currentSelection.pairId)
                 selectedItem = null
-                errorItemId = null // <-- Сброс ошибки
+                errorItemId = null
                 viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
                 Log.d(AppDebug.TAG, "MatchViewModel: УСПЕХ! Пара найдена: ${currentSelection.text} / ${item.text}")
 
@@ -249,14 +242,13 @@ class MatchingViewModel @Inject constructor(
 
             } else {
                 errorCount++
-                errorItemId = item.id // <-- УСТАНОВКА ID ОШИБКИ
+                errorItemId = item.id
                 viewModelScope.launch {
                     _hapticEventChannel.send(HapticEvent.Failure)
                     delay(500)
                     setSelection(currentSelection, false)
                     setSelection(item, false)
                     selectedItem = null
-                    // Не сбрасываем errorItemId здесь, чтобы Shakeable мог его прочитать
                 }
                 Log.d(AppDebug.TAG, "MatchViewModel: ПРОВАЛ. (${currentSelection.text} != ${item.text})")
             }
@@ -315,7 +307,6 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
     fun proceedToNextRound() {
         isGameWon = false
         resultSnapshot = null
@@ -325,30 +316,19 @@ class MatchingViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ ЗДЕСЬ (НОВЫЙ БАГФИКС) ---
     fun restartCurrentRound() {
-        // Запоминаем UID, который *хочет* этот экран
         val currentScreenUid = loadedUid
-
         Log.w(TAG, "VM: restartCurrentRound() CALLED. (target UID: $currentScreenUid)")
-
-        // 1. Немедленно сбрасываем 'loadedUid', чтобы guard в loadLevelAndRound пропустил вызов
         loadedUid = 0L
-
-        // 2. Немедленно включаем спиннер
         isLoading = true
-
-        // 3. Вызываем перезагрузку с ТЕМ ЖЕ UID, который был у экрана
         loadLevelAndRound(currentLevelId, currentRoundIndex, currentScreenUid)
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun onTrackClick() {
         viewModelScope.launch {
             _completionEventChannel.send(MatchingCompletionEvent.Track)
         }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun showResultSheet() {
         Log.d(TAG, "VM: showResultSheet() CALLED (Кнопка 'Глаз')")
@@ -362,13 +342,11 @@ class MatchingViewModel @Inject constructor(
         Log.d(TAG, "  > VM: showResultSheet = $showResultSheet")
     }
 
-    // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
     fun skipToNextAvailableRound() {
         viewModelScope.launch {
             _completionEventChannel.send(MatchingCompletionEvent.Skip)
         }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()

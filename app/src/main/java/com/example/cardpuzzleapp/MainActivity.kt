@@ -274,24 +274,26 @@ fun AppNavigation(
                     defaultValue = 0L
                 }
             ),
+            // --- ИЗМЕНЕНИЕ СКОРОСТИ АНИМАЦИИ ---
             enterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { it },
-                    animationSpec = tween(300)
+                    animationSpec = tween(330) // <-- БЫЛО 300
                 )
             },
             exitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { -it },
-                    animationSpec = tween(300)
+                    animationSpec = tween(330) // <-- БЫЛО 300
                 )
             },
             popExitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { it },
-                    animationSpec = tween(300)
+                    animationSpec = tween(330) // <-- БЫЛО 300
                 )
             }
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
