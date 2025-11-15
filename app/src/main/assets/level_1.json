@@ -123,6 +123,60 @@
       "distractorOptions": []
     },
     {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "אוֹר",
+          "свет"
+        ],
+        [
+          "אוֹרִית",
+          "Орит (имя)"
+        ],
+        [
+          "מוֹרֶה",
+          "учитель"
+        ],
+        [
+          "מוֹרָה",
+          "учительница"
+        ],
+        [
+          "מִירִי",
+          "Мири (имя)"
+        ]
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
+      "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
+      "distractorOptions": []
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
+      "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
+      "distractorOptions": []
+    },
+    {
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nמי תַלְמִד?",
+      "translationPrompt": "",
+      "correctOptions": [
+        "דָנִי תַלְמִד"
+      ],
+      "distractorOptions": [
+        "אוֹרָה",
+        "מוֹרָה"
+      ]
+    },
+    {
       "taskType": "FILL_IN_BLANK",
       "audioFilename": "1ca0d9e336706e1f597957119f5ee946.mp3",
       "uiDisplayTitle": "אני ___ וגם ___ הביתה.",

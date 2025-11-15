@@ -68,7 +68,9 @@ class CardViewModel @Inject constructor(
 
     // --- РЕФАКТОРИНГ №1: Группируем логику типов задач ---
     private val isAssemblyTask: Boolean
-        get() = currentTaskType == TaskType.ASSEMBLE_TRANSLATION || currentTaskType == TaskType.AUDITION
+        get() = currentTaskType == TaskType.ASSEMBLE_TRANSLATION ||
+                currentTaskType == TaskType.AUDITION ||
+                currentTaskType == TaskType.QUIZ
     // --- КОНЕЦ РЕФАКТОРИНГА ---
 
     var levelCount by mutableStateOf(0)
@@ -94,10 +96,8 @@ class CardViewModel @Inject constructor(
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
     private var timerJob: Job? = null
 
-    // --- ИЗМЕНЕНИЕ: Тип Канала изменен ---
     private val _navigationEvent = Channel<NavigationEvent>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     // --- 'init' блок для подписки на AudioPlayer ---
     init {
@@ -114,11 +114,9 @@ class CardViewModel @Inject constructor(
         this.currentTaskType = currentLevelSentences.getOrNull(index)?.taskType ?: TaskType.UNKNOWN
     }
 
-    // --- ИЗМЕНЕНИЕ: Новый метод-геттер ---
     fun getTaskTypeForRound(roundIndex: Int): TaskType {
         return currentLevelSentences.getOrNull(roundIndex)?.taskType ?: TaskType.UNKNOWN
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     fun loadLevelCount() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -159,8 +157,7 @@ class CardViewModel @Inject constructor(
         var targetSlotIndex = -1
 
         when (currentTaskType) {
-            // --- ИЗМЕНЕНО: Используем 'isAssemblyTask' ---
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.QUIZ -> {
                 val nextExpectedCard = targetCards.getOrNull(uiState.selectedCards.size)
                 isCorrect = (nextExpectedCard != null && card.text.trim() == nextExpectedCard.text.trim())
             }
@@ -186,8 +183,7 @@ class CardViewModel @Inject constructor(
             }
 
             when (currentTaskType) {
-                // --- ИЗМЕНЕНО: Используем 'isAssemblyTask' ---
-                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
+                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.QUIZ -> {
                     val newSelectedCards = uiState.selectedCards + card
                     uiState = uiState.copy(
                         availableCards = newAvailableCards,
@@ -244,9 +240,7 @@ class CardViewModel @Inject constructor(
     }
 
     fun returnLastSelectedCard() {
-        // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
         if (uiState.isRoundWon || !isAssemblyTask) return
-        // --- КОНЕЦ РЕФАКТОРИНГА ---
 
         val cardToReturn = uiState.selectedCards.lastOrNull() ?: return
         ttsPlayer.speak(cardToReturn.text.trim())
@@ -264,15 +258,13 @@ class CardViewModel @Inject constructor(
 
     private fun checkWinCondition() {
         val didWin = when {
-            // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
             isAssemblyTask -> {
                 uiState.selectedCards.size == targetCards.size
             }
-            // --- КОНЕЦ РЕФАКТОРИНГА ---
             currentTaskType == TaskType.FILL_IN_BLANK -> {
                 uiState.assemblyLine.none { it.isBlank && it.filledCard == null }
             }
-            else -> false // MATCHING_PAIRS (обрабатывается в своем VM) или UNKNOWN
+            else -> false
         }
 
         if (didWin) {
@@ -333,18 +325,15 @@ class CardViewModel @Inject constructor(
             return true
         }
 
-        // --- ИЗМЕНЕНИЕ: Отправляем Событие, а не строку ---
         viewModelScope.launch {
             Log.d(AppDebug.TAG, "loadLevel($levelId): Sending nav event: ShowRound($currentLevelId, $currentRoundIndex)")
             _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, currentRoundIndex))
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         return false
     }
 
 
-    // --- РЕФАКТОРИНГ №2: 'loadRound' очищена ---
     fun loadRound(roundIndex: Int) {
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
 
@@ -380,8 +369,8 @@ class CardViewModel @Inject constructor(
 
             TaskType.AUDITION -> {
                 newTaskTitleResId = R.string.game_task_audition
-                newCurrentTaskPrompt = "" // Пусто по требованию
-                newCurrentHebrewPrompt = "" // Пусто по требованию
+                newCurrentTaskPrompt = ""
+                newCurrentHebrewPrompt = ""
 
                 val (target, available) = setupAssemblyTask(roundData)
                 this.targetCards = target
@@ -399,20 +388,27 @@ class CardViewModel @Inject constructor(
                 newAssemblyLine = assembly
             }
 
+            TaskType.QUIZ -> {
+                newTaskTitleResId = R.string.game_task_quiz
+                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
+                newCurrentHebrewPrompt = roundData.hebrew
+
+                val (target, available) = setupQuizTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
+                newAssemblyLine = emptyList()
+            }
+
             TaskType.MATCHING_PAIRS -> {
                 Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
                 newTaskTitleResId = R.string.game_task_matching
-                // --- ИСПРАВЛЕНИЕ: Устанавливаем this.targetCards ---
                 this.targetCards = emptyList()
-                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             }
 
             TaskType.UNKNOWN -> {
                 newTaskTitleResId = R.string.game_task_unknown
                 newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
-                // --- ИСПРАВЛЕНИЕ: Устанавливаем this.targetCards ---
                 this.targetCards = emptyList()
-                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
             }
         }
 
@@ -433,7 +429,6 @@ class CardViewModel @Inject constructor(
 
         Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
 
-        // Проверка на "последний раунд" (осталась без изменений)
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val uncompletedRounds = currentLevelSentences.indices.filter {
@@ -441,21 +436,36 @@ class CardViewModel @Inject constructor(
         }
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
-    // --- КОНЕЦ РЕФАКТОРИНГА №2 ---
-
-    // --- РЕФАКТОРИНГ №2: Новые приватные хелперы ---
 
     /**
      * Готовит данные для 'ASSEMBLE_TRANSLATION' и 'AUDITION'.
+     * Цель: `roundData.hebrew`
      */
     private fun setupAssemblyTask(roundData: SentenceData): Pair<List<Card>, List<AvailableCardSlot>> {
         val newTargetCards = parseSentenceToCards(roundData.hebrew, wordDictionary)
 
-        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
         val distractors = roundData.task_distractor_cards?.map {
             Card(text = it.trim(), translation = "")
         } ?: emptyList<Card>()
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        val newAvailableCards = (newTargetCards + distractors).shuffled().map {
+            AvailableCardSlot(card = it, isVisible = true)
+        }
+
+        return Pair(newTargetCards, newAvailableCards)
+    }
+
+    /**
+     * Готовит данные для 'QUIZ'.
+     * Цель: `roundData.task_correct_cards` (парсится)
+     */
+    private fun setupQuizTask(roundData: SentenceData): Pair<List<Card>, List<AvailableCardSlot>> {
+        val correctSentence = roundData.task_correct_cards?.joinToString(separator = " ") ?: ""
+        val newTargetCards = parseSentenceToCards(correctSentence, wordDictionary)
+
+        val distractors = roundData.task_distractor_cards?.map {
+            Card(text = it.trim(), translation = "")
+        } ?: emptyList<Card>()
 
         val newAvailableCards = (newTargetCards + distractors).shuffled().map {
             AvailableCardSlot(card = it, isVisible = true)
@@ -466,15 +476,14 @@ class CardViewModel @Inject constructor(
 
     /**
      * Готовит данные для 'FILL_IN_BLANK'.
+     * Цель: `roundData.task_correct_cards` (не парсится)
      */
     private fun setupFillInBlankTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
 
-        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
         val correctCards = roundData.task_correct_cards?.map {
             Card(text = it.trim(), translation = "")
         } ?: emptyList<Card>()
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         val hebrewPrompt = roundData.hebrew
         val promptParts = hebrewPrompt.split("___")
@@ -499,11 +508,9 @@ class CardViewModel @Inject constructor(
             }
         }
 
-        // --- ИСПРАВЛЕНИЕ: Добавлен <Card> ---
         val distractors = roundData.task_distractor_cards?.map {
             Card(text = it.trim(), translation = "")
         } ?: emptyList<Card>()
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         val newAvailableCards = (correctCards + distractors).shuffled().map {
             AvailableCardSlot(card = it, isVisible = true)
@@ -523,7 +530,6 @@ class CardViewModel @Inject constructor(
             else -> this.russian_translation
         }
     }
-    // --- КОНЕЦ РЕФАКТОРИНГА №2 ---
 
 
     private fun resetAndStartCounters() {
@@ -543,36 +549,29 @@ class CardViewModel @Inject constructor(
 
         val userLanguage = progressManager.getUserLanguage()
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-        val translation = currentSentence?.translationForLanguage(userLanguage) // Используем хелпер
+        val translation = currentSentence?.translationForLanguage(userLanguage)
 
-        // --- ИЗМЕНЕНИЕ: Теперь мы ОБРАБАТЫВАЕМ AUDITION ---
         if (result == GameResult.WIN) {
             if (currentTaskType == TaskType.AUDITION) {
-                // ПУНКТ 2: Помечаем как пройденный, но НЕ для журнала
                 progressManager.archiveRound(currentLevelId, currentRoundIndex)
             } else {
-                // ПУНКТ 1: Обычное сохранение в журнал
                 progressManager.saveProgress(currentLevelId, currentRoundIndex)
             }
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
         val completedCardsList = when {
-            // --- РЕФАКТОРИНГ №1: Используем 'isAssemblyTask' ---
             isAssemblyTask -> uiState.selectedCards.toList()
-            // --- КОНЕЦ РЕФАКТОРИНГА ---
             currentTaskType == TaskType.FILL_IN_BLANK -> uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
-            else -> emptyList() // MATCHING_PAIRS или UNKNOWN
+            else -> emptyList()
         }
 
         val newSnapshot = RoundResultSnapshot(
             gameResult = result,
             completedCards = completedCardsList,
-            // --- ИЗМЕНЕНО: Передаем перевод для AUDITION ---
             translationText = if (currentTaskType == TaskType.AUDITION) translation else null,
             errorCount = this.uiState.errorCount,
             timeSpent = this.timeSpent,
@@ -590,10 +589,10 @@ class CardViewModel @Inject constructor(
             delay(650)
             uiState = uiState.copy(showResultSheet = true)
             if (result == GameResult.WIN) {
-                // --- ИЗМЕНЕНО: Не проигрываем аудио в конце для AUDITION (оно было в начале) ---
-                if (currentTaskType != TaskType.AUDITION) {
-                    newSnapshot.audioFilename?.let { audioPlayer.play(it) }
-                }
+                // --- ИЗМЕНЕНИЕ: (По вашей просьбе)
+                // Теперь AUDITION также проигрывает аудио при успехе
+                newSnapshot.audioFilename?.let { audioPlayer.play(it) }
+                // --- КОНЕЦ ---
             }
         }
     }
@@ -626,11 +625,10 @@ class CardViewModel @Inject constructor(
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
-        // --- ИЗМЕНЕНО: Учитываем, что AUDITION не попадает в completedRounds ---
         val nowCompletedSet = if (currentTaskType == TaskType.AUDITION) {
-            completedRounds // Остается без изменений
+            completedRounds
         } else {
-            completedRounds + currentRoundIndex // Добавляем
+            completedRounds + currentRoundIndex
         }
 
         val uncompletedRounds = (0 until currentLevelSentences.size).filter {
@@ -639,25 +637,27 @@ class CardViewModel @Inject constructor(
 
         if (uncompletedRounds.isEmpty()) {
             isLevelFullyCompleted = true
-            // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
             viewModelScope.launch {
                 _navigationEvent.send(NavigationEvent.ShowRoundTrack(currentLevelId))
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             return
         }
 
         val nextForwardRound = uncompletedRounds.firstOrNull { it > currentRoundIndex }
         val nextRound = nextForwardRound ?: uncompletedRounds.first()
 
-        // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
         viewModelScope.launch {
             _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
+    // --- ИЗМЕНЕНИЕ: Добавлена остановка аудио ---
     fun skipToNextAvailableRound() {
+        // 1. Немедленно останавливаем любое аудио
+        audioPlayer.stop()
+        ttsPlayer.stop()
+
+        // 2. Выполняем остальную логику
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
@@ -671,12 +671,11 @@ class CardViewModel @Inject constructor(
         val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
         val nextRound = activeRounds[nextIndexInActiveList]
 
-        // --- ИЗМЕНЕНИЕ: Отправляем Событие ---
         viewModelScope.launch {
             _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()

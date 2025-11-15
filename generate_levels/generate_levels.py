@@ -189,10 +189,7 @@ def process_level_file(txt_filepath, assets_path):
             if task_type == 'ASSEMBLE_TRANSLATION' or task_type == 'AUDITION':
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
-
-                # --- ИЗМЕНЕНИЕ: Добавляем "неправильные" карточки ---
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
-                # --------------------------------------------------
 
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
@@ -207,6 +204,17 @@ def process_level_file(txt_filepath, assets_path):
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
 
+            # --- ИЗМЕНЕНИЕ: Добавлен TASK: QUIZ ---
+            elif task_type == 'QUIZ':
+                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']  # Вопрос
+                card_json['translationPrompt'] = data['russian_translation_text']  # Подсказка/перевод
+                card_json['correctOptions'] = data['HEBREW_CORRECT']  # Правильные карточки
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']  # Неправильные
+
+                # (Пока без аудио, т.к. не было в ТЗ. Можно добавить позже)
+
+            # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
             elif task_type == 'MATCHING_PAIRS':
                 card_json['uiDisplayTitle'] = data['russian_translation_text']
                 list_A = data['HEBREW_CORRECT']
@@ -214,11 +222,10 @@ def process_level_file(txt_filepath, assets_path):
 
                 if len(list_A) != len(list_B) or len(list_A) == 0:
                     print(
-                        f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с HEBREW_DISTRACTORS ({len(list_B)}) или равно 0.")
+                        f"    !!! ОШИБКА: Карточка {i} (MATCHING_PAIRS)! Кол-во HEBREW_CORRECT ({len(list_A)}) не совпадает с RUSSIAN_CORRECT ({len(list_B)}) или равно 0.")
                     continue
 
                 card_json['taskPairs'] = [list(pair) for pair in zip(list_A, list_B)]
-                # Аудио не генерируем, как и просили
 
             else:
                 print(f"    !!! ОШИБКА: Неизвестный taskType '{task_type}' в карточке {i}.")
@@ -243,7 +250,6 @@ def process_level_file(txt_filepath, assets_path):
             if len(audio_hebrew_lines) != len(voice_info_list):
                 print(
                     f"    !!! ОШИБКА: Карточка {i}! Количество строк HEBREW ({len(audio_hebrew_lines)}) не совпадает с количеством VOICES ({len(voice_info_list)}).")
-                # Не продолжаем, но карточку добавляем (будет без аудио)
                 card_json['audioFilename'] = None
 
             # 3. Создаем MP3, если его нет

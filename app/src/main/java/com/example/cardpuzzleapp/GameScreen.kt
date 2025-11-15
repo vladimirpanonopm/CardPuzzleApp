@@ -2,18 +2,15 @@ package com.example.cardpuzzleapp
 import androidx.compose.ui.text.style.TextDirection
 import android.content.Context
 import android.util.Log
-// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ДЛЯ ANIMATEDCONTENT ---
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-// --- НОВЫЕ ИМПОРТЫ ДЛЯ СЛАЙДА ---
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-// ------------------------------------
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -104,19 +101,15 @@ fun GameScreen(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // --- ИЗМЕНЕНИЕ: Автовоспроизведение включено ---
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
         viewModel.loadRound(routeRoundIndex)
 
-        // --- ДОБАВЛЕНО: Автовоспроизведение с задержкой ---
         if (viewModel.currentTaskType == TaskType.AUDITION) {
-            delay(800) // <-- Задержка 800мс
-            viewModel.replayAuditionAudio() // <-- Вызов плеера
+            delay(800)
+            viewModel.replayAuditionAudio()
         }
-        // --- КОНЕЦ ---
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -319,23 +312,22 @@ private fun GameScreenLayout(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // --- ИЗМЕНЕНИЕ: Кнопка "Слушать" стала квадратной, без текста ---
+                // --- ИЗМЕНЕНИЕ: Разделяем логику QUIZ ---
                 if (staticState.taskType == TaskType.AUDITION) {
 
-                    // Контейнер, чтобы занять место и отцентровать кнопку
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp) // Этот отступ был у Text
-                            .defaultMinSize(minHeight = 50.dp), // Сохраняем высоту, которую занимала кнопка
+                            .padding(bottom = 16.dp)
+                            .defaultMinSize(minHeight = 50.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         OutlinedButton(
                             onClick = { viewModel.replayAuditionAudio() },
                             enabled = isInteractionEnabled,
-                            modifier = Modifier.size(50.dp), // 50dp - высота старой кнопки
+                            modifier = Modifier.size(50.dp),
                             shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(0.dp), // Убираем отступы
+                            contentPadding = PaddingValues(0.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = StickyNoteText
                             ),
@@ -344,18 +336,62 @@ private fun GameScreenLayout(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = stringResource(R.string.button_listen),
-                                modifier = Modifier.size(28.dp) // Иконка чуть больше
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
 
+                } else if (staticState.taskType == TaskType.QUIZ) {
+
+                    // --- ИЗМЕНЕНИЕ: Используем Column + Divider ---
+                    val fullPrompt = viewModel.currentHebrewPrompt ?: ""
+                    val promptLines = fullPrompt.lines().filter { it.isNotBlank() }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalAlignment = Alignment.End // Выравниваем весь текст по правому краю
+                    ) {
+                        if (promptLines.size > 1) {
+                            val context = promptLines.dropLast(1).joinToString("\n")
+                            val question = promptLines.last()
+
+                            // 1. Контекст
+                            Text(
+                                text = context,
+                                style = hebrewTextStyle
+                            )
+                            // 2. Разделитель
+                            HorizontalDivider(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.6f) // Не на всю ширину
+                                    .padding(vertical = 8.dp),
+                                color = StickyNoteText.copy(alpha = 0.4f)
+                            )
+                            // 3. Вопрос
+                            Text(
+                                text = question,
+                                style = hebrewTextStyle
+                            )
+                        } else {
+                            // Если всего 1 строка, показываем ее без разделителя
+                            Text(
+                                text = fullPrompt,
+                                style = hebrewTextStyle
+                            )
+                        }
+                    }
+                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                 } else {
-                    // Старая логика для ASSEMBLE_TRANSLATION / FILL_IN_BLANK
+                    // Старая логика для ASSEMBLE_TRANSLATION / FILL_IN_BLANK (русская подсказка)
                     Text(
                         text = staticState.taskPrompt ?: "",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             color = StickyNoteText.copy(alpha = 0.8f),
-                            textAlign = TextAlign.Start
+                            textAlign = TextAlign.Start,
+                            textDirection = TextDirection.Ltr
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -372,7 +408,9 @@ private fun GameScreenLayout(
                     ) {
                         if (isRoundWon) {
                             val assembledText = remember(isRoundWon, staticState.taskType) {
-                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION || staticState.taskType == TaskType.AUDITION) {
+                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION ||
+                                    staticState.taskType == TaskType.AUDITION ||
+                                    staticState.taskType == TaskType.QUIZ) {
                                     staticState.targetCards.joinToString(separator = "") { it.text }
                                 } else { // FILL_IN_BLANK
                                     dynamicState.assemblyLine.joinToString(separator = "") { slot ->
@@ -387,8 +425,9 @@ private fun GameScreenLayout(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
+                            // Экран в процессе игры
                             when (staticState.taskType) {
-                                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
+                                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.QUIZ -> {
                                     AssemblyTaskLayout(
                                         assembledText = dynamicState.selectedCards.joinToString(separator = "") { it.text },
                                         textStyle = hebrewTextStyle,

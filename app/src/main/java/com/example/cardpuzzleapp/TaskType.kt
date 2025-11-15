@@ -18,10 +18,13 @@ enum class TaskType {
     @SerialName("FILL_IN_BLANK")
     FILL_IN_BLANK,
 
-    // --- ДОБАВЛЕНО ---
     @SerialName("AUDITION")
     AUDITION,
-    // -----------------
+
+    // --- ДОБАВЛЕНО ---
+    @SerialName("QUIZ")
+    QUIZ,
+    // --- КОНЕЦ ---
 
     @SerialName("MATCHING_PAIRS")
     MATCHING_PAIRS,

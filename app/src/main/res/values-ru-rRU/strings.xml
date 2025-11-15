@@ -71,4 +71,5 @@
 
     <string name="hint_tap_to_listen">Нажмите, чтобы услышать</string>
     <string name="game_task_new_words">Новые слова</string>
+    <string name="game_task_quiz">Вопрос</string>
 </resources>
