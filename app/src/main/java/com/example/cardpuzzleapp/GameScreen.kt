@@ -104,12 +104,17 @@ fun GameScreen(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // --- ИЗМЕНЕНИЕ: Автовоспроизведение выключено ---
+    // --- ИЗМЕНЕНИЕ: Автовоспроизведение включено ---
     LaunchedEffect(routeRoundIndex) {
         Log.i(AppDebug.TAG, ">>> GameScreen LaunchedEffect(routeRoundIndex=$routeRoundIndex). Вызов viewModel.loadRound().")
         viewModel.loadRound(routeRoundIndex)
 
-        // --- БЛОК АВТО-ВОСПРОИЗВЕДЕНИЯ УДАЛЕН ---
+        // --- ДОБАВЛЕНО: Автовоспроизведение с задержкой ---
+        if (viewModel.currentTaskType == TaskType.AUDITION) {
+            delay(800) // <-- Задержка 800мс
+            viewModel.replayAuditionAudio() // <-- Вызов плеера
+        }
+        // --- КОНЕЦ ---
     }
     // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
@@ -164,16 +169,13 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
-                // --- ИЗМЕНЕНИЕ ЗДЕСЬ (БАГФИКС) ---
                 if (isRoundWon) {
-                    // Заменяем Spacer на кнопку, которая повторно показывает шторку
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
-                        contentDescription = stringResource(R.string.button_show_result), // (Нужно добавить R.string.button_show_result)
+                        contentDescription = stringResource(R.string.button_show_result),
                         onClick = { viewModel.showResultSheet() }
                     )
                 } else {
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                     IconButton(onClick = onSkipClick, enabled = !viewModel.isLastRoundAvailable) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
@@ -201,18 +203,15 @@ fun GameScreen(
                 )
             }
 
-            // --- ИЗМЕНЕНИЕ СКОРОСТИ АНИМАЦИИ ---
-            // Анимация "КНИГИ"
             val enterTransition = slideInHorizontally(
-                animationSpec = tween(550, delayMillis = 100), // <-- БЫЛО 500
+                animationSpec = tween(550, delayMillis = 100),
                 initialOffsetX = { it }
-            ) + fadeIn(animationSpec = tween(550, delayMillis = 100)) // <-- БЫЛО 500
+            ) + fadeIn(animationSpec = tween(550, delayMillis = 100))
 
             val exitTransition = slideOutHorizontally(
-                animationSpec = tween(550), // <-- БЫЛО 500
+                animationSpec = tween(550),
                 targetOffsetX = { -it }
-            ) + fadeOut(animationSpec = tween(550)) // <-- БЫЛО 500
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            ) + fadeOut(animationSpec = tween(550))
 
 
             AnimatedContent(
@@ -320,31 +319,36 @@ private fun GameScreenLayout(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // --- ИЗМЕНЕНИЕ: Либо кнопка "Слушать", либо подсказка ---
+                // --- ИЗМЕНЕНИЕ: Кнопка "Слушать" стала квадратной, без текста ---
                 if (staticState.taskType == TaskType.AUDITION) {
-                    // Большая кнопка "Слушать"
-                    OutlinedButton(
-                        onClick = { viewModel.replayAuditionAudio() },
-                        enabled = isInteractionEnabled,
+
+                    // Контейнер, чтобы занять место и отцентровать кнопку
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .padding(bottom = 16.dp), // Отступ, который был у Text
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = StickyNoteText
-                        ),
-                        border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.5f))
+                            .padding(bottom = 16.dp) // Этот отступ был у Text
+                            .defaultMinSize(minHeight = 50.dp), // Сохраняем высоту, которую занимала кнопка
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = stringResource(R.string.button_listen)
-                        )
-                        Text(
-                            text = stringResource(R.string.button_listen),
-                            fontSize = 20.sp,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
+                        OutlinedButton(
+                            onClick = { viewModel.replayAuditionAudio() },
+                            enabled = isInteractionEnabled,
+                            modifier = Modifier.size(50.dp), // 50dp - высота старой кнопки
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp), // Убираем отступы
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = StickyNoteText
+                            ),
+                            border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.5f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = stringResource(R.string.button_listen),
+                                modifier = Modifier.size(28.dp) // Иконка чуть больше
+                            )
+                        }
                     }
+
                 } else {
                     // Старая логика для ASSEMBLE_TRANSLATION / FILL_IN_BLANK
                     Text(
@@ -366,11 +370,8 @@ private fun GameScreenLayout(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 100.dp)
                     ) {
-                        // --- РЕФАКТОРИНГ №3: Логика 'when' вынесена ---
                         if (isRoundWon) {
                             val assembledText = remember(isRoundWon, staticState.taskType) {
-                                // Эта логика дублирует VM, но она нужна для анимации победы
-                                // ДО того, как uiState обновится snapshot-ом
                                 if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION || staticState.taskType == TaskType.AUDITION) {
                                     staticState.targetCards.joinToString(separator = "") { it.text }
                                 } else { // FILL_IN_BLANK
@@ -380,14 +381,12 @@ private fun GameScreenLayout(
                                     }
                                 }
                             }
-                            // Отображаем собранный текст (общий для всех)
                             Text(
                                 text = assembledText,
                                 style = hebrewTextStyle,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
-                            // Экран в процессе игры
                             when (staticState.taskType) {
                                 TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION -> {
                                     AssemblyTaskLayout(
@@ -410,7 +409,6 @@ private fun GameScreenLayout(
                                 TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
                             }
                         }
-                        // --- КОНЕЦ РЕФАКТОРИНГА №3 ---
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -456,8 +454,6 @@ private fun GameScreenLayout(
         }
     }
 }
-
-// --- РЕФАКТОРИНГ №3: Новые Composable-функции ---
 
 /**
  * Отображает поле для ASSEMBLE_TRANSLATION и AUDITION (собранный текст).
@@ -514,4 +510,3 @@ private fun FillInBlankTaskLayout(
         }
     }
 }
-// --- КОНЕЦ РЕФАКТОРИНГА №3 ---
