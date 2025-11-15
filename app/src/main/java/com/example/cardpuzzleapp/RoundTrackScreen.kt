@@ -5,8 +5,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MenuBook
+// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,11 +47,9 @@ fun RoundTrackScreen(
 
     val progressManager = remember { viewModel.progressManager }
 
-    // --- ИЗМЕНЕНИЕ: Считаем ОБА списка ---
     val journalRounds = progressManager.getCompletedRounds(levelId).size
     val archivedRounds = progressManager.getArchivedRounds(levelId).size
     val completedRounds = journalRounds + archivedRounds
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     val sourceBitmap = remember {
         BitmapFactory.decodeResource(context.resources, R.drawable.tesy).asImageBitmap()
@@ -73,11 +73,13 @@ fun RoundTrackScreen(
                     contentDescription = stringResource(R.string.button_home),
                     onClick = onHomeClick,
                 )
+                // --- ИЗМЕНЕНИЕ: Иконка ---
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = stringResource(R.string.cd_go_to_journal),
                     onClick = onJournalClick
                 )
+                // --- КОНЕЦ ---
                 AppBottomBarIcon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = stringResource(R.string.button_reset_progress),
@@ -127,9 +129,7 @@ private fun PuzzleGrid(
     shuffledIndices: List<Int>,
     modifier: Modifier = Modifier
 ) {
-    val roundsPerPiece = remember(totalRounds, totalPieces) {
-        kotlin.math.ceil(totalRounds.toFloat() / totalPieces).toInt().coerceAtLeast(1)
-    }
+    // --- ИЗМЕНЕНИЕ: 'roundsPerPiece' УДАЛЕНА ---
 
     val totalProgress = if (totalRounds > 0) {
         (completedRounds.toFloat() / totalRounds.toFloat()) * totalPieces

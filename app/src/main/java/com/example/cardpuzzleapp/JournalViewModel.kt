@@ -22,9 +22,7 @@ import kotlinx.coroutines.delay
  */
 @HiltViewModel
 class JournalViewModel @Inject constructor(
-    // --- ИСПРАВЛЕНИЕ: Делаем progressManager приватным ---
     private val progressManager: GameProgressManager,
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     private val audioPlayer: AudioPlayer,
     private val levelRepository: LevelRepository,
     private val ttsPlayer: TtsPlayer
@@ -42,9 +40,7 @@ class JournalViewModel @Inject constructor(
     val initialFontSize: Float = progressManager.getJournalFontSize()
     val initialFontStyle: FontStyle = progressManager.getJournalFontStyle()
 
-    // --- ИСПРАВЛЕНИЕ: ViewModel теперь предоставляет язык ---
     val userLanguage: String = progressManager.getUserLanguage() ?: "ru"
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     /**
      * Главный метод инициализации.
@@ -59,7 +55,9 @@ class JournalViewModel @Inject constructor(
             val levelData = levelRepository.getSentencesForLevel(levelId)
 
             withContext(Dispatchers.Main) {
-                this@JournalViewModel.currentLevelSentences = levelData ?: emptyList()
+                // --- ИЗМЕНЕНИЕ: Убран '?: emptyList()' ---
+                this@JournalViewModel.currentLevelSentences = levelData
+                // --- КОНЕЦ ---
                 loadJournalSentences()
             }
         }
@@ -110,10 +108,7 @@ class JournalViewModel @Inject constructor(
     // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
     fun playSoundForPage(pageIndex: Int) {
-        // --- БАГ 1: ФИКС ---
-        // Немедленно останавливаем любое предыдущее аудио (из Job'а или AudioPlayer'а)
         stopAudio()
-        // --- КОНЕЦ ФИКСА ---
 
         audioPlaybackJob?.cancel()
         audioPlaybackJob = viewModelScope.launch {

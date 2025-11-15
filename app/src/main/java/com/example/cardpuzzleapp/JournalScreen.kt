@@ -9,8 +9,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
+// --- КОНЕЦ ---
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,7 +52,6 @@ fun JournalScreen(
     onTrackClick: () -> Unit,
     initialRoundIndex: Int
 ) {
-    val context = LocalContext.current
     val journalSentences = journalViewModel.journalSentences
     val coroutineScope = rememberCoroutineScope()
 
@@ -87,19 +90,14 @@ fun JournalScreen(
         }
     }
 
-    // --- БАГ 1 и 2: ФИКС ---
     LaunchedEffect(pagerState.isScrollInProgress, isFlipped, journalSentences.size) {
         if (pagerState.isScrollInProgress) {
-            // БАГ 1: Немедленно останавливаем аудио, как только начинается прокрутка
             journalViewModel.stopAudio()
         } else if (!isFlipped && !isLooping && journalSentences.isNotEmpty()) {
-            // БАГ 2: (journalSentences.size) как ключ, запускает это при загрузке
-            // Также запускается, когда isScrollInProgress меняется с true на false (прокрутка окончена)
             val currentPage = pagerState.currentPage.coerceIn(0, journalSentences.size - 1)
             journalViewModel.playSoundForPage(currentPage)
         }
     }
-    // --- КОНЕЦ ФИКСА ---
 
     LaunchedEffect(isLooping, pointA, pointB) {
         val localPointA = pointA
@@ -265,11 +263,13 @@ fun JournalScreen(
                         contentDescription = stringResource(R.string.button_ab_repeat),
                         onClick = { showRepeatPanel = true }
                     )
+                    // --- ИЗМЕНЕНИЕ: Иконка ---
                     AppBottomBarIcon(
-                        imageVector = Icons.Default.PlaylistAddCheck,
+                        imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                         contentDescription = stringResource(R.string.round_track_title, levelId),
                         onClick = onTrackClick
                     )
+                    // --- КОНЕЦ ---
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Restore,
                         contentDescription = stringResource(R.string.button_forget),
@@ -356,9 +356,7 @@ fun JournalScreen(
                             fontSize = journalFontSize,
                             fontStyle = journalFontStyle,
                             isFlipped = isFlipped,
-                            // --- ИСПРАВЛЕНИЕ: Передаем язык ---
                             userLanguage = journalViewModel.userLanguage,
-                            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                             modifier = Modifier
                                 .graphicsLayer {
                                     scaleY = 1f - (abs(pageOffset) * 0.15f)
@@ -383,7 +381,7 @@ fun FlippableJournalCard(
     fontSize: TextUnit,
     fontStyle: FontStyle,
     isFlipped: Boolean,
-    userLanguage: String, // <-- ИСПРАВЛЕНИЕ: Принимаем язык
+    userLanguage: String,
     modifier: Modifier = Modifier
 ) {
     val animatedRotation by animateFloatAsState(
@@ -406,7 +404,7 @@ fun FlippableJournalCard(
                 isHebrewSide = true,
                 fontSize = fontSize,
                 fontStyle = fontStyle,
-                userLanguage = userLanguage // <-- ИСПРАВЛЕНИЕ: Передаем дальше
+                userLanguage = userLanguage
             )
         } else {
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
@@ -415,7 +413,7 @@ fun FlippableJournalCard(
                     isHebrewSide = false,
                     fontSize = fontSize,
                     fontStyle = fontStyle,
-                    userLanguage = userLanguage // <-- ИСПРАВЛЕНИЕ: Передаем дальше
+                    userLanguage = userLanguage
                 )
             }
         }
@@ -430,7 +428,7 @@ private fun JournalPageContent(
     isHebrewSide: Boolean,
     fontSize: TextUnit,
     fontStyle: FontStyle,
-    userLanguage: String // <-- ИСПРАВЛЕНИЕ: Принимаем язык
+    userLanguage: String
 ) {
 
     Box(
@@ -449,7 +447,6 @@ private fun JournalPageContent(
                     .padding(16.dp),
                 contentAlignment = Alignment.TopStart
             ) {
-                val context = LocalContext.current
                 val scrollState = rememberScrollState()
 
                 Column(
@@ -516,15 +513,11 @@ private fun JournalPageContent(
 
                         // 3. ТЕКСТ (Перевод)
                     } else {
-                        // --- ИСПРАВЛЕНИЕ: УДАЛЯЕМ ЛОКАЛЬНЫЙ ВЫЗОВ ---
-                        // val userLanguage = journalViewModel.progressManager.getUserLanguage() // <-- УДАЛЕНО
-                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
                         val (textToShow, alignment) = if (sentence.taskType == TaskType.MATCHING_PAIRS) {
                             val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(1) ?: "" } ?: ""
                             pairsText to TextAlign.Left
                         } else {
-                            val translation = when (userLanguage) { // <-- Используем 'userLanguage' из параметров
+                            val translation = when (userLanguage) {
                                 "en" -> sentence.english_translation
                                 "fr" -> sentence.french_translation
                                 "es" -> sentence.spanish_translation

@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 fun HomeScreen(
     viewModel: CardViewModel,
     onStartLevel: (levelId: Int) -> Unit,
-    onShowTrack: (levelId: Int) -> Unit,
+    // --- ИЗМЕНЕНИЕ: 'onShowTrack' УДАЛЕН ---
     onSettingsClick: () -> Unit,
     onAlefbetClick: () -> Unit
 ) {
@@ -69,9 +69,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 maxItemsInEachRow = 3
             ) {
-                // --- ДОБАВЛЕН ЛОГ (2) ---
                 Log.d(AppDebug.TAG, "HomeScreen: FlowRow recomposing. Level count: ${viewModel.levelCount}")
-                // ------------------------
                 val levelCount = viewModel.levelCount
 
                 for (levelId in 1..levelCount) {

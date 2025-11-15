@@ -33,7 +33,7 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-import androidx.compose.ui.geometry.Offset // <-- ДОБАВЛЕНО ДЛЯ КОРРЕКТНОГО ТИПА
+import androidx.compose.ui.geometry.Offset
 
 @OptIn(ExperimentalTextApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -45,7 +45,9 @@ fun SelectableCard(
     taskType: TaskType,
     isAssembledCard: Boolean = false,
     isVisible: Boolean,
-    isInteractionEnabled: Boolean // <-- ДОБАВЛЕНО
+    // --- ИЗМЕНЕНИЕ: Добавлен isInteractionEnabled ---
+    // (Этот параметр был утерян при загрузке старого файла)
+    isInteractionEnabled: Boolean
 ) {
     var isFlipped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
@@ -82,20 +84,21 @@ fun SelectableCard(
         )
     }
 
-    // --- ИЗМЕНЕНИЕ: 'tapHandler' теперь зависит от 'isInteractionEnabled' ---
+    // --- ИЗМЕНЕНИЕ: 'tapHandler' обновлен ---
     val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect, isInteractionEnabled) {
 
-        if (!isVisible || !isInteractionEnabled) { // <-- ИЗМЕНЕНО
-            return@remember {} // Ничего не делать при нажатии
+        if (!isVisible || !isInteractionEnabled) {
+            return@remember {}
         }
 
         if (isAssembledCard && taskType == TaskType.FILL_IN_BLANK) {
             return@remember {}
         }
 
-        return@remember { offset -> onSelect() }
+        // --- ИЗМЕНЕНИЕ: 'offset' заменен на '_' ---
+        return@remember { _ -> onSelect() }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    // --- КОНЕЦ ---
 
 
     Card(
@@ -104,14 +107,10 @@ fun SelectableCard(
                 alpha = if (isVisible) 1f else 0f
                 rotationX = rotation
             }
-            // --- ИЗМЕНЕНИЕ: Ключ 'pointerInput' теперь также зависит от 'isInteractionEnabled' ---
             .pointerInput(isVisible, isInteractionEnabled) {
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 detectTapGestures(
-                    onTap = tapHandler, // 'tapHandler' теперь будет правильным
-                    // --- ИЗМЕНЕНО: LongPress также блокируется ---
+                    onTap = tapHandler,
                     onLongPress = { if (isVisible && isInteractionEnabled) isFlipped = true }
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),

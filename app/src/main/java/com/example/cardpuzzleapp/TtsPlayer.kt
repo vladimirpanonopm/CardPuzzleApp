@@ -67,6 +67,9 @@ class TtsPlayer @Inject constructor(
                         }
                     }
 
+                    // --- ИЗМЕНЕНИЕ: Добавлена аннотация ---
+                    @Deprecated("Deprecated in Java")
+                    // --- КОНЕЦ ---
                     override fun onError(utteranceId: String?) {
                         Log.e(AppDebug.TAG, "TtsPlayer: Ошибка воспроизведения $utteranceId")
                         // Возобновляем, чтобы не блокировать цикл

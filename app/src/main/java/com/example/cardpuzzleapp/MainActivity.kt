@@ -5,11 +5,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-// --- ИЗМЕНЕНИЕ: ЭТИ ИМПОРТЫ ОСТАЮТСЯ (для MatchingGame) ---
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-// --- КОНЕЦ ИЗМЕНЕНИЯ ---
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -92,7 +90,7 @@ fun AppNavigation(
     Log.d(AppDebug.TAG, "AppNavigation: Composing. initialLanguage: $initialLanguage")
 
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
+    // --- ИЗМЕНЕНИЕ: 'context' УДАЛЕН ---
 
     val startDestination = remember {
         val dest = if (initialLanguage != null) "home" else "language_selection"
@@ -120,11 +118,9 @@ fun AppNavigation(
             when (event) {
                 is NavigationEvent.ShowRoundTrack -> {
                     navController.navigate("round_track/${event.levelId}") {
-                        // --- ИСПРАВЛЕНИЕ: Явная проверка на null ---
                         if (currentRoute != null && (currentRoute.startsWith("game") || currentRoute.startsWith("matching_game"))) {
                             popUpTo(currentRoute) { inclusive = true }
                         }
-                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     }
                 }
 
@@ -139,7 +135,6 @@ fun AppNavigation(
 
                     Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
                     navController.navigate(route) {
-                        // --- ИСПРАВЛЕНИЕ: Явная проверка на null ---
                         if (currentRoute != null) {
                             if (currentRoute.startsWith("game") && taskType == TaskType.MATCHING_PAIRS) {
                                 popUpTo(currentRoute) { inclusive = true }
@@ -147,7 +142,6 @@ fun AppNavigation(
                                 popUpTo(currentRoute) { inclusive = true }
                             }
                         }
-                        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
                     }
                 }
             }
@@ -191,13 +185,7 @@ fun AppNavigation(
                         }
                     }
                 },
-                onShowTrack = { levelId ->
-                    Log.d(AppDebug.TAG, "NavHost: 'home' onShowTrack($levelId)")
-                    coroutineScope.launch {
-                        cardViewModel.loadLevel(levelId)
-                        navController.navigate("round_track/$levelId")
-                    }
-                },
+                // --- ИЗМЕНЕНИЕ: 'onShowTrack' УДАЛЕН ---
                 onSettingsClick = {
                     Log.d(AppDebug.TAG, "NavHost: 'home' onSettingsClick")
                     navController.navigate("settings")
@@ -274,26 +262,24 @@ fun AppNavigation(
                     defaultValue = 0L
                 }
             ),
-            // --- ИЗМЕНЕНИЕ СКОРОСТИ АНИМАЦИИ ---
             enterTransition = {
                 slideInHorizontally(
                     initialOffsetX = { it },
-                    animationSpec = tween(330) // <-- БЫЛО 300
+                    animationSpec = tween(330)
                 )
             },
             exitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { -it },
-                    animationSpec = tween(330) // <-- БЫЛО 300
+                    animationSpec = tween(330)
                 )
             },
             popExitTransition = {
                 slideOutHorizontally(
                     targetOffsetX = { it },
-                    animationSpec = tween(330) // <-- БЫЛО 300
+                    animationSpec = tween(330)
                 )
             }
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0

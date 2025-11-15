@@ -1,6 +1,9 @@
 # --- Карточка 0 ---
 TASK: MATCHING_PAIRS
 
+# Мы просто перечисляем пары. Скрипт должен будет
+# убедиться, что кол-во строк в 'HEBREW' и 'RUSSIAN' совпадает.
+
 HEBREW_CORRECT:
 אֲנִי
 אַתְ
@@ -13,6 +16,9 @@ RUSSIAN_CORRECT:
 кто?
 Анна
 Нина
+
+# Аудио для этой механики нет
+# 
 ===
 # --- Карточка 1 ---
 TASK: AUDITION
@@ -37,9 +43,37 @@ female_c,500
 female_c,500
 female_a
 ====
+# --- Карточка 3 ---
 
+# 1. Текст для UI (RTL)
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+מִי אַתְ?
+אֲנִי אַנָה. 
+מִי אַתְ?
+אֲנִי נִינָה.
+
+# 2. Текст для перевода (LTR)
+RUSSIAN:
+Как тебя зовут?
+Я Анна.
+Как тебя зовут?
+Я Нина.
+
+# 5. Список голосов (100% LTR)
+# Порядок = порядок строк в HEBREW
+VOICES:
+female_a,500
+female_c,500
+female_c,500
+female_a
+
+===
 # --- Карточка 2 ---
 TASK: MATCHING_PAIRS
+
+# Мы просто перечисляем пары. Скрипт должен будет
+# убедиться, что кол-во строк в 'HEBREW' и 'RUSSIAN' совпадает.
 
 HEBREW_CORRECT:
 אַתָה
@@ -73,12 +107,36 @@ male_d,400
 male_d,500
 male_b
 ===
+# --- Карточка 5 ---
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+מִי אַתָה?
+אֲנִי נַתִי.
+ מִי אַתָה?
+אֲנִי מַתִי.
+RUSSIAN:
+Как тебя зовут?
+Я Нати.
+Как тебя зовут?
+Я Мати.
 
+
+# Порядок = порядок строк в HEBREW
+VOICES:
+male_b,500
+male_d,400
+male_d,500
+male_b
+
+===
 # --- Карточка 2 ---
 TASK: MATCHING_PAIRS
 
+# Мы просто перечисляем пары. Скрипт должен будет
+# убедиться, что кол-во строк в 'HEBREW' и 'RUSSIAN' совпадает.
+
 HEBREW_CORRECT:
-תַמִי
+תַנִי
 אִמָא
 מָה?
 RUSSIAN_CORRECT:
@@ -100,6 +158,7 @@ RUSSIAN:
 Ты мама?
 Я мама.
 
+
 # Порядок = порядок строк в HEBREW
 VOICES:
 male_b,500
@@ -107,7 +166,27 @@ female_c,400
 male_d,500
 female_c
 ===
+# --- Карточка 4 ---
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+מִי אַת?
+אֲנִי תַמִי.
+אֲתְ אִמָא?
+אֲנִי אִמָא.
+RUSSIAN:
+Как тебя зовут?
+Я Тами.
+Ты мама?
+Я мама.
 
+
+# Порядок = порядок строк в HEBREW
+VOICES:
+male_b,500
+female_c,400
+male_d,500
+female_c
+===
 # --- Карточка 4 ---
 TASK: AUDITION
 HEBREW:
@@ -123,9 +202,26 @@ male_b,500
 female_c,400
 
 ===
+# --- Карточка 4 ---
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+מָה תַמִי?
+תַמִי אִמָא.
+RUSSIAN:
+Кто это - Тами?
+Тами это мама.
 
+# Порядок = порядок строк в HEBREW
+VOICES:
+male_b,500
+female_c,400
+
+===
 # --- Карточка 2 ---
 TASK: MATCHING_PAIRS
+
+# Мы просто перечисляем пары. Скрипт должен будет
+# убедиться, что кол-во строк в 'HEBREW' и 'RUSSIAN' совпадает.
 
 HEBREW_CORRECT:
 אוֹר
@@ -140,7 +236,6 @@ RUSSIAN_CORRECT:
 учительница
 Мири (имя)
 ===
-
 # --- Карточка 2 ---
 TASK: AUDITION
 HEBREW:
@@ -148,11 +243,6 @@ HEBREW:
 אֲנִי מִירִי.
 אַתְ מוֹרָה?
 אֲנִי מוֹרָה.
-HEBREW_DISTRACTORS:
-אוֹר
-אוֹרִית
-מוֹרֶה.
-אַתְה
 RUSSIAN:
 Как тебя зовут?
 Я Мири.
@@ -164,7 +254,24 @@ female_a,400
 female_c,400
 female_a,400
 ===
-
+# --- Карточка 2 ---
+TASK: ASSEMBLE_TRANSLATION
+HEBREW:
+מִי אַתְ?
+אֲנִי מִירִי.
+אַתְ מוֹרָה?
+אֲנִי מוֹרָה.
+RUSSIAN:
+Как тебя зовут?
+Я Мири.
+Ты учительница?
+Я учительница.
+VOICES:
+female_c,400
+female_a,400
+female_c,400
+female_a,400
+===
 # --- Карточка 2 ---
 TASK: QUIZ
 #
@@ -200,24 +307,11 @@ HEBREW_CORRECT:
 #
 HEBREW_DISTRACTORS:
 אוֹרֶה
-אַתְה
+אַתְ
 מִי
 אֲנִי
 ===
-TASK: AUDITION
-HEBREW:
-מַתִי, אַתָה מוֹרֶה?
-אַנִי מוֹרֶה.
-RUSSIAN:
-Мати, ты учитель?
-Я учитель.
-HEBREW_DISTRACTORS:
-אַתָ
-מוֹרָה.
-VOICES:
-male_b,500
-male_d,400
-===
+
 # --- Карточка 2 ---
 TASK: QUIZ
 #

@@ -49,17 +49,15 @@ fun AlefbetScreen(
     viewModel: AlefbetViewModel,
     onBackClick: () -> Unit
 ) {
-    val context = LocalContext.current
+    // --- ИЗМЕНЕНИЕ: 'context' УДАЛЕН ---
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
-    // AudioPlayer больше здесь не создается
+    // --- КОНЕЦ ---
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    // --- ИЗМЕНЕНИЕ 1: Язык пользователя берется из ViewModel ---
     val userLanguage = viewModel.userLanguage
-    // ----------------------------------------------------------
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -77,11 +75,9 @@ fun AlefbetScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                // --- ИЗМЕНЕНИЕ 1: ДОБАВИЛИ ЗАГОЛОВОК ---
                 title = stringResource(R.string.alefbet_task_assemble),
                 onBackClick = onBackClick,
                 actions = {
-                    // --- ИЗМЕНЕНИЕ 2: ЗАМЕНИЛИ ICONBUTTON НА СТИЛЬ ИЗ GAMESCREEN ---
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -97,7 +93,6 @@ fun AlefbetScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Используем нашу новую общую иконку
                         FontToggleIcon(fontStyle = viewModel.currentFontStyle)
                     }
                 }
@@ -131,7 +126,6 @@ fun AlefbetScreen(
                     val isCursive = viewModel.currentFontStyle == FontStyle.CURSIVE
                     val styleConfig = CardStyles.getStyle(viewModel.currentFontStyle)
 
-                    // --- ВОССТАНОВЛЕН ПРАВИЛЬНЫЙ УСЛОВНЫЙ БЛОК ДЛЯ СТИЛЕЙ ---
                     val textStyle = if (isCursive) {
                         TextStyle(
                             fontFamily = viewModel.currentFontStyle.fontFamily,
@@ -199,14 +193,12 @@ fun AlefbetScreen(
                                     errorCardId = viewModel.errorCardId,
                                     currentCardId = letter.id,
                                 ) { shakeModifier ->
-                                    // --- ИЗМЕНЕНИЕ 2: Язык используется из ViewModel ---
                                     val letterName = when (userLanguage) {
                                         "en" -> letter.nameEN
                                         "fr" -> letter.nameFR
                                         "es" -> letter.nameES
                                         else -> letter.nameRU
                                     }
-                                    // ----------------------------------------------------
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,

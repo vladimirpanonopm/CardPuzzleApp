@@ -12,11 +12,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAddCheck
-import androidx.compose.material.icons.filled.QuestionMark // <-- ДОБАВЛЕН ИМПОРТ
+// --- КОНЕЦ ---
+import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
@@ -29,7 +31,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.res.stringResource
-// --- ИЗМЕНЕНЫ ИМПОРТЫ ---
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -38,9 +39,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
-// --- (NotoSansHebrewFontFamily больше не нужен) ---
 import kotlin.math.roundToInt
-// --- КОНЕЦ ---
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
@@ -55,7 +54,7 @@ private const val TAG = "MATCHING_DEBUG"
 /**
  * Экран для механики "Соедини пары" (Match-to-Line).
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class) // <-- Добавлен ExperimentalTextApi
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
 @Composable
 fun MatchingGameScreen(
     cardViewModel: CardViewModel,
@@ -109,11 +108,13 @@ fun MatchingGameScreen(
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
+                // --- ИЗМЕНЕНИЕ: Иконка ---
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.PlaylistAddCheck,
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = onTrackClick
                 )
+                // --- КОНЕЦ ---
 
                 if (viewModel.isGameWon) {
                     AppBottomBarIcon(
@@ -122,13 +123,11 @@ fun MatchingGameScreen(
                         onClick = { viewModel.showResultSheet() }
                     )
                 } else if (!viewModel.isExamMode) {
-                    // --- ИЗМЕНЕНИЕ: Иконка заменена ---
                     AppBottomBarIcon(
-                        imageVector = Icons.Default.QuestionMark, // <-- БЫЛО Icons.Default.Refresh
+                        imageVector = Icons.Default.QuestionMark,
                         contentDescription = stringResource(R.string.button_start_exam),
                         onClick = { viewModel.startExamMode() }
                     )
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                 } else {
                     IconButton(
                         onClick = { viewModel.skipToNextAvailableRound() },
@@ -337,7 +336,6 @@ private fun MatchLineItem(
                 .padding(vertical = 12.dp, horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            // --- ИЗМЕНЕНИЕ: Используем 'TextStyle' и 'FontVariation.Settings' ---
             val textStyle = if (isHebrew) {
                 TextStyle(
                     fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
@@ -364,7 +362,6 @@ private fun MatchLineItem(
                 modifier = Modifier.fillMaxWidth(),
                 style = textStyle
             )
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         }
     }
 }
@@ -380,7 +377,7 @@ private fun HintText(text: String) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier
-            .padding(bottom = 8.dp) // Этот отступ синхронизирует высоту
+            .padding(bottom = 8.dp)
             .fillMaxWidth(),
         textAlign = TextAlign.Center
     )

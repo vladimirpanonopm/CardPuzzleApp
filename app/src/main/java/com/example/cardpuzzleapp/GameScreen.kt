@@ -22,11 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAddCheck
+// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
@@ -153,15 +155,17 @@ fun GameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
+                // --- ИЗМЕНЕНИЕ: Иконка ---
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.PlaylistAddCheck,
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
+                // --- КОНЕЦ ---
                 if (isRoundWon) {
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
@@ -312,7 +316,6 @@ private fun GameScreenLayout(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // --- ИЗМЕНЕНИЕ: Разделяем логику QUIZ ---
                 if (staticState.taskType == TaskType.AUDITION) {
 
                     Box(
@@ -343,7 +346,6 @@ private fun GameScreenLayout(
 
                 } else if (staticState.taskType == TaskType.QUIZ) {
 
-                    // --- ИЗМЕНЕНИЕ: Используем Column + Divider ---
                     val fullPrompt = viewModel.currentHebrewPrompt ?: ""
                     val promptLines = fullPrompt.lines().filter { it.isNotBlank() }
 
@@ -351,7 +353,7 @@ private fun GameScreenLayout(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 16.dp),
-                        horizontalAlignment = Alignment.End // Выравниваем весь текст по правому краю
+                        horizontalAlignment = Alignment.End
                     ) {
                         if (promptLines.size > 1) {
                             val context = promptLines.dropLast(1).joinToString("\n")
@@ -365,7 +367,7 @@ private fun GameScreenLayout(
                             // 2. Разделитель
                             HorizontalDivider(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.6f) // Не на всю ширину
+                                    .fillMaxWidth(0.6f)
                                     .padding(vertical = 8.dp),
                                 color = StickyNoteText.copy(alpha = 0.4f)
                             )
@@ -375,17 +377,14 @@ private fun GameScreenLayout(
                                 style = hebrewTextStyle
                             )
                         } else {
-                            // Если всего 1 строка, показываем ее без разделителя
                             Text(
                                 text = fullPrompt,
                                 style = hebrewTextStyle
                             )
                         }
                     }
-                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
                 } else {
-                    // Старая логика для ASSEMBLE_TRANSLATION / FILL_IN_BLANK (русская подсказка)
                     Text(
                         text = staticState.taskPrompt ?: "",
                         style = MaterialTheme.typography.headlineSmall.copy(
@@ -398,7 +397,6 @@ private fun GameScreenLayout(
                             .padding(bottom = 16.dp)
                     )
                 }
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Box(

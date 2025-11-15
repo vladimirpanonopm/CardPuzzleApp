@@ -204,7 +204,6 @@ def process_level_file(txt_filepath, assets_path):
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
 
-            # --- ИЗМЕНЕНИЕ: Добавлен TASK: QUIZ ---
             elif task_type == 'QUIZ':
                 card_json['uiDisplayTitle'] = data['hebrew_prompt_text']  # Вопрос
                 card_json['translationPrompt'] = data['russian_translation_text']  # Подсказка/перевод
@@ -212,8 +211,6 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']  # Неправильные
 
                 # (Пока без аудио, т.к. не было в ТЗ. Можно добавить позже)
-
-            # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
             elif task_type == 'MATCHING_PAIRS':
                 card_json['uiDisplayTitle'] = data['russian_translation_text']
@@ -306,6 +303,17 @@ def process_level_file(txt_filepath, assets_path):
 
         # Добавляем готовую карточку в список
         cards_list.append(card_json)
+
+        # --- ИЗМЕНЕНИЕ: Создаем "близнеца" для AUDITION ---
+        if task_type == 'AUDITION':
+            print(f"    ...Дублируем AUDITION как ASSEMBLE_TRANSLATION.")
+            # Создаем копию
+            card_json_twin = card_json.copy()
+            # Меняем тип
+            card_json_twin['taskType'] = 'ASSEMBLE_TRANSLATION'
+            # Добавляем в список
+            cards_list.append(card_json_twin)
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     # --- Запись ЕДИНОГО JSON файла ---
 
