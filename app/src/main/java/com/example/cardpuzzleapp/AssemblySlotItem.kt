@@ -22,7 +22,9 @@ fun AssemblySlotItem(
     fontStyle: FontStyle,
     taskType: TaskType,
     onReturnCard: () -> Unit,
-    isInteractionEnabled: Boolean // <-- ДОБАВЛЕНО
+    // --- ИЗМЕНЕНИЕ: Добавлен isInteractionEnabled ---
+    // (Этот параметр был утерян при загрузке старого файла)
+    isInteractionEnabled: Boolean
 ) {
     val filledCard = slot.filledCard
 
@@ -34,10 +36,8 @@ fun AssemblySlotItem(
             fontStyle = fontStyle,
             taskType = taskType,
             isAssembledCard = true,
-            // --- ИСПРАВЛЕНИЕ: Добавляем isVisible = true ---
-            // Если карточка здесь, она по определению видима.
             isVisible = true,
-            isInteractionEnabled = isInteractionEnabled // <-- ДОБАВЛЕНО
+            isInteractionEnabled = isInteractionEnabled
         )
     } else if (slot.isBlank) {
         // --- Слот ПУСТОЙ (___) ---
@@ -57,7 +57,7 @@ fun AssemblySlotItem(
             Text(
                 text = "___",
                 style = textStyle.copy(
-                    fontSize = 29.sp,
+                    fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
                     color = StickyNoteText.copy(alpha = 0.3f),
                     textDirection = TextDirection.Ltr // (Символы '___' всегда LTR)
                 )

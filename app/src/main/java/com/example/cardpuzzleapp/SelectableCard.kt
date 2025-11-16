@@ -45,8 +45,6 @@ fun SelectableCard(
     taskType: TaskType,
     isAssembledCard: Boolean = false,
     isVisible: Boolean,
-    // --- ИЗМЕНЕНИЕ: Добавлен isInteractionEnabled ---
-    // (Этот параметр был утерян при загрузке старого файла)
     isInteractionEnabled: Boolean
 ) {
     var isFlipped by remember { mutableStateOf(false) }
@@ -70,21 +68,20 @@ fun SelectableCard(
                 FontVariation.weight(styleConfig.fontWeight.roundToInt()),
                 FontVariation.width(styleConfig.fontWidth)
             ))),
-            fontSize = 29.sp,
+            fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
             textAlign = TextAlign.Right,
             textDirection = TextDirection.Rtl
         )
     } else {
         TextStyle(
             fontFamily = fontStyle.fontFamily,
-            fontSize = 29.sp,
+            fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
             textAlign = TextAlign.Right,
             fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
             textDirection = TextDirection.Rtl
         )
     }
 
-    // --- ИЗМЕНЕНИЕ: 'tapHandler' обновлен ---
     val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect, isInteractionEnabled) {
 
         if (!isVisible || !isInteractionEnabled) {
@@ -95,10 +92,8 @@ fun SelectableCard(
             return@remember {}
         }
 
-        // --- ИЗМЕНЕНИЕ: 'offset' заменен на '_' ---
         return@remember { _ -> onSelect() }
     }
-    // --- КОНЕЦ ---
 
 
     Card(

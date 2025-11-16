@@ -22,13 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
-// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
@@ -159,13 +157,11 @@ fun GameScreen(
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
-                // --- ИЗМЕНЕНИЕ: Иконка ---
                 AppBottomBarIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = { onTrackClick(viewModel.currentLevelId) }
                 )
-                // --- КОНЕЦ ---
                 if (isRoundWon) {
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Visibility,
@@ -460,9 +456,9 @@ private fun GameScreenLayout(
                         .fillMaxSize()
                         .background(Color.White)
                         .verticalScroll(rememberScrollState())
-                        .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     dynamicState.availableCards.forEach { slot ->
                         key(slot.id) {
@@ -529,21 +525,28 @@ private fun FillInBlankTaskLayout(
     isInteractionEnabled: Boolean,
     onReturnCardFromSlot: (AssemblySlot) -> Unit
 ) {
+    // --- ИЗМЕНЕНИЕ: Добавлена логика для Spacer ---
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         assemblyLine.forEach { slot ->
             key(slot.id) {
-                AssemblySlotItem(
-                    slot = slot,
-                    textStyle = textStyle,
-                    fontStyle = fontStyle,
-                    taskType = taskType,
-                    onReturnCard = { onReturnCardFromSlot(slot) },
-                    isInteractionEnabled = isInteractionEnabled
-                )
+                // Хак для \n: если слот не "бланк" и текст = \n, вставляем Spacer
+                if (slot.text == "\n" && !slot.isBlank) {
+                    Spacer(modifier = Modifier.fillMaxWidth())
+                } else {
+                    AssemblySlotItem(
+                        slot = slot,
+                        textStyle = textStyle,
+                        fontStyle = fontStyle,
+                        taskType = taskType,
+                        onReturnCard = { onReturnCardFromSlot(slot) },
+                        isInteractionEnabled = isInteractionEnabled
+                    )
+                }
             }
         }
     }
 }
+// --- КОНЕЦ ИЗМЕНЕНИЯ ---

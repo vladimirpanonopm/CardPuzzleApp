@@ -12,7 +12,7 @@
         ],
         [
           "אַתְ",
-          "ты (ж)"
+          "ты(ж)"
         ],
         [
           "מִי?",
@@ -32,14 +32,14 @@
       "taskType": "AUDITION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
       "distractorOptions": []
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
       "distractorOptions": []
     },
     {
@@ -49,7 +49,7 @@
       "taskPairs": [
         [
           "אַתָה",
-          "ты (м)"
+          "ты(м)"
         ],
         [
           "נַתִי",
@@ -65,14 +65,14 @@
       "taskType": "AUDITION",
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
-      "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
+      "translationPrompt": "Как тебя(м) зовут?\nЯ Нати.\nКак тебя(м) зовут?\nЯ Мати.",
       "distractorOptions": []
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
-      "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
+      "translationPrompt": "Как тебя(м) зовут?\nЯ Нати.\nКак тебя(м) зовут?\nЯ Мати.",
       "distractorOptions": []
     },
     {
@@ -82,7 +82,7 @@
       "taskPairs": [
         [
           "תַמִי",
-          "Тами (имя)"
+          "Тами(имя)"
         ],
         [
           "אִמָא",
@@ -98,14 +98,14 @@
       "taskType": "AUDITION",
       "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
       "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
-      "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
       "distractorOptions": []
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
       "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
-      "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
       "distractorOptions": []
     },
     {
@@ -132,6 +132,10 @@
           "свет"
         ],
         [
+          "אוֹרה",
+          "Света"
+        ],
+        [
           "אוֹרִית",
           "Орит (имя)"
         ],
@@ -153,11 +157,11 @@
       "taskType": "AUDITION",
       "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
       "distractorOptions": [
         "אוֹר",
         "אוֹרִית",
-        "מוֹרֶה",
+        "מוֹרֶה.",
         "אַתְה"
       ]
     },
@@ -165,11 +169,11 @@
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
-      "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
       "distractorOptions": [
         "אוֹר",
         "אוֹרִית",
-        "מוֹרֶה",
+        "מוֹרֶה.",
         "אַתְה"
       ]
     },
@@ -223,6 +227,137 @@
       ]
     },
     {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "לִילִי",
+          "Лили"
+        ],
+        [
+          "לִינָה",
+          "Лина"
+        ],
+        [
+          "אֶלָה",
+          "Эла"
+        ],
+        [
+          "דָנִי",
+          "Дани"
+        ],
+        [
+          "דִנָה",
+          "Дина"
+        ],
+        [
+          "לֹא",
+          "Нет"
+        ],
+        [
+          "תַלְמִד",
+          "ученик"
+        ],
+        [
+          "תַלְמִדה",
+          "ученица"
+        ],
+        [
+          "לוֹד",
+          "Лод(город)"
+        ]
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "95c4a88caae2e526946df959788a84d9.mp3",
+      "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.",
+      "translationPrompt": "Лили учитель?\nЛили учитель.\nЭла учитель?\nЭла не учитель.",
+      "distractorOptions": [
+        "מוֹרֶה.",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ",
+        "מוֹרָה."
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "95c4a88caae2e526946df959788a84d9.mp3",
+      "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.",
+      "translationPrompt": "Лили учитель?\nЛили учитель.\nЭла учитель?\nЭла не учитель.",
+      "distractorOptions": [
+        "מוֹרֶה.",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ",
+        "מוֹרָה."
+      ]
+    },
+    {
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.\nמִי מוֹרָה?",
+      "translationPrompt": "",
+      "correctOptions": [
+        "לִילִי מוֹרָה."
+      ],
+      "distractorOptions": [
+        "מוֹרֶה.",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ",
+        "אֶלָה"
+      ]
+    },
+    {
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.\nמִי לֹא מוֹרָה?",
+      "translationPrompt": "",
+      "correctOptions": [
+        "אֶלָה לֹא מוֹרָה"
+      ],
+      "distractorOptions": [
+        "מוֹרֶה",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ",
+        "לִילִי"
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "89e7cca3869a0105283f01da5a8fbac2.mp3",
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.",
+      "translationPrompt": "Дани ученик.\nОра учитель.",
+      "distractorOptions": [
+        "מוֹרֶה.",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "89e7cca3869a0105283f01da5a8fbac2.mp3",
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.",
+      "translationPrompt": "Дани ученик.\nОра учитель.",
+      "distractorOptions": [
+        "מוֹרֶה.",
+        "אַתְה",
+        "לֹא",
+        "מִי",
+        "אַתָ"
+      ]
+    },
+    {
       "taskType": "QUIZ",
       "audioFilename": null,
       "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nמי תַלְמִד?",
@@ -233,6 +368,35 @@
       "distractorOptions": [
         "אוֹרָה",
         "מוֹרָה"
+      ]
+    },
+    {
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nמי מוֹרָה?",
+      "translationPrompt": "",
+      "correctOptions": [
+        "אוֹרָה מוֹרָה"
+      ],
+      "distractorOptions": [
+        "דָנִי",
+        "מוֹרֶה"
+      ]
+    },
+    {
+      "taskType": "FILL_IN_BLANK",
+      "audioFilename": "953e42b5df9e004c6118eaefd3bdff8e.mp3",
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nדָנִי מוֹרֶה?\nאוֹרָה תַלְמִדָה?\n___, דָנִי ___\n___, אוֹרָה ___",
+      "translationPrompt": "",
+      "correctOptions": [
+        "לֹא",
+        "תַלְמִד",
+        "לֹא",
+        "מוֹרָה"
+      ],
+      "distractorOptions": [
+        "מוֹרֶה",
+        "תַלְמִדָה"
       ]
     },
     {

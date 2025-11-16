@@ -20,8 +20,8 @@ data class CardStyleConfig(
 object CardStyles {
     private val regularStyle = CardStyleConfig(
         fontSize = 22.sp, // Было 28.sp
-        horizontalPadding = 8.dp, // Было 10.dp
-        verticalPadding = 2.dp, // Было 3.dp
+        horizontalPadding = 7.dp, // <-- ИЗМЕНЕНИЕ (Было 8.dp)
+        verticalPadding = 2.dp, // (Оставляем)
         cornerRadius = 10.dp, // Было 12.dp
         borderWidth = 1.1.dp, // Было 1.4.dp
         fontWeight = 520f,
@@ -31,8 +31,8 @@ object CardStyles {
 
     private val cursiveStyle = CardStyleConfig(
         fontSize = 22.sp, // Было 28.sp
-        horizontalPadding = 10.dp, // Было 12.dp
-        verticalPadding = 4.dp, // Было 5.dp
+        horizontalPadding = 9.dp, // <-- ИЗМЕНЕНИЕ (Было 10.dp)
+        verticalPadding = 3.dp, // <-- ИЗМЕНЕНИЕ (Было 4.dp)
         cornerRadius = 10.dp, // Было 12.dp
         borderWidth = 1.1.dp, // Было 1.4.dp
         fontWeight = 400f,

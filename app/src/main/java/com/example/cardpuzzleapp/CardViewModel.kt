@@ -66,12 +66,10 @@ class CardViewModel @Inject constructor(
     var currentTaskType by mutableStateOf(TaskType.UNKNOWN)
         private set
 
-    // --- РЕФАКТОРИНГ №1: Группируем логику типов задач ---
     private val isAssemblyTask: Boolean
         get() = currentTaskType == TaskType.ASSEMBLE_TRANSLATION ||
                 currentTaskType == TaskType.AUDITION ||
                 currentTaskType == TaskType.QUIZ
-    // --- КОНЕЦ РЕФАКТОРИНГА ---
 
     var levelCount by mutableStateOf(0)
         private set
@@ -99,7 +97,6 @@ class CardViewModel @Inject constructor(
     private val _navigationEvent = Channel<NavigationEvent>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
-    // --- 'init' блок для подписки на AudioPlayer ---
     init {
         viewModelScope.launch {
             audioPlayer.isPlaying.collect { isPlaying ->
@@ -107,7 +104,6 @@ class CardViewModel @Inject constructor(
             }
         }
     }
-    // --- КОНЕЦ ---
 
     fun updateCurrentRoundIndex(index: Int) {
         this.currentRoundIndex = index
@@ -490,9 +486,13 @@ class CardViewModel @Inject constructor(
         var correctCardIndex = 0
 
         promptParts.forEachIndexed { index, part ->
+            // --- ИЗМЕНЕНИЕ: Используем 'isNotEmpty' ---
+            // (Мы хотим, чтобы \n обрабатывался в UI)
             if (part.isNotEmpty()) {
                 newAssemblyLine.add(AssemblySlot(text = part, isBlank = false, filledCard = null, targetCard = null))
             }
+            // --- КОНЕЦ ---
+
             if (index < promptParts.size - 1) {
                 if (correctCardIndex < correctCards.size) {
                     newAssemblyLine.add(AssemblySlot(
@@ -589,10 +589,7 @@ class CardViewModel @Inject constructor(
             delay(650)
             uiState = uiState.copy(showResultSheet = true)
             if (result == GameResult.WIN) {
-                // --- ИЗМЕНЕНИЕ: (По вашей просьбе)
-                // Теперь AUDITION также проигрывает аудио при успехе
                 newSnapshot.audioFilename?.let { audioPlayer.play(it) }
-                // --- КОНЕЦ ---
             }
         }
     }
@@ -651,13 +648,10 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ: Добавлена остановка аудио ---
     fun skipToNextAvailableRound() {
-        // 1. Немедленно останавливаем любое аудио
         audioPlayer.stop()
         ttsPlayer.stop()
 
-        // 2. Выполняем остальную логику
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
 
@@ -675,7 +669,6 @@ class CardViewModel @Inject constructor(
             _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
         }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     override fun onCleared() {
         super.onCleared()
