@@ -33,21 +33,51 @@
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Анна. Как тебя зовут?\nЯ Нина.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Анна.\nКак тебя зовут?\nЯ Нина.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -73,21 +103,51 @@
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
       "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "נַתִי",
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "מַתִי"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
       "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "נַתִי",
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "מַתִי"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
       "translationPrompt": "Как тебя зовут?\nЯ Нати.\nКак тебя зовут?\nЯ Мати.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "נַתִי",
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "מַתִי"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -113,42 +173,90 @@
       "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
       "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
       "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַת",
+        "אֲנִי",
+        "תַמִי",
+        "אֲתְ",
+        "אִמָא",
+        "אֲנִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
       "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
       "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַת",
+        "אֲנִי",
+        "תַמִי",
+        "אֲתְ",
+        "אִמָא",
+        "אֲנִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
       "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
       "translationPrompt": "Как тебя зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַת",
+        "אֲנִי",
+        "תַמִי",
+        "אֲתְ",
+        "אִמָא",
+        "אֲנִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "AUDITION",
       "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מָה",
+        "תַמִי",
+        "תַמִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מָה",
+        "תַמִי",
+        "תַמִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מָה",
+        "תַמִי",
+        "תַמִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -182,21 +290,51 @@
       "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "מִירִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "מִירִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "7021fdcd9bc6c62ea44e38b5b0293d76.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי מִירִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
       "translationPrompt": "Как тебя зовут?\nЯ Мири.\nТы учительница?\nЯ учительница.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "מִירִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
     },
     {
       "taskType": "QUIZ",
@@ -210,6 +348,10 @@
         "אוֹרֶה",
         "אַתְ",
         "אֲנִי"
+      ],
+      "taskTargetCards": [
+        "מִירִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -225,6 +367,10 @@
         "אַתְ",
         "מִי",
         "אֲנִי"
+      ],
+      "taskTargetCards": [
+        "מִירִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -238,6 +384,10 @@
       "distractorOptions": [
         "אוֹרָה",
         "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "דָנִי",
+        "תַלְמִד"
       ]
     },
     {

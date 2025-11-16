@@ -33,14 +33,34 @@
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
       "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -66,14 +86,34 @@
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
       "translationPrompt": "Как тебя(м) зовут?\nЯ Нати.\nКак тебя(м) зовут?\nЯ Мати.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "נַתִי",
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "מַתִי"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "25c49231515fc040b1fd98d6f90b2651.mp3",
       "uiDisplayTitle": "מִי אַתָה?\nאֲנִי נַתִי.\nמִי אַתָה?\nאֲנִי מַתִי.",
       "translationPrompt": "Как тебя(м) зовут?\nЯ Нати.\nКак тебя(м) зовут?\nЯ Мати.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "נַתִי",
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "מַתִי"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -96,31 +136,63 @@
     },
     {
       "taskType": "AUDITION",
-      "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
-      "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
+      "audioFilename": "aa4967abd98ebbc054b275022abcc1e1.mp3",
+      "uiDisplayTitle": "מִי אֲתְ?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
       "translationPrompt": "Как тебя(ж) зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אֲתְ",
+        "אֲנִי",
+        "תַמִי",
+        "אֲתְ",
+        "אִמָא",
+        "אֲנִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "ed3d393d560c913a61068747f6096673.mp3",
-      "uiDisplayTitle": "מִי אַת?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
+      "audioFilename": "aa4967abd98ebbc054b275022abcc1e1.mp3",
+      "uiDisplayTitle": "מִי אֲתְ?\nאֲנִי תַמִי.\nאֲתְ אִמָא?\nאֲנִי אִמָא.",
       "translationPrompt": "Как тебя(ж) зовут?\nЯ Тами.\nТы мама?\nЯ мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אֲתְ",
+        "אֲנִי",
+        "תַמִי",
+        "אֲתְ",
+        "אִמָא",
+        "אֲנִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "AUDITION",
       "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מָה",
+        "תַמִי",
+        "תַמִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "ASSEMBLE_TRANSLATION",
       "audioFilename": "c9796dd0f85990d9a3d5bd83e8b2912d.mp3",
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": []
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מָה",
+        "תַמִי",
+        "תַמִי",
+        "אִמָא"
+      ]
     },
     {
       "taskType": "MATCHING_PAIRS",
@@ -161,8 +233,18 @@
       "distractorOptions": [
         "אוֹר",
         "אוֹרִית",
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה"
+      ],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "מִירִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -173,8 +255,18 @@
       "distractorOptions": [
         "אוֹר",
         "אוֹרִית",
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה"
+      ],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "מִירִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -189,6 +281,10 @@
         "אוֹרֶה",
         "אַתְ",
         "אֲנִי"
+      ],
+      "taskTargetCards": [
+        "מִירִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -204,6 +300,10 @@
         "אַתְה",
         "מִי",
         "אֲנִי"
+      ],
+      "taskTargetCards": [
+        "מִירִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -213,7 +313,14 @@
       "translationPrompt": "Мати, ты учитель?\nЯ учитель.",
       "distractorOptions": [
         "אַתָ",
-        "מוֹרָה."
+        "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "מַתִי",
+        "אַתָה",
+        "מוֹרֶה",
+        "אַנִי",
+        "מוֹרֶה"
       ]
     },
     {
@@ -223,7 +330,14 @@
       "translationPrompt": "Мати, ты учитель?\nЯ учитель.",
       "distractorOptions": [
         "אַתָ",
-        "מוֹרָה."
+        "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "מַתִי",
+        "אַתָה",
+        "מוֹרֶה",
+        "אַנִי",
+        "מוֹרֶה"
       ]
     },
     {
@@ -275,12 +389,23 @@
       "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.",
       "translationPrompt": "Лили учитель?\nЛили учитель.\nЭла учитель?\nЭла не учитель.",
       "distractorOptions": [
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה",
         "לֹא",
         "מִי",
         "אַתָ",
-        "מוֹרָה."
+        "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "לִילִי",
+        "מוֹרָה",
+        "לִילִי",
+        "מוֹרָה",
+        "אֶלָה",
+        "מוֹרָה",
+        "אֶלָה",
+        "לֹא",
+        "מוֹרָה"
       ]
     },
     {
@@ -289,12 +414,23 @@
       "uiDisplayTitle": "לִילִי מוֹרָה?\nלִילִי מוֹרָה.\nאֶלָה מוֹרָה?\nאֶלָה לֹא מוֹרָה.",
       "translationPrompt": "Лили учитель?\nЛили учитель.\nЭла учитель?\nЭла не учитель.",
       "distractorOptions": [
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה",
         "לֹא",
         "מִי",
         "אַתָ",
-        "מוֹרָה."
+        "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "לִילִי",
+        "מוֹרָה",
+        "לִילִי",
+        "מוֹרָה",
+        "אֶלָה",
+        "מוֹרָה",
+        "אֶלָה",
+        "לֹא",
+        "מוֹרָה"
       ]
     },
     {
@@ -306,12 +442,16 @@
         "לִילִי מוֹרָה."
       ],
       "distractorOptions": [
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה",
         "לֹא",
         "מִי",
         "אַתָ",
         "אֶלָה"
+      ],
+      "taskTargetCards": [
+        "לִילִי",
+        "מוֹרָה"
       ]
     },
     {
@@ -329,6 +469,11 @@
         "מִי",
         "אַתָ",
         "לִילִי"
+      ],
+      "taskTargetCards": [
+        "אֶלָה",
+        "לֹא",
+        "מוֹרָה"
       ]
     },
     {
@@ -337,11 +482,17 @@
       "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.",
       "translationPrompt": "Дани ученик.\nОра учитель.",
       "distractorOptions": [
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה",
         "לֹא",
         "מִי",
         "אַתָ"
+      ],
+      "taskTargetCards": [
+        "דָנִי",
+        "תַלְמִד",
+        "אוֹרָה",
+        "מוֹרָה"
       ]
     },
     {
@@ -350,11 +501,17 @@
       "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.",
       "translationPrompt": "Дани ученик.\nОра учитель.",
       "distractorOptions": [
-        "מוֹרֶה.",
+        "מוֹרֶה",
         "אַתְה",
         "לֹא",
         "מִי",
         "אַתָ"
+      ],
+      "taskTargetCards": [
+        "דָנִי",
+        "תַלְמִד",
+        "אוֹרָה",
+        "מוֹרָה"
       ]
     },
     {
@@ -368,6 +525,10 @@
       "distractorOptions": [
         "אוֹרָה",
         "מוֹרָה"
+      ],
+      "taskTargetCards": [
+        "דָנִי",
+        "תַלְמִד"
       ]
     },
     {
@@ -381,6 +542,10 @@
       "distractorOptions": [
         "דָנִי",
         "מוֹרֶה"
+      ],
+      "taskTargetCards": [
+        "אוֹרָה",
+        "מוֹרָה"
       ]
     },
     {

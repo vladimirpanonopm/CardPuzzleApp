@@ -90,7 +90,7 @@ RUSSIAN_CORRECT:
 # --- Карточка 4 ---
 TASK: AUDITION
 HEBREW:
-מִי אַת?
+מִי אֲתְ?
 אֲנִי תַמִי.
 אֲתְ אִמָא?
 אֲנִי אִמָא.
@@ -153,7 +153,7 @@ HEBREW:
 HEBREW_DISTRACTORS:
 אוֹר
 אוֹרִית
-מוֹרֶה.
+מוֹרֶה
 אַתְה
 RUSSIAN:
 Как тебя(ж) зовут?
@@ -215,7 +215,7 @@ RUSSIAN:
 Я учитель.
 HEBREW_DISTRACTORS:
 אַתָ
-מוֹרָה.
+מוֹרָה
 VOICES:
 male_b,500
 male_d,400
@@ -257,12 +257,12 @@ RUSSIAN:
 Эла учитель?
 Эла не учитель.
 HEBREW_DISTRACTORS:
-מוֹרֶה.
+מוֹרֶה
 אַתְה
 לֹא
 מִי
 אַתָ
-מוֹרָה.
+מוֹרָה
 VOICES:
 female_c,500
 female_a,600
@@ -279,7 +279,7 @@ HEBREW_PROMPT:
 HEBREW_CORRECT:
 לִילִי מוֹרָה.
 HEBREW_DISTRACTORS:
-מוֹרֶה.
+מוֹרֶה
 אַתְה
 לֹא
 מִי
@@ -312,7 +312,7 @@ RUSSIAN:
 Дани ученик. 
 Ора учитель. 
 HEBREW_DISTRACTORS:
-מוֹרֶה.
+מוֹרֶה
 אַתְה
 לֹא
 מִי

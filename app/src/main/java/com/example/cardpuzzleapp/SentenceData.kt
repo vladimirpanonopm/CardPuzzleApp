@@ -26,10 +26,14 @@ data class SentenceData(
     @SerialName("correctOptions")
     val task_correct_cards: List<String>? = null,
 
+    // --- ИЗМЕНЕНИЕ: Добавлено новое поле для "чистых" слов ---
+    @SerialName("taskTargetCards")
+    val task_target_cards: List<String>? = null,
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     @SerialName("distractorOptions")
     val task_distractor_cards: List<String>? = null,
 
-    // --- ВОТ ИСПРАВЛЕНИЕ: Добавляем SerialName ---
     @SerialName("taskPairs")
     val task_pairs: List<List<String>>? = null
 )

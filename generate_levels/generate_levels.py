@@ -4,6 +4,7 @@ import hashlib
 from google.cloud import texttospeech
 from pydub import AudioSegment
 import glob
+import re
 
 # --- 1. Настройки (Без изменений) ---
 BASE_PROJECT_PATH = "/Users/vladimirrapoport/Debugging"
@@ -48,7 +49,7 @@ def synthesize_speech(text_to_speak, voice_name, output_filename):
         return False  # Провал
 
 
-# --- 4. НОВЫЙ Парсер ---
+# --- 4. НОВЫЙ Парсер (Без изменений) ---
 def parse_card_block(block_text):
     """
     Парсит один блок (одну карточку) из НОВОГО .txt файла (с тегами).
@@ -143,7 +144,7 @@ def process_level_file(txt_filepath, assets_path):
     # Единый список карточек для этого уровня
     cards_list = []
 
-    # --- Настройка папок (без изменений) ---
+    # --- Настройка папок (Это правильная настройка) ---
     audio_output_dir = os.path.join(assets_path, "audio")
     if not os.path.exists(audio_output_dir):
         os.makedirs(audio_output_dir)
@@ -184,6 +185,9 @@ def process_level_file(txt_filepath, assets_path):
         audio_text_to_hash = ""
         voice_info_list = data['voice_info_list']
 
+        # Regex для "чистых" слов (иврит + апострофы)
+        hebrew_word_regex = r'[\u0590-\u05FF\']+'
+
         try:
             # --- Логика для разных taskType ---
             if task_type == 'ASSEMBLE_TRANSLATION' or task_type == 'AUDITION':
@@ -191,26 +195,41 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['translationPrompt'] = data['russian_translation_text']
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
 
+                text_to_parse = data['hebrew_display_text']
+                clean_target_cards = re.findall(hebrew_word_regex, text_to_parse)
+
+                if not clean_target_cards:
+                    print(f"    !!! ВНИМАНИЕ: Карточка {i} (AUDITION/ASSEMBLE) не содержит слов в 'HEBREW:'.")
+
+                card_json['taskTargetCards'] = clean_target_cards
+
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
 
             elif task_type == 'FILL_IN_BLANK':
                 card_json['uiDisplayTitle'] = data['hebrew_prompt_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
-                card_json['correctOptions'] = data['HEBREW_CORRECT']
+                card_json['correctOptions'] = data['HEBREW_CORRECT']  # <-- Оставляем "грязным", как ввел юзер
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
 
-                # Для аудио используется ПОЛНАЯ фраза (тег HEBREW)
+                # (Для FILL_IN_BLANK нам не нужно поле taskTargetCards)
+
                 audio_hebrew_lines = data['HEBREW']
                 audio_text_to_hash = data['hebrew_display_text']
 
             elif task_type == 'QUIZ':
-                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']  # Вопрос
-                card_json['translationPrompt'] = data['russian_translation_text']  # Подсказка/перевод
-                card_json['correctOptions'] = data['HEBREW_CORRECT']  # Правильные карточки
-                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']  # Неправильные
+                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']
+                card_json['translationPrompt'] = data['russian_translation_text']
+                card_json['correctOptions'] = data['HEBREW_CORRECT']  # <-- Оставляем "грязным"
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
 
-                # (Пока без аудио, т.к. не было в ТЗ. Можно добавить позже)
+                full_correct_sentence = " ".join(data['HEBREW_CORRECT'])
+                clean_target_cards = re.findall(hebrew_word_regex, full_correct_sentence)
+
+                if not clean_target_cards:
+                    print(f"    !!! ВНИМАНИЕ: Карточка {i} (QUIZ) не содержит слов в 'HEBREW_CORRECT:'.")
+
+                card_json['taskTargetCards'] = clean_target_cards
 
             elif task_type == 'MATCHING_PAIRS':
                 card_json['uiDisplayTitle'] = data['russian_translation_text']
@@ -232,7 +251,7 @@ def process_level_file(txt_filepath, assets_path):
             print(f"    !!! ОШИБКА: Отсутствует обязательный тег (например, {e}) для {task_type} в карточке {i}.")
             continue
 
-        # --- Генерация Аудио (если нужно) ---
+        # --- Генерация Аудио (без изменений) ---
         if audio_text_to_hash and voice_info_list:
             # 1. Генерируем имя файла
             text_to_hash = audio_text_to_hash.strip()
@@ -241,6 +260,7 @@ def process_level_file(txt_filepath, assets_path):
             final_audio_filename = f"{file_hash}.mp3"
 
             card_json['audioFilename'] = final_audio_filename
+            # --- ЭТО ПРАВИЛЬНЫЙ ПУТЬ ---
             final_mp3_path = os.path.join(audio_output_dir, final_audio_filename)
 
             # 2. Проверяем, совпадает ли кол-во строк текста и голосов
@@ -262,7 +282,7 @@ def process_level_file(txt_filepath, assets_path):
 
                     google_voice_name = VOICE_MAP.get(voice_key)
                     if not google_voice_name:
-                        print(f"    !!! ОШИBКА: Голос '{voice_key}' не найден в VOICE_MAP.")
+                        print(f"    !!! ОШIКА: Голос '{voice_key}' не найден в VOICE_MAP.")
                         generation_success = False
                         break
 
@@ -283,6 +303,7 @@ def process_level_file(txt_filepath, assets_path):
                             combined_audio += AudioSegment.from_mp3(temp_filename)
                             if pause_ms > 0:
                                 combined_audio += AudioSegment.silent(duration=pause_ms)
+                        # --- ЭКСПОРТ В ПРАВИЛЬНЫЙ ПУТЬ ---
                         combined_audio.export(final_mp3_path, format="mp3")
                         print(f"    ✅ Диалог СКЛЕЕН (с паузами): {final_mp3_path}")
                     except Exception as e:
@@ -304,7 +325,7 @@ def process_level_file(txt_filepath, assets_path):
         # Добавляем готовую карточку в список
         cards_list.append(card_json)
 
-        # --- ИЗМЕНЕНИЕ: Создаем "близнеца" для AUDITION ---
+        # --- Создаем "близнеца" (без изменений) ---
         if task_type == 'AUDITION':
             print(f"    ...Дублируем AUDITION как ASSEMBLE_TRANSLATION.")
             # Создаем копию
@@ -315,7 +336,7 @@ def process_level_file(txt_filepath, assets_path):
             cards_list.append(card_json_twin)
         # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    # --- Запись ЕДИНОГО JSON файла ---
+    # --- Запись ЕДИНОГО JSON файла (без изменений) ---
 
     # 1. Создаем финальный объект уровня
     final_level_data = {
@@ -336,7 +357,7 @@ def process_level_file(txt_filepath, assets_path):
     print(f"✅ ЕДИНЫЙ JSON (Уровень) создан: {level_file_path}")
 
 
-# --- Точка входа (Без изменений) ---
+# --- Точка входа ---
 def main():
     if not os.path.exists(ASSETS_DIR):
         print(f"!!! ОШИБКА: Папка ASSETS_DIR не найдена по пути: {ASSETS_DIR}")

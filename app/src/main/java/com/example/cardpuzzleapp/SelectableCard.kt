@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,18 +52,6 @@ fun SelectableCard(
     isVisible: Boolean,
     isInteractionEnabled: Boolean
 ) {
-    var isFlipped by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(
-        targetValue = if (isFlipped) 180f else 0f,
-        animationSpec = tween(600), label = "CardFlipAnimation"
-    )
-
-    LaunchedEffect(isFlipped) {
-        if (isFlipped) {
-            delay(1000)
-            isFlipped = false
-        }
-    }
 
     val styleConfig = CardStyles.getStyle(fontStyle)
 
@@ -68,56 +61,59 @@ fun SelectableCard(
                 FontVariation.weight(styleConfig.fontWeight.roundToInt()),
                 FontVariation.width(styleConfig.fontWidth)
             ))),
-            fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
+            fontSize = 26.sp,
             textAlign = TextAlign.Right,
             textDirection = TextDirection.Rtl
         )
     } else {
         TextStyle(
             fontFamily = fontStyle.fontFamily,
-            fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
+            fontSize = 26.sp,
             textAlign = TextAlign.Right,
             fontWeight = FontWeight(styleConfig.fontWeight.roundToInt()),
             textDirection = TextDirection.Rtl
         )
     }
 
-    val tapHandler: (Offset) -> Unit = remember(isVisible, taskType, isAssembledCard, onSelect, isInteractionEnabled) {
+    // --- ИЗМЕНЕНИЕ: Логика 'tapHandler' УПРОЩЕНА ---
+    val tapHandler: (Offset) -> Unit = remember(isVisible, isAssembledCard, onSelect, isInteractionEnabled) {
 
         if (!isVisible || !isInteractionEnabled) {
             return@remember {}
         }
 
-        if (isAssembledCard && taskType == TaskType.FILL_IN_BLANK) {
+        // Если карточка УЖЕ вставлена (в любой слот), нажатие НИЧЕГО не делает
+        if (isAssembledCard) {
             return@remember {}
         }
 
+        // Иначе (это карточка в "банке") - вызываем onSelect
         return@remember { _ -> onSelect() }
     }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
     Card(
         modifier = modifier
             .graphicsLayer {
                 alpha = if (isVisible) 1f else 0f
-                rotationX = rotation
             }
-            .pointerInput(isVisible, isInteractionEnabled) {
+            .pointerInput(isVisible, isInteractionEnabled, isAssembledCard) { // <-- Добавлен isAssembledCard
                 detectTapGestures(
-                    onTap = tapHandler,
-                    onLongPress = { if (isVisible && isInteractionEnabled) isFlipped = true }
+                    onTap = tapHandler
+                    // 'onLongPress' удален
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(containerColor = StickyNoteYellow),
 
         border = BorderStroke(
-            width = if (isAssembledCard && taskType == TaskType.ASSEMBLE_TRANSLATION) {
+            width = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) {
                 styleConfig.borderWidth
             } else {
                 0.dp
             },
-            color = if (isAssembledCard && taskType == TaskType.ASSEMBLE_TRANSLATION) {
+            color = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) {
                 styleConfig.borderColor
             } else {
                 Color.Transparent
@@ -130,34 +126,18 @@ fun SelectableCard(
                 .widthIn(min = 51.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (rotation < 90f) {
-                val textToShow = if (isAssembledCard && taskType == TaskType.ASSEMBLE_TRANSLATION) {
-                    card.text
-                } else {
-                    card.text.replace('\n', ' ').replace('\r', ' ').trim()
-                }
 
-                Text(
-                    text = textToShow,
-                    style = hebrewTextStyle,
-                    color = StickyNoteText
-                )
+            val textToShow = if (isAssembledCard) {
+                card.text
+            } else {
+                card.text.replace('\n', ' ').replace('\r', ' ').trim()
             }
-            else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { rotationX = 180f },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = card.translation.ifEmpty { stringResource(R.string.result_translation_not_found) },
-                        fontSize = 26.sp,
-                        textAlign = TextAlign.Center,
-                        color = StickyNoteText
-                    )
-                }
-            }
+
+            Text(
+                text = textToShow,
+                style = hebrewTextStyle,
+                color = StickyNoteText
+            )
         }
     }
 }

@@ -49,10 +49,8 @@ fun AlefbetScreen(
     viewModel: AlefbetViewModel,
     onBackClick: () -> Unit
 ) {
-    // --- ИЗМЕНЕНИЕ: 'context' УДАЛЕН ---
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
-    // --- КОНЕЦ ---
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
@@ -202,7 +200,7 @@ fun AlefbetScreen(
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,
-                                        letterName = letterName,
+                                        letterName = letterName, // (Параметр остался, но не используется)
                                         fontStyle = viewModel.currentFontStyle,
                                         onSelect = {
                                             viewModel.selectLetter(letter)
@@ -264,22 +262,15 @@ fun AlefbetCard(
     fontStyle: FontStyle,
     onSelect: () -> Unit
 ) {
-    var isFlipped by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(
-        targetValue = if (isFlipped) 180f else 0f,
-        animationSpec = tween(600), label = "CardFlipAnimation"
-    )
-
-    LaunchedEffect(isFlipped) {
-        if (isFlipped) {
-            delay(1500)
-            isFlipped = false
-        }
-    }
+    // --- ИЗМЕНЕНИЕ: Вся логика переворота УДАЛЕНА ---
+    // var isFlipped by remember { mutableStateOf(false) }
+    // val rotation by animateFloatAsState(...)
+    // LaunchedEffect(isFlipped) { ... }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     val cardSize = 80f
     val letterFontSize = (cardSize * 0.5f).sp
-    val nameFontSize = (cardSize * 0.25f).sp
+    // val nameFontSize = (cardSize * 0.25f).sp // (Больше не нужно)
 
     val styleConfig = CardStyles.getStyle(fontStyle)
     val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
@@ -303,14 +294,11 @@ fun AlefbetCard(
     Card(
         modifier = modifier
             .fillMaxSize()
-            .graphicsLayer {
-                rotationY = rotation
-                cameraDistance = 8 * density
-            }
+            // --- ИЗМЕНЕНИЕ: 'graphicsLayer' УДАЛЕН ---
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { onSelect() },
-                    onLongPress = { isFlipped = true }
+                    onTap = { onSelect() }
+                    // 'onLongPress' удален
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -321,26 +309,13 @@ fun AlefbetCard(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (rotation < 90f) {
-                Text(
-                    text = letter.letter,
-                    style = hebrewTextStyle,
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { rotationY = 180f },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = letterName,
-                        fontSize = nameFontSize,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(4.dp)
-                    )
-                }
-            }
+            // --- ИЗМЕНЕНИЕ: 'if/else' УДАЛЕНЫ. Иконка '?' УДАЛЕНА. ---
+            // (Оставляем только 'Text')
+            Text(
+                text = letter.letter,
+                style = hebrewTextStyle,
+            )
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         }
     }
 }

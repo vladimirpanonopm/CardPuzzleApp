@@ -35,6 +35,7 @@ private const val TAG = "MATCHING_DEBUG"
 
 @HiltViewModel
 class MatchingViewModel @Inject constructor(
+    // --- ИСПРАВЛЕНИЕ: Возвращаем LevelRepository ---
     private val levelRepository: LevelRepository,
     private val progressManager: GameProgressManager,
     private val ttsPlayer: TtsPlayer
@@ -46,17 +47,16 @@ class MatchingViewModel @Inject constructor(
 
     private var originalTranslationCards = listOf<MatchItem>()
 
-    // --- ФЛАГ ЗАГРУЗКИ ---
+    // --- ИСПРАВЛЕНИЕ: Возвращаем флаги загрузки ---
     var isLoading by mutableStateOf(true)
         private set
     var loadedUid by mutableStateOf(0L)
         private set
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     // --- Состояние UI ---
-    // --- ИЗМЕНЕНИЕ: Заголовок по умолчанию ---
-    var currentTaskTitleResId by mutableStateOf(R.string.game_task_new_words) // <-- БЫЛО R.string.game_task_matching
+    var currentTaskTitleResId by mutableStateOf(R.string.game_task_new_words)
         private set
-    // --- КОНЕЦ ---
     var isGameWon by mutableStateOf(false)
         private set
     var errorCount by mutableStateOf(0)
@@ -75,7 +75,9 @@ class MatchingViewModel @Inject constructor(
     var selectedItem by mutableStateOf<MatchItem?>(null)
         private set
 
+    // --- ИСПРАВЛЕНИЕ: Возвращаем Job ---
     private var currentLoadJob: Job? = null
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     // --- Каналы событий ---
     private val _hapticEventChannel = Channel<HapticEvent>()
@@ -90,6 +92,7 @@ class MatchingViewModel @Inject constructor(
     var currentRoundIndex: Int by mutableStateOf(0)
         private set
 
+    // --- ИСПРАВЛЕНИЕ: Возвращаем 'loadLevelAndRound' ---
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
         Log.w(TAG, "VM: loadLevelAndRound(uid=$uid) CALLED.")
         Log.i(TAG, "  > VM: Текущее состояние: loadedUid=$loadedUid, isLoading=$isLoading")
@@ -114,10 +117,7 @@ class MatchingViewModel @Inject constructor(
         errorCount = 0
         errorItemId = null
         isExamMode = false
-
-        // --- ИЗМЕНЕНИЕ: Установка заголовка "Новые слова" при сбросе ---
         currentTaskTitleResId = R.string.game_task_new_words
-        // --- КОНЕЦ ---
 
         this.currentLevelId = levelId
         this.currentRoundIndex = roundIndex
@@ -138,7 +138,7 @@ class MatchingViewModel @Inject constructor(
 
             if (allLevelSentences.isEmpty() || levelData == null || levelData.taskType != TaskType.MATCHING_PAIRS) {
                 Log.e(TAG, "  > VM: loadRound(uid=$uid) ОШИБКА! Данные уровня некорректны.")
-                currentTaskTitleResId = R.string.game_task_unknown // <-- (Оставляем, это для ошибки)
+                currentTaskTitleResId = R.string.game_task_unknown
                 isLoading = false
                 loadedUid = uid
                 return@launch
@@ -174,6 +174,7 @@ class MatchingViewModel @Inject constructor(
             Log.w(TAG, "  > VM: loadRound(uid=$uid) (КОРУТИНА) ЗАВЕРШЕНА. isLoading = false, loadedUid = $uid. UI должен обновиться.")
         }
     }
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     private fun updateLastRoundAvailability(allLevelSentences: List<SentenceData>) {
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
@@ -187,9 +188,7 @@ class MatchingViewModel @Inject constructor(
     fun startExamMode() {
         Log.d(TAG, "VM: startExamMode() CALLED.")
         isExamMode = true
-        // --- ИЗМЕНЕНИЕ: Меняем заголовок на "Соедини пары" ---
         currentTaskTitleResId = R.string.game_task_matching
-        // --- КОНЕЦ ---
         selectedItem = null
         errorCount = 0
         errorItemId = null
@@ -197,6 +196,7 @@ class MatchingViewModel @Inject constructor(
     }
 
     fun onMatchItemClicked(item: MatchItem) {
+        // --- ИСПРАВЛЕНИЕ: Возвращаем 'isLoading' ---
         if (item.isMatched || isGameWon || isLoading) return
 
         if (!isExamMode) {
@@ -317,6 +317,7 @@ class MatchingViewModel @Inject constructor(
     }
 
     fun restartCurrentRound() {
+        // --- ИСПРАВЛЕНИЕ: Возвращаем оригинальную логику ---
         val currentScreenUid = loadedUid
         Log.w(TAG, "VM: restartCurrentRound() CALLED. (target UID: $currentScreenUid)")
         loadedUid = 0L

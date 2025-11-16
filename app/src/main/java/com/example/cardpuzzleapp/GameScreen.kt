@@ -74,7 +74,7 @@ private data class GameRoundState(
     val roundIndex: Int,
     val taskPrompt: String?,
     val taskType: TaskType,
-    val targetCards: List<Card>
+    val originalHebrewText: String?
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
@@ -187,12 +187,12 @@ fun GameScreen(
                 .padding(paddingValues)
         ) {
 
-            val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.targetCards) {
+            val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.currentHebrewPrompt) {
                 GameRoundState(
                     roundIndex = viewModel.currentRoundIndex,
                     taskPrompt = viewModel.currentTaskPrompt,
                     taskType = viewModel.currentTaskType,
-                    targetCards = viewModel.targetCards.toList()
+                    originalHebrewText = viewModel.currentHebrewPrompt
                 )
             }
 
@@ -342,7 +342,7 @@ private fun GameScreenLayout(
 
                 } else if (staticState.taskType == TaskType.QUIZ) {
 
-                    val fullPrompt = viewModel.currentHebrewPrompt ?: ""
+                    val fullPrompt = staticState.originalHebrewText ?: ""
                     val promptLines = fullPrompt.lines().filter { it.isNotBlank() }
 
                     Column(
@@ -400,47 +400,25 @@ private fun GameScreenLayout(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 100.dp)
                     ) {
-                        if (isRoundWon) {
-                            val assembledText = remember(isRoundWon, staticState.taskType) {
-                                if (staticState.taskType == TaskType.ASSEMBLE_TRANSLATION ||
-                                    staticState.taskType == TaskType.AUDITION ||
-                                    staticState.taskType == TaskType.QUIZ) {
-                                    staticState.targetCards.joinToString(separator = "") { it.text }
-                                } else { // FILL_IN_BLANK
-                                    dynamicState.assemblyLine.joinToString(separator = "") { slot ->
-                                        val filledCard = slot.filledCard
-                                        filledCard?.text ?: slot.targetCard?.text ?: slot.text
-                                    }
-                                }
+
+                        when (staticState.taskType) {
+                            TaskType.ASSEMBLE_TRANSLATION,
+                            TaskType.AUDITION,
+                            TaskType.FILL_IN_BLANK,
+                            TaskType.QUIZ -> {
+                                FillInBlankTaskLayout(
+                                    assemblyLine = dynamicState.assemblyLine,
+                                    textStyle = hebrewTextStyle,
+                                    fontStyle = fontStyle,
+                                    taskType = staticState.taskType,
+                                    isInteractionEnabled = isInteractionEnabled,
+                                    isRoundWon = isRoundWon,
+                                    // --- ИЗМЕНЕНИЕ: Передаем пустую лямбду ---
+                                    onReturnCardFromSlot = { }
+                                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                                )
                             }
-                            Text(
-                                text = assembledText,
-                                style = hebrewTextStyle,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            // Экран в процессе игры
-                            when (staticState.taskType) {
-                                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.QUIZ -> {
-                                    AssemblyTaskLayout(
-                                        assembledText = dynamicState.selectedCards.joinToString(separator = "") { it.text },
-                                        textStyle = hebrewTextStyle,
-                                        isInteractionEnabled = isInteractionEnabled,
-                                        onReturnCard = { viewModel.returnLastSelectedCard() }
-                                    )
-                                }
-                                TaskType.FILL_IN_BLANK -> {
-                                    FillInBlankTaskLayout(
-                                        assemblyLine = dynamicState.assemblyLine,
-                                        textStyle = hebrewTextStyle,
-                                        fontStyle = fontStyle,
-                                        taskType = staticState.taskType,
-                                        isInteractionEnabled = isInteractionEnabled,
-                                        onReturnCardFromSlot = { slot -> viewModel.returnCardFromSlot(slot) }
-                                    )
-                                }
-                                TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
-                            }
+                            TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
                         }
                     }
                 }
@@ -489,31 +467,7 @@ private fun GameScreenLayout(
 }
 
 /**
- * Отображает поле для ASSEMBLE_TRANSLATION и AUDITION (собранный текст).
- */
-@Composable
-private fun AssemblyTaskLayout(
-    assembledText: String,
-    textStyle: TextStyle,
-    isInteractionEnabled: Boolean,
-    onReturnCard: () -> Unit
-) {
-    Text(
-        text = assembledText,
-        style = textStyle,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                enabled = isInteractionEnabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onReturnCard
-            )
-    )
-}
-
-/**
- * Отображает поле для FILL_IN_BLANK (текст с пропусками и карточками).
+ * Отображает поле для FILL_IN_BLANK / AUDITION / ASSEMBLE_TRANSLATION / QUIZ
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
 @Composable
@@ -523,30 +477,45 @@ private fun FillInBlankTaskLayout(
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
-    onReturnCardFromSlot: (AssemblySlot) -> Unit
+    isRoundWon: Boolean,
+    onReturnCardFromSlot: (AssemblySlot) -> Unit // (Параметр остался, но мы передаем {} )
 ) {
-    // --- ИЗМЕНЕНИЕ: Добавлена логика для Spacer ---
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         assemblyLine.forEach { slot ->
             key(slot.id) {
-                // Хак для \n: если слот не "бланк" и текст = \n, вставляем Spacer
-                if (slot.text == "\n" && !slot.isBlank) {
-                    Spacer(modifier = Modifier.fillMaxWidth())
+
+                if (isRoundWon) {
+                    val textToShow = slot.targetCard?.text ?: slot.text
+
+                    if (textToShow == "\n") {
+                        Spacer(modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Text(
+                            text = textToShow,
+                            style = textStyle,
+                            modifier = Modifier.padding(vertical = CardStyles.getStyle(fontStyle).verticalPadding)
+                        )
+                    }
                 } else {
-                    AssemblySlotItem(
-                        slot = slot,
-                        textStyle = textStyle,
-                        fontStyle = fontStyle,
-                        taskType = taskType,
-                        onReturnCard = { onReturnCardFromSlot(slot) },
-                        isInteractionEnabled = isInteractionEnabled
-                    )
+                    if (slot.text == "\n" && !slot.isBlank) {
+                        Spacer(modifier = Modifier.fillMaxWidth())
+                    } else {
+                        AssemblySlotItem(
+                            slot = slot,
+                            textStyle = textStyle,
+                            fontStyle = fontStyle,
+                            taskType = taskType,
+                            // --- ИЗМЕНЕНИЕ: Передаем пустую лямбду ---
+                            onReturnCard = { }, // <-- Клик по вставленной карточке теперь ничего не делает
+                            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                            isInteractionEnabled = isInteractionEnabled
+                        )
+                    }
                 }
             }
         }
     }
 }
-// --- КОНЕЦ ИЗМЕНЕНИЯ ---

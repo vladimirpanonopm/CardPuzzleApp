@@ -70,11 +70,13 @@ fun MatchingGameScreen(
     val snapshot = viewModel.resultSnapshot
     val haptics = LocalHapticFeedback.current
 
+    // --- ИСПРАВЛЕНИЕ: Возвращаем LaunchedEffect(routeUid) ---
     LaunchedEffect(routeUid) {
         Log.d(TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
         cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -86,7 +88,9 @@ fun MatchingGameScreen(
         }
     }
 
+    // --- ИСПРАВЛЕНИЕ: Возвращаем 'shouldShowLoading' ---
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     Log.d(TAG, ">>> MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
     Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
@@ -106,15 +110,16 @@ fun MatchingGameScreen(
                 AppBottomBarIcon(
                     imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = stringResource(R.string.journal_title),
+                    // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
                     onClick = onJournalClick
                 )
-                // --- ИЗМЕНЕНИЕ: Иконка ---
                 AppBottomBarIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
+                    // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = onTrackClick
                 )
-                // --- КОНЕЦ ---
+                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
                 if (viewModel.isGameWon) {
                     AppBottomBarIcon(
@@ -152,6 +157,7 @@ fun MatchingGameScreen(
             contentAlignment = Alignment.Center
         ) {
 
+            // --- ИСПРАВЛЕНИЕ: Возвращаем проверку 'shouldShowLoading' ---
             if (!shouldShowLoading) {
                 Log.d(TAG, "  > UI: Рисуем КОЛОНКИ (shouldShowLoading=false)")
 
@@ -202,6 +208,7 @@ fun MatchingGameScreen(
                     modifier = Modifier.size(64.dp)
                 )
             }
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
             Log.d(TAG, "  > UI: Проверка шторки (shouldShowSheet = $shouldShowSheet)")
@@ -231,6 +238,7 @@ fun MatchingGameScreen(
                             Log.d(TAG, "  > UI: Нажата кнопка ПОВТОРИТЬ (onRepeatClick). Вызов restartCurrentRound().")
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
+                                // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
                                 viewModel.restartCurrentRound()
                             }
                         },
