@@ -22,7 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+// --- ИЗМЕНЕНИЕ: Меняем иконку "Словаря" ---
+import androidx.compose.material.icons.filled.Book // <-- Новая иконка "Словаря"
+import androidx.compose.material.icons.automirrored.filled.MenuBook // <-- Иконка "Журнала"
+// --- КОНЕЦ ИЗМЕНЕНИЯ ---
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Extension
@@ -85,7 +88,8 @@ fun GameScreen(
     onHomeClick: () -> Unit,
     onJournalClick: () -> Unit,
     onSkipClick: () -> Unit,
-    onTrackClick: (Int) -> Unit
+    onTrackClick: (Int) -> Unit,
+    onDictionaryClick: () -> Unit
 ) {
     Log.i(AppDebug.TAG, ">>> GameScreen RECOMPOSING. routeRoundIndex: $routeRoundIndex, VM.currentRoundIndex: ${viewModel.currentRoundIndex}, Type: ${viewModel.currentTaskType}, Prompt: '${viewModel.currentTaskPrompt}'")
 
@@ -153,10 +157,19 @@ fun GameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook, // <-- Иконка Журнала
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
+
+                // --- ИЗМЕНЕНИЕ: Кнопка Словаря (Книга) ---
+                AppBottomBarIcon(
+                    imageVector = Icons.Default.Book, // <-- Новая иконка Словаря
+                    contentDescription = stringResource(R.string.dictionary_title),
+                    onClick = onDictionaryClick
+                )
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
                 AppBottomBarIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
@@ -355,19 +368,16 @@ private fun GameScreenLayout(
                             val context = promptLines.dropLast(1).joinToString("\n")
                             val question = promptLines.last()
 
-                            // 1. Контекст
                             Text(
                                 text = context,
                                 style = hebrewTextStyle
                             )
-                            // 2. Разделитель
                             HorizontalDivider(
                                 modifier = Modifier
                                     .fillMaxWidth(0.6f)
                                     .padding(vertical = 8.dp),
                                 color = StickyNoteText.copy(alpha = 0.4f)
                             )
-                            // 3. Вопрос
                             Text(
                                 text = question,
                                 style = hebrewTextStyle
@@ -413,9 +423,7 @@ private fun GameScreenLayout(
                                     taskType = staticState.taskType,
                                     isInteractionEnabled = isInteractionEnabled,
                                     isRoundWon = isRoundWon,
-                                    // --- ИЗМЕНЕНИЕ: Передаем пустую лямбду ---
                                     onReturnCardFromSlot = { }
-                                    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
                                 )
                             }
                             TaskType.MATCHING_PAIRS, TaskType.UNKNOWN -> {}
@@ -466,9 +474,7 @@ private fun GameScreenLayout(
     }
 }
 
-/**
- * Отображает поле для FILL_IN_BLANK / AUDITION / ASSEMBLE_TRANSLATION / QUIZ
- */
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
 @Composable
 private fun FillInBlankTaskLayout(
@@ -478,7 +484,7 @@ private fun FillInBlankTaskLayout(
     taskType: TaskType,
     isInteractionEnabled: Boolean,
     isRoundWon: Boolean,
-    onReturnCardFromSlot: (AssemblySlot) -> Unit // (Параметр остался, но мы передаем {} )
+    onReturnCardFromSlot: (AssemblySlot) -> Unit
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -508,9 +514,7 @@ private fun FillInBlankTaskLayout(
                             textStyle = textStyle,
                             fontStyle = fontStyle,
                             taskType = taskType,
-                            // --- ИЗМЕНЕНИЕ: Передаем пустую лямбду ---
-                            onReturnCard = { }, // <-- Клик по вставленной карточке теперь ничего не делает
-                            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                            onReturnCard = { },
                             isInteractionEnabled = isInteractionEnabled
                         )
                     }

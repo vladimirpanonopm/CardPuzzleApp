@@ -200,7 +200,6 @@ fun AlefbetScreen(
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,
-                                        letterName = letterName, // (Параметр остался, но не используется)
                                         fontStyle = viewModel.currentFontStyle,
                                         onSelect = {
                                             viewModel.selectLetter(letter)
@@ -258,7 +257,6 @@ fun AlefbetScreen(
 fun AlefbetCard(
     modifier: Modifier = Modifier,
     letter: HebrewLetter,
-    letterName: String,
     fontStyle: FontStyle,
     onSelect: () -> Unit
 ) {

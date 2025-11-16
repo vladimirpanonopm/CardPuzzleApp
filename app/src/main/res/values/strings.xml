@@ -84,4 +84,9 @@
     <string name="game_task_new_words">Новые слова</string>
     <string name="hint_tap_to_listen">Нажмите, чтобы услышать</string>
     <string name="game_task_quiz">Вопрос</string>
+    <string name="dictionary_search_placeholder">Search…</string>
+    <string name="cd_clear_search">Clear search</string>
+    <string name="dictionary_empty">Dictionary is empty. Complete some \'Matching Pair\' lessons to fill it.</string>
+    <string name="dictionary_no_results">No results found.</string>
+    <string name="dictionary_title">Dictionary</string>
 </resources>

@@ -37,12 +37,6 @@ class CardViewModel @Inject constructor(
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
-    /**
-     * Regex, который находит ОДНУ из трех вещей:
-     * 1. Группа 1: Слово на иврите (включая огласовки и апострофы)
-     * 2. ИЛИ: \n (перенос строки)
-     * 3. ИЛИ: Группа 2: Любой ОДИН символ пунктуации или пробел
-     */
     private val partsRegex = Regex("""([\u0590-\u05FF\']+)|\n|([.,:?!\s])""")
 
 
@@ -56,6 +50,8 @@ class CardViewModel @Inject constructor(
         val resultSnapshot: RoundResultSnapshot? = null,
         val showResultSheet: Boolean = false,
         val isAudioPlaying: Boolean = false
+
+        // --- ИЗМЕНЕНИЕ: Логика "Словаря Уровня" (шторки) УДАЛЕНА ---
     )
 
     var uiState by mutableStateOf(GameUiState())
@@ -103,6 +99,9 @@ class CardViewModel @Inject constructor(
             }
         }
     }
+
+    // --- ИЗМЕНЕНИЕ: Функции "Словаря Уровня" УДАЛЕНЫ ---
+    // (showDictionarySheet, hideDictionarySheet)
 
     fun updateCurrentRoundIndex(index: Int) {
         this.currentRoundIndex = index
@@ -204,15 +203,6 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ: Функция 'returnCardFromSlot' УДАЛЕНА ---
-    /*
-    fun returnCardFromSlot(slot: AssemblySlot) {
-        ... (код удален) ...
-    }
-    */
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
-
     private fun checkWinCondition() {
         val didWin = when (currentTaskType) {
             TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
@@ -243,7 +233,12 @@ class CardViewModel @Inject constructor(
         this.currentLevelId = levelId
 
         val newFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
-        uiState = uiState.copy(fontStyle = newFontStyle)
+
+        // --- ИЗМЕНЕНИЕ: Логика "Словаря Уровня" УДАЛЕНА из 'uiState.copy' ---
+        uiState = uiState.copy(
+            fontStyle = newFontStyle
+        )
+        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
         val userLanguage = progressManager.getUserLanguage()
         wordDictionary = levelData

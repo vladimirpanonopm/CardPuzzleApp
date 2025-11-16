@@ -12,12 +12,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+// --- ИЗМЕНЕНИЕ: Меняем иконку "Словаря" ---
+import androidx.compose.material.icons.filled.Book // <-- Новая иконка "Словаря"
+import androidx.compose.material.icons.automirrored.filled.MenuBook // <-- Иконка "Журнала"
+// --- КОНЕЦ ИЗМЕНЕНИЯ ---
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
-// --- КОНЕЦ ---
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -47,13 +48,8 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-// --- TAG ИЗМЕНЕН ДЛЯ УДОБСТВА ФИЛЬТРАЦИИ ---
 private const val TAG = "MATCHING_DEBUG"
-// ------------------------------------------
 
-/**
- * Экран для механики "Соедини пары" (Match-to-Line).
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
 @Composable
 fun MatchingGameScreen(
@@ -64,19 +60,18 @@ fun MatchingGameScreen(
     routeUid: Long,
     onBackClick: () -> Unit,
     onJournalClick: () -> Unit,
-    onTrackClick: () -> Unit
+    onTrackClick: () -> Unit,
+    onDictionaryClick: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snapshot = viewModel.resultSnapshot
     val haptics = LocalHapticFeedback.current
 
-    // --- ИСПРАВЛЕНИЕ: Возвращаем LaunchedEffect(routeUid) ---
     LaunchedEffect(routeUid) {
         Log.d(TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
         cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -88,9 +83,7 @@ fun MatchingGameScreen(
         }
     }
 
-    // --- ИСПРАВЛЕНИЕ: Возвращаем 'shouldShowLoading' ---
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     Log.d(TAG, ">>> MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
     Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
@@ -108,18 +101,24 @@ fun MatchingGameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook, // <-- Журнал
                     contentDescription = stringResource(R.string.journal_title),
-                    // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
                     onClick = onJournalClick
                 )
+
+                // --- ИЗМЕНЕНИЕ: Кнопка Словаря (Книга) ---
                 AppBottomBarIcon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
-                    // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
+                    imageVector = Icons.Default.Book, // <-- Новая иконка Словаря
+                    contentDescription = stringResource(R.string.dictionary_title),
+                    onClick = onDictionaryClick
+                )
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
+                AppBottomBarIcon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck, // <-- Трек
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = onTrackClick
                 )
-                // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
                 if (viewModel.isGameWon) {
                     AppBottomBarIcon(
@@ -157,7 +156,6 @@ fun MatchingGameScreen(
             contentAlignment = Alignment.Center
         ) {
 
-            // --- ИСПРАВЛЕНИЕ: Возвращаем проверку 'shouldShowLoading' ---
             if (!shouldShowLoading) {
                 Log.d(TAG, "  > UI: Рисуем КОЛОНКИ (shouldShowLoading=false)")
 
@@ -208,7 +206,6 @@ fun MatchingGameScreen(
                     modifier = Modifier.size(64.dp)
                 )
             }
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
             Log.d(TAG, "  > UI: Проверка шторки (shouldShowSheet = $shouldShowSheet)")
@@ -238,7 +235,6 @@ fun MatchingGameScreen(
                             Log.d(TAG, "  > UI: Нажата кнопка ПОВТОРИТЬ (onRepeatClick). Вызов restartCurrentRound().")
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
-                                // --- ИСПРАВЛЕНИЕ: Возвращаем MVM ---
                                 viewModel.restartCurrentRound()
                             }
                         },

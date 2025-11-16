@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
             val alefbetViewModel: AlefbetViewModel = hiltViewModel()
             val journalViewModel: JournalViewModel = hiltViewModel()
             val matchingViewModel: MatchingViewModel = hiltViewModel()
+            val dictionaryViewModel: DictionaryViewModel = hiltViewModel()
 
             key(languageCode) {
                 Log.d(AppDebug.TAG, "MainActivity: key(languageCode) recomposing. languageCode: $languageCode")
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
                                 alefbetViewModel = alefbetViewModel,
                                 journalViewModel = journalViewModel,
                                 matchingViewModel = matchingViewModel,
+                                dictionaryViewModel = dictionaryViewModel,
                                 initialLanguage = languageCode,
                                 onLanguageChange = { newLangCode ->
                                     Log.d(AppDebug.TAG, "MainActivity: onLanguageChange lambda triggered with: $newLangCode")
@@ -84,13 +86,13 @@ fun AppNavigation(
     alefbetViewModel: AlefbetViewModel,
     journalViewModel: JournalViewModel,
     matchingViewModel: MatchingViewModel,
+    dictionaryViewModel: DictionaryViewModel,
     initialLanguage: String?,
     onLanguageChange: (String) -> Unit
 ) {
     Log.d(AppDebug.TAG, "AppNavigation: Composing. initialLanguage: $initialLanguage")
 
     val coroutineScope = rememberCoroutineScope()
-    // --- ИЗМЕНЕНИЕ: 'context' УДАЛЕН ---
 
     val startDestination = remember {
         val dest = if (initialLanguage != null) "home" else "language_selection"
@@ -109,7 +111,6 @@ fun AppNavigation(
         }
     }
 
-    // --- LaunchedEffect для cardViewModel (Исправлен) ---
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { event ->
             Log.e(AppDebug.TAG, ">>> AppNavigation RECV CardView EVENT: '$event'. Current dest: ${navController.currentDestination?.route}")
@@ -147,9 +148,7 @@ fun AppNavigation(
             }
         }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-    // --- LaunchedEffect для matchingViewModel (Без изменений) ---
     LaunchedEffect(Unit) {
         matchingViewModel.completionEvents.collectLatest { event ->
             when (event) {
@@ -185,7 +184,6 @@ fun AppNavigation(
                         }
                     }
                 },
-                // --- ИЗМЕНЕНИЕ: 'onShowTrack' УДАЛЕН ---
                 onSettingsClick = {
                     Log.d(AppDebug.TAG, "NavHost: 'home' onSettingsClick")
                     navController.navigate("settings")
@@ -248,7 +246,12 @@ fun AppNavigation(
                 },
                 onSkipClick = {
                     cardViewModel.skipToNextAvailableRound()
+                },
+                // --- ИЗМЕНЕНИЕ: Подключаем навигацию ---
+                onDictionaryClick = {
+                    navController.navigate("dictionary")
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             )
         }
 
@@ -300,7 +303,12 @@ fun AppNavigation(
                 },
                 onTrackClick = {
                     navController.navigate("round_track/${matchingViewModel.currentLevelId}")
+                },
+                // --- ИЗМЕНЕНИЕ: Подключаем навигацию ---
+                onDictionaryClick = {
+                    navController.navigate("dictionary")
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
             )
         }
 
@@ -355,6 +363,14 @@ fun AppNavigation(
                     navController.navigate("round_track/$levelId")
                 },
                 initialRoundIndex = initialRoundIndex
+            )
+        }
+
+        composable("dictionary") {
+            Log.d(AppDebug.TAG, "NavHost: Composing 'dictionary'")
+            DictionaryScreen(
+                viewModel = dictionaryViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

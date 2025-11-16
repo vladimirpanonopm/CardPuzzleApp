@@ -72,4 +72,9 @@
     <string name="hint_tap_to_listen">Нажмите, чтобы услышать</string>
     <string name="game_task_new_words">Новые слова</string>
     <string name="game_task_quiz">Вопрос</string>
+    <string name="dictionary_search_placeholder">Поиск…</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="dictionary_empty">Словарь пуст. Пройдите несколько уроков "Найди пару", чтобы пополнить его.</string>
+    <string name="dictionary_no_results">Ничего не найдено.</string>
+    <string name="dictionary_title">Словарь</string>
 </resources>

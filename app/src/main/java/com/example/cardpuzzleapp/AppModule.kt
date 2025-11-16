@@ -24,12 +24,21 @@ object AppModule {
         return AudioPlayer(context)
     }
 
-    // --- ДОБАВЛЕНО ---
     @Provides
     @Singleton
     fun provideLevelRepository(@ApplicationContext context: Context): LevelRepository {
-        // Теперь LevelRepository - это класс, которому мы сами передаем Context
         return LevelRepository(context)
     }
-    // -----------------
+
+    // --- ИЗМЕНЕНИЕ: Добавляем новый Репозиторий ---
+    @Provides
+    @Singleton
+    fun provideDictionaryRepository(
+        levelRepository: LevelRepository,
+        progressManager: GameProgressManager
+    ): DictionaryRepository {
+        // Hilt автоматически предоставит 'levelRepository' и 'progressManager'
+        return DictionaryRepository(levelRepository, progressManager)
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 }
