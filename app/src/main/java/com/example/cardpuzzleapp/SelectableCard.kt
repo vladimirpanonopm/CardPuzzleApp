@@ -75,7 +75,6 @@ fun SelectableCard(
         )
     }
 
-    // --- ИЗМЕНЕНИЕ: Логика 'tapHandler' УПРОЩЕНА ---
     val tapHandler: (Offset) -> Unit = remember(isVisible, isAssembledCard, onSelect, isInteractionEnabled) {
 
         if (!isVisible || !isInteractionEnabled) {
@@ -90,7 +89,6 @@ fun SelectableCard(
         // Иначе (это карточка в "банке") - вызываем onSelect
         return@remember { _ -> onSelect() }
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
     Card(
@@ -101,7 +99,6 @@ fun SelectableCard(
             .pointerInput(isVisible, isInteractionEnabled, isAssembledCard) { // <-- Добавлен isAssembledCard
                 detectTapGestures(
                     onTap = tapHandler
-                    // 'onLongPress' удален
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),

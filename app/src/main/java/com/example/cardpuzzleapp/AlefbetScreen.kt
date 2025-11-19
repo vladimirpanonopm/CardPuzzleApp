@@ -191,12 +191,7 @@ fun AlefbetScreen(
                                     errorCardId = viewModel.errorCardId,
                                     currentCardId = letter.id,
                                 ) { shakeModifier ->
-                                    val letterName = when (userLanguage) {
-                                        "en" -> letter.nameEN
-                                        "fr" -> letter.nameFR
-                                        "es" -> letter.nameES
-                                        else -> letter.nameRU
-                                    }
+                                    // --- ИЗМЕНЕНИЕ: Неиспользуемая 'letterName' удалена ---
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,
@@ -260,15 +255,8 @@ fun AlefbetCard(
     fontStyle: FontStyle,
     onSelect: () -> Unit
 ) {
-    // --- ИЗМЕНЕНИЕ: Вся логика переворота УДАЛЕНА ---
-    // var isFlipped by remember { mutableStateOf(false) }
-    // val rotation by animateFloatAsState(...)
-    // LaunchedEffect(isFlipped) { ... }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
     val cardSize = 80f
     val letterFontSize = (cardSize * 0.5f).sp
-    // val nameFontSize = (cardSize * 0.25f).sp // (Больше не нужно)
 
     val styleConfig = CardStyles.getStyle(fontStyle)
     val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
@@ -292,11 +280,9 @@ fun AlefbetCard(
     Card(
         modifier = modifier
             .fillMaxSize()
-            // --- ИЗМЕНЕНИЕ: 'graphicsLayer' УДАЛЕН ---
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onSelect() }
-                    // 'onLongPress' удален
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -307,13 +293,10 @@ fun AlefbetCard(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // --- ИЗМЕНЕНИЕ: 'if/else' УДАЛЕНЫ. Иконка '?' УДАЛЕНА. ---
-            // (Оставляем только 'Text')
             Text(
                 text = letter.letter,
                 style = hebrewTextStyle,
             )
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         }
     }
 }
