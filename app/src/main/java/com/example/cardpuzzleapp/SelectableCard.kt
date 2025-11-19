@@ -1,21 +1,14 @@
 package com.example.cardpuzzleapp
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -36,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
-import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Offset
 
@@ -52,7 +43,6 @@ fun SelectableCard(
     isVisible: Boolean,
     isInteractionEnabled: Boolean
 ) {
-
     val styleConfig = CardStyles.getStyle(fontStyle)
 
     val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
@@ -76,45 +66,35 @@ fun SelectableCard(
     }
 
     val tapHandler: (Offset) -> Unit = remember(isVisible, isAssembledCard, onSelect, isInteractionEnabled) {
-
         if (!isVisible || !isInteractionEnabled) {
-            return@remember {}
+            return@remember {
+                Log.d(AppDebug.TAG, "SelectableCard: Tap ignored. Visible=$isVisible, Enabled=$isInteractionEnabled")
+            }
         }
-
-        // Если карточка УЖЕ вставлена (в любой слот), нажатие НИЧЕГО не делает
         if (isAssembledCard) {
             return@remember {}
         }
-
-        // Иначе (это карточка в "банке") - вызываем onSelect
-        return@remember { _ -> onSelect() }
+        return@remember { _ ->
+            Log.d(AppDebug.TAG, "SelectableCard: Tap ACCEPTED. Calling onSelect.")
+            onSelect()
+        }
     }
-
 
     Card(
         modifier = modifier
             .graphicsLayer {
                 alpha = if (isVisible) 1f else 0f
             }
-            .pointerInput(isVisible, isInteractionEnabled, isAssembledCard) { // <-- Добавлен isAssembledCard
+            .pointerInput(isVisible, isInteractionEnabled, isAssembledCard) {
                 detectTapGestures(
                     onTap = tapHandler
                 )
             },
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(containerColor = StickyNoteYellow),
-
         border = BorderStroke(
-            width = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) {
-                styleConfig.borderWidth
-            } else {
-                0.dp
-            },
-            color = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) {
-                styleConfig.borderColor
-            } else {
-                Color.Transparent
-            }
+            width = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) styleConfig.borderWidth else 0.dp,
+            color = if (isAssembledCard && taskType != TaskType.FILL_IN_BLANK) styleConfig.borderColor else Color.Transparent
         )
     ) {
         Box(
@@ -123,13 +103,11 @@ fun SelectableCard(
                 .widthIn(min = 51.dp),
             contentAlignment = Alignment.Center
         ) {
-
             val textToShow = if (isAssembledCard) {
                 card.text
             } else {
                 card.text.replace('\n', ' ').replace('\r', ' ').trim()
             }
-
             Text(
                 text = textToShow,
                 style = hebrewTextStyle,
