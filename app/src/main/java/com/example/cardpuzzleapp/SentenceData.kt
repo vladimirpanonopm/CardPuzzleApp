@@ -2,7 +2,6 @@ package com.example.cardpuzzleapp
 
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
-import kotlin.OptIn
 import kotlinx.serialization.SerialName
 
 @OptIn(InternalSerializationApi::class)
@@ -11,12 +10,11 @@ data class SentenceData(
     @SerialName("uiDisplayTitle")
     val hebrew: String,
 
+    // Мапим JSON-поле "translationPrompt" сразу в понятное "translation".
+    // Это всегда будет русский текст.
     @SerialName("translationPrompt")
-    val russian_translation: String? = null,
+    val translation: String? = null,
 
-    val english_translation: String? = null,
-    val spanish_translation: String? = null,
-    val french_translation: String? = null,
     val audioFilename: String?,
 
     val taskType: TaskType = TaskType.UNKNOWN,
@@ -26,10 +24,8 @@ data class SentenceData(
     @SerialName("correctOptions")
     val task_correct_cards: List<String>? = null,
 
-    // --- ИЗМЕНЕНИЕ: Добавлено новое поле для "чистых" слов ---
     @SerialName("taskTargetCards")
     val task_target_cards: List<String>? = null,
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     @SerialName("distractorOptions")
     val task_distractor_cards: List<String>? = null,

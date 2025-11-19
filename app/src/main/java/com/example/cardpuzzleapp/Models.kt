@@ -2,14 +2,10 @@ package com.example.cardpuzzleapp
 
 import kotlinx.serialization.Serializable
 import java.util.UUID
-
-// --- ВОТ ИСПРАВЛЕНИЕ (НОВЫЙ ИМПОРТ И ANNOTATION) ---
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.ExperimentalSerializationApi
+
 @OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
-// -----------------------------
-
-
 sealed class HapticEvent {
     object Success : HapticEvent()
     object Failure : HapticEvent()
@@ -22,7 +18,7 @@ enum class GameResult {
 data class RoundResultSnapshot(
     val gameResult: GameResult,
     val completedCards: List<Card>,
-    val translationText: String? = null, // <-- ДОБАВЛЕНО
+    val translationText: String? = null,
     val errorCount: Int,
     val timeSpent: Int,
     val levelId: Int,
@@ -36,35 +32,14 @@ data class Card(
     val translation: String
 )
 
-data class LanguageOption(
-    val code: String,
-    val displayName: String,
-    val flagEmoji: String
-)
-
-val supportedLanguages = listOf(
-    LanguageOption("ru", "Русский", "🇷🇺"),
-    LanguageOption("en", "English", "🇬🇧"),
-    LanguageOption("fr", "Français", "🇫🇷"),
-    LanguageOption("es", "Español", "🇪🇸")
-)
-
+// Оставляем только Иврит и Русский
 data class HebrewLetter(
     val id: UUID = UUID.randomUUID(),
     val letter: String,
     val nameRU: String,
-    val nameEN: String,
-    val nameFR: String,
-    val nameES: String,
     val audioFilename: String
 )
 
-
-// --- КЛАСС 'LevelEntry' ПОЛНОСТЬЮ УДАЛЕН ---
-// ... (Код LevelEntry был здесь) ...
-
-
-// --- Класс-обертка для "Эффекта Duolingo" ---
 data class AvailableCardSlot(
     val id: UUID = UUID.randomUUID(),
     val card: Card,

@@ -1,80 +1,72 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Карточки Иврит</string>
-
-    <string name="button_back">Назад</string>
-    <string name="button_home">Домой</string>
-    <string name="button_continue">Продолжить</string>
-    <string name="button_yes">Да</string>
-    <string name="button_no">Нет</string>
+    <string name="app_name">Alefbet Puzzle</string>
 
     <string name="home_select_level">Выберите уровень</string>
+    <string name="alefbet_level_button_short">Алфавит</string>
+    <string name="cd_settings">Настройки</string>
 
-    <string name="game_task_assemble">Собрать фразу</string>
-
-    <string name="game_errors">Ошибки</string>
-    <string name="game_time">Время</string>
-    <string name="button_skip">Пропустить</string>
-    <string name="button_repeat_round">Повторить</string>
-    <string name="result_great">Отлично!</string>
-
-    <string name="journal_title">Мои карточки</string>
-    <string name="journal_empty">У вас еще нет выученных карточек.</string>
-    <string name="button_listen">Слушать</string>
-    <string name="button_forget">Сбросить карточку</string>
-    <string name="button_delete">Удалить карточку</string>
-    <string name="dialog_delete_title">Удалить карточку</string>
-    <string name="dialog_delete_body">Вы уверены, что хотите удалить эту карточку навсегда?</string>
-    <string name="cd_font_settings">Настройки шрифта</string>
+    <string name="alefbet_task_assemble">Собери Алфавит</string>
     <string name="font_style_regular">Печатный</string>
     <string name="font_style_cursive">Прописной</string>
 
-    <string name="round_track_title">Уровень %1$d: Прогресс</string>
-    <string name="round_track_progress">Раундов пройдено: %1$d / %2$d</string>
-    <string name="button_reset_progress">Сбросить прогресс</string>
-    <string name="cd_go_to_journal">Перейти к моим карточкам</string>
-    <string name="cd_reset_level_progress">Сбросить прогресс уровня</string>
+    <string name="game_task_assemble">Собери фразу</string>
+    <string name="game_task_audition">Послушай и собери</string>
+    <string name="game_task_fill_in_blank">Заполни пропуск</string>
+    <string name="game_task_quiz">Выберите правильный ответ</string>
+    <string name="game_task_matching">Найди пары</string>
+    <string name="game_task_new_words">Новые слова</string>
+    <string name="game_task_unknown">Задание</string>
+
+    <string name="button_check">Проверить</string>
+    <string name="button_continue">Продолжить</string>
+    <string name="button_skip">Пропустить</string>
+    <string name="button_back">Назад</string>
+    <string name="button_reset">Сброс</string>
+    <string name="button_reset_progress">Сбросить уровень</string>
+    <string name="button_home">Домой</string>
+    <string name="button_listen">Слушать</string>
+    <string name="button_show_result">Показать результат</string>
+    <string name="button_start_exam">Начать экзамен</string>
+    <string name="button_repeat_round">Повторить</string>
+
+    <string name="journal_title">Журнал фраз</string>
+    <string name="dictionary_title">Словарь</string>
+    <string name="cd_go_to_journal">Перейти в журнал</string>
+    <string name="journal_empty">Пока пусто. Пройдите уроки!</string>
+    <string name="dictionary_empty">Словарь пуст. Проходите уроки!</string>
+    <string name="dictionary_no_results">Ничего не найдено</string>
+    <string name="dictionary_search_placeholder">Поиск (иврит или русский)...</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="button_ab_repeat">A-B Повтор</string>
+    <string name="button_forget">Забыть (вернуть в игру)</string>
+    <string name="button_delete">Удалить (в архив)</string>
+    <string name="cd_font_settings">Настройки шрифта</string>
+
+    <string name="dialog_delete_title">Удалить из журнала?</string>
+    <string name="dialog_delete_body">Карточка будет перемещена в архив и больше не появится в игре.</string>
+    <string name="button_yes">Да</string>
+    <string name="button_no">Нет</string>
+
+    <string name="ab_repeat_title">Управление повтором</string>
+    <string name="ab_repeat_set_a">Точка A</string>
+    <string name="ab_repeat_set_b">Точка B</string>
+    <string name="ab_repeat_speed">Скорость:</string>
+    <string name="ab_repeat_pause">Пауза:</string>
+    <string name="ab_repeat_start_loop">Начать цикл</string>
+    <string name="ab_repeat_stop_loop">Остановить</string>
+
+    <string name="round_track_title">Уровень %1$d</string>
+    <string name="round_track_progress">Пройдено: %1$d / %2$d</string>
+
+    <string name="hint_tap_to_listen">Нажми на иврит, чтобы послушать</string>
 
     <string name="settings_title">Настройки</string>
-    <string name="settings_language">Язык приложения</string>
-    <string name="settings_reset_all_progress">Сбросить весь прогресс</string>
-    <string name="dialog_reset_all_title">Сбросить весь прогресс</string>
-    <string name="dialog_reset_all_body">Вы уверены, что хотите сбросить весь прогресс? Это действие нельзя отменить.</string>
+    <string name="settings_danger_zone">Опасная зона</string>
+    <string name="settings_reset_all_progress">Сбросить ВЕСЬ прогресс</string>
+
+    <string name="dialog_reset_all_title">Сброс прогресса</string>
+    <string name="dialog_reset_all_body">Вы уверены? Весь прогресс обучения, журнал и архив будут удалены безвозвратно.</string>
     <string name="dialog_reset_all_confirm">Сбросить</string>
     <string name="dialog_reset_all_cancel">Отмена</string>
-    <string name="cd_settings">Настройки</string>
 
-    <string name="alefbet_title">Учим алфавит</string>
-    <string name="alefbet_level_button">Учить алфавит</string>
-    <string name="cd_toggle_font_style">Переключить стиль шрифта</string>
-    <string name="button_reset">Сброс</string>
-    <string name="result_correct">Верно!</string>
-    <string name="button_done">Готово</string>
-    <string name="alefbet_level_button_short">Алфавит</string>
-    <string name="pos_noun">Имя существительное</string>
-    <string name="pos_verb">Глагол</string>
-    <string name="pos_adjective">Имя прилагательное</string>
-    <string name="pos_adverb">Наречие</string>
-    <string name="pos_pronoun">Местоимение</string>
-    <string name="pos_preposition">Предлог</string>
-    <string name="pos_conjunction">Союз</string>
-    <string name="pos_interrogative">Вопросительное слово</string>
-    <string name="pos_quantifier">Квантификатор</string>
-    <string name="pos_interjection">Междометие</string>
-    <string name="alefbet_task_assemble">Собрать алфавит</string>
-    <string name="game_task_matching">Соедини пары</string>
-    <string name="game_task_fill_in_blank">Заполни пропуски</string>
-    <string name="game_task_unknown">Задание</string>
-    <string name="game_task_audition">Аудирование</string>
-    <string name="button_show_result">Показать результат</string>
-    <string name="button_start_exam">Тест</string>
-
-    <string name="hint_tap_to_listen">Нажмите, чтобы услышать</string>
-    <string name="game_task_new_words">Новые слова</string>
-    <string name="game_task_quiz">Вопрос</string>
-    <string name="dictionary_search_placeholder">Поиск…</string>
-    <string name="cd_clear_search">Очистить поиск</string>
-    <string name="dictionary_empty">Словарь пуст. Пройдите несколько уроков "Найди пару", чтобы пополнить его.</string>
-    <string name="dictionary_no_results">Ничего не найдено.</string>
-    <string name="dictionary_title">Словарь</string>
 </resources>

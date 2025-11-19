@@ -50,8 +50,6 @@ class CardViewModel @Inject constructor(
         val resultSnapshot: RoundResultSnapshot? = null,
         val showResultSheet: Boolean = false,
         val isAudioPlaying: Boolean = false
-
-        // --- ИЗМЕНЕНИЕ: Логика "Словаря Уровня" (шторки) УДАЛЕНА ---
     )
 
     var uiState by mutableStateOf(GameUiState())
@@ -100,9 +98,6 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИЗМЕНЕНИЕ: Функции "Словаря Уровня" УДАЛЕНЫ ---
-    // (showDictionarySheet, hideDictionarySheet)
-
     fun updateCurrentRoundIndex(index: Int) {
         this.currentRoundIndex = index
         this.currentTaskType = currentLevelSentences.getOrNull(index)?.taskType ?: TaskType.UNKNOWN
@@ -127,7 +122,7 @@ class CardViewModel @Inject constructor(
     }
 
     fun resetAllProgress() {
-        progressManager.resetAllProgressExceptLanguage()
+        progressManager.resetAllProgress()
     }
 
     fun hideResultSheet() {
@@ -234,22 +229,15 @@ class CardViewModel @Inject constructor(
 
         val newFontStyle = if (levelId == 1) progressManager.getLevel1FontStyle() else FontStyle.REGULAR
 
-        // --- ИЗМЕНЕНИЕ: Логика "Словаря Уровня" УДАЛЕНА из 'uiState.copy' ---
         uiState = uiState.copy(
             fontStyle = newFontStyle
         )
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        val userLanguage = progressManager.getUserLanguage()
+        // Упрощенный словарь: ключ = иврит, значение = translation (или "")
         wordDictionary = levelData
             .filter { !it.hebrew.contains(" ") }
             .associate {
-                it.hebrew to (when (userLanguage) {
-                    "en" -> it.english_translation
-                    "fr" -> it.french_translation
-                    "es" -> it.spanish_translation
-                    else -> it.russian_translation
-                } ?: "")
+                it.hebrew to (it.translation ?: "")
             }
 
         val completedRounds = progressManager.getCompletedRounds(levelId)
@@ -284,11 +272,11 @@ class CardViewModel @Inject constructor(
 
 
     fun loadRound(roundIndex: Int) {
-        Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ (вызван из GameScreen)")
+        Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ЗАГРУЗКА ДАННЫХ")
 
         val roundData = levelRepository.getSingleSentence(currentLevelId, roundIndex)
         if (roundData == null) {
-            Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. roundData is NULL from repository.")
+            Log.e(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - FAILED. roundData is NULL.")
             return
         }
 
@@ -297,18 +285,17 @@ class CardViewModel @Inject constructor(
         this.currentTaskType = newTaskType
         resetAndStartCounters()
 
-        val userLanguage = progressManager.getUserLanguage()
-
         var newAssemblyLine: List<AssemblySlot> = emptyList()
         var newAvailableCards: List<AvailableCardSlot> = emptyList()
         var newTaskTitleResId: Int
         var newCurrentTaskPrompt: String? = ""
         var newCurrentHebrewPrompt: String? = ""
 
+        // Используем прямое свойство .translation
         when (newTaskType) {
             TaskType.ASSEMBLE_TRANSLATION -> {
                 newTaskTitleResId = R.string.game_task_assemble
-                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
+                newCurrentTaskPrompt = roundData.translation
                 newCurrentHebrewPrompt = roundData.hebrew
 
                 val (target, available, assembly) = setupAssemblyTask(roundData)
@@ -330,7 +317,7 @@ class CardViewModel @Inject constructor(
 
             TaskType.FILL_IN_BLANK -> {
                 newTaskTitleResId = R.string.game_task_fill_in_blank
-                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
+                newCurrentTaskPrompt = roundData.translation
                 newCurrentHebrewPrompt = roundData.hebrew
 
                 val (target, available, assembly) = setupFillInBlankTask(roundData)
@@ -341,7 +328,7 @@ class CardViewModel @Inject constructor(
 
             TaskType.QUIZ -> {
                 newTaskTitleResId = R.string.game_task_quiz
-                newCurrentTaskPrompt = roundData.translationForLanguage(userLanguage)
+                newCurrentTaskPrompt = roundData.translation
                 newCurrentHebrewPrompt = roundData.hebrew
 
                 val (target, available, assembly) = setupQuizTask(roundData)
@@ -351,14 +338,14 @@ class CardViewModel @Inject constructor(
             }
 
             TaskType.MATCHING_PAIRS -> {
-                Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS (CVM не должен был быть здесь).")
+                Log.w(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ОШИБКА, ЭТО MATCHING_PAIRS.")
                 newTaskTitleResId = R.string.game_task_matching
                 this.targetCards = emptyList()
             }
 
             TaskType.UNKNOWN -> {
                 newTaskTitleResId = R.string.game_task_unknown
-                newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан. (${roundData.taskType})"
+                newCurrentTaskPrompt = "ОШИБКА: Тип задания не распознан."
                 this.targetCards = emptyList()
             }
         }
@@ -377,7 +364,7 @@ class CardViewModel @Inject constructor(
             showResultSheet = false
         )
 
-        Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - ATOMIC UPDATE COMPLETE.")
+        Log.d(AppDebug.TAG, "CardViewModel: loadRound($roundIndex) - COMPLETE.")
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -387,9 +374,6 @@ class CardViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
-    /**
-     * Готовит данные для 'ASSEMBLE_TRANSLATION' и 'AUDITION'.
-     */
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
 
         val newAssemblyLine = mutableListOf<AssemblySlot>()
@@ -434,9 +418,6 @@ class CardViewModel @Inject constructor(
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
 
-    /**
-     * Готовит данные для 'QUIZ'.
-     */
     private fun setupQuizTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
 
         val newAssemblyLine = mutableListOf<AssemblySlot>()
@@ -475,9 +456,6 @@ class CardViewModel @Inject constructor(
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
 
-    /**
-     * Готовит данные для 'FILL_IN_BLANK'.
-     */
     private fun setupFillInBlankTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
 
@@ -525,19 +503,6 @@ class CardViewModel @Inject constructor(
         return Triple(correctCards, newAvailableCards, newAssemblyLine)
     }
 
-    /**
-     * Хелпер для получения перевода на основе языка пользователя.
-     */
-    private fun SentenceData.translationForLanguage(language: String?): String? {
-        return when (language) {
-            "en" -> this.english_translation
-            "fr" -> this.french_translation
-            "es" -> this.spanish_translation
-            else -> this.russian_translation
-        }
-    }
-
-
     private fun resetAndStartCounters() {
         timeSpent = 0
         val startTime = System.currentTimeMillis()
@@ -553,9 +518,8 @@ class CardViewModel @Inject constructor(
     private fun endRound(result: GameResult) {
         timerJob?.cancel()
 
-        val userLanguage = progressManager.getUserLanguage()
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-        val translation = currentSentence?.translationForLanguage(userLanguage)
+        val translation = currentSentence?.translation
 
         if (result == GameResult.WIN) {
             if (currentTaskType == TaskType.AUDITION) {
@@ -601,10 +565,6 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Повторно воспроизводит аудиофайл для текущего раунда.
-     * Вызывается кнопкой "Слушать" в режиме AUDITION.
-     */
     fun replayAuditionAudio() {
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
         currentSentence?.audioFilename?.let { audioFile ->

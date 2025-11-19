@@ -9,19 +9,16 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ: ИМПОРТЫ ---
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
-// --- КОНЕЦ ---
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -40,8 +37,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.layout.ContentScale
-import androidx.core.graphics.drawable.toBitmap
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -263,13 +258,11 @@ fun JournalScreen(
                         contentDescription = stringResource(R.string.button_ab_repeat),
                         onClick = { showRepeatPanel = true }
                     )
-                    // --- ИЗМЕНЕНИЕ: Иконка ---
                     AppBottomBarIcon(
                         imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                         contentDescription = stringResource(R.string.round_track_title, levelId),
                         onClick = onTrackClick
                     )
-                    // --- КОНЕЦ ---
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Restore,
                         contentDescription = stringResource(R.string.button_forget),
@@ -356,7 +349,6 @@ fun JournalScreen(
                             fontSize = journalFontSize,
                             fontStyle = journalFontStyle,
                             isFlipped = isFlipped,
-                            userLanguage = journalViewModel.userLanguage,
                             modifier = Modifier
                                 .graphicsLayer {
                                     scaleY = 1f - (abs(pageOffset) * 0.15f)
@@ -381,7 +373,6 @@ fun FlippableJournalCard(
     fontSize: TextUnit,
     fontStyle: FontStyle,
     isFlipped: Boolean,
-    userLanguage: String,
     modifier: Modifier = Modifier
 ) {
     val animatedRotation by animateFloatAsState(
@@ -403,8 +394,7 @@ fun FlippableJournalCard(
                 sentence = sentence,
                 isHebrewSide = true,
                 fontSize = fontSize,
-                fontStyle = fontStyle,
-                userLanguage = userLanguage
+                fontStyle = fontStyle
             )
         } else {
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
@@ -412,8 +402,7 @@ fun FlippableJournalCard(
                     sentence = sentence,
                     isHebrewSide = false,
                     fontSize = fontSize,
-                    fontStyle = fontStyle,
-                    userLanguage = userLanguage
+                    fontStyle = fontStyle
                 )
             }
         }
@@ -427,8 +416,7 @@ private fun JournalPageContent(
     sentence: SentenceData,
     isHebrewSide: Boolean,
     fontSize: TextUnit,
-    fontStyle: FontStyle,
-    userLanguage: String
+    fontStyle: FontStyle
 ) {
 
     Box(
@@ -477,7 +465,7 @@ private fun JournalPageContent(
                                 }
                                 assembledText to TextAlign.Right
                             }
-                            else -> { // ASSEMBLE_TRANSLATION, UNKNOWN, or default
+                            else -> {
                                 sentence.hebrew to TextAlign.Right
                             }
                         }
@@ -517,13 +505,8 @@ private fun JournalPageContent(
                             val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(1) ?: "" } ?: ""
                             pairsText to TextAlign.Left
                         } else {
-                            val translation = when (userLanguage) {
-                                "en" -> sentence.english_translation
-                                "fr" -> sentence.french_translation
-                                "es" -> sentence.spanish_translation
-                                else -> sentence.russian_translation
-                            }
-                            translation to TextAlign.Left
+                            // Используем поле translation напрямую
+                            sentence.translation to TextAlign.Left
                         }
 
                         val translationTextStyle = MaterialTheme.typography.headlineMedium.copy(

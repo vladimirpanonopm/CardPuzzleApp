@@ -55,7 +55,7 @@ fun AlefbetScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    val userLanguage = viewModel.userLanguage
+    // --- ИСПРАВЛЕНИЕ: Удалена переменная userLanguage ---
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
@@ -191,7 +191,6 @@ fun AlefbetScreen(
                                     errorCardId = viewModel.errorCardId,
                                     currentCardId = letter.id,
                                 ) { shakeModifier ->
-                                    // --- ИЗМЕНЕНИЕ: Неиспользуемая 'letterName' удалена ---
                                     AlefbetCard(
                                         modifier = shakeModifier,
                                         letter = letter,

@@ -1,25 +1,18 @@
 package com.example.cardpuzzleapp
 
-import android.app.Application
-import android.content.Context
-import androidx.compose.runtime.mutableStateListOf
-import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 
-/**
- * Этот ViewModel отвечает исключительно за логику и данные экрана "Журнал".
- */
 @HiltViewModel
 class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
@@ -40,12 +33,6 @@ class JournalViewModel @Inject constructor(
     val initialFontSize: Float = progressManager.getJournalFontSize()
     val initialFontStyle: FontStyle = progressManager.getJournalFontStyle()
 
-    val userLanguage: String = progressManager.getUserLanguage() ?: "ru"
-
-    /**
-     * Главный метод инициализации.
-     * Загружает данные для конкретного уровня и обновляет список карточек в журнале.
-     */
     fun loadJournalForLevel(levelId: Int) {
         if (levelId == -1) return
         this.currentLevelId = levelId
@@ -55,42 +42,36 @@ class JournalViewModel @Inject constructor(
             val levelData = levelRepository.getSentencesForLevel(levelId)
 
             withContext(Dispatchers.Main) {
-                // --- ИЗМЕНЕНИЕ: Убран '?: emptyList()' ---
                 this@JournalViewModel.currentLevelSentences = levelData
-                // --- КОНЕЦ ---
                 loadJournalSentences()
             }
         }
     }
 
-    /**
-     * Загружает индексы пройденных раундов и формирует список карточек для журнала.
-     */
     private fun loadJournalSentences() {
         if (currentLevelId == -1) return
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
 
+        // Мы показываем только то, что в "Completed" и НЕ в "Archived"
         val activeJournalIndices = allCompleted - allArchived
 
-        journalSentences = currentLevelSentences.filterIndexed { index, _ ->
-            index in activeJournalIndices
+        journalSentences = currentLevelSentences.filterIndexed { index, sentence ->
+            // ФИЛЬТР:
+            // 1. Индекс должен быть в списке "активных" (пройденных)
+            // 2. Тип задания НЕ должен быть AUDITION (аудирование в журнал не пишем)
+            val isAudition = sentence.taskType == TaskType.AUDITION
+            (index in activeJournalIndices) && !isAudition
         }
     }
 
-    /**
-     * "Забывает" карточку, возвращая ее из журнала обратно в игру.
-     */
     fun resetSingleRoundProgress(roundIndex: Int) {
         if (currentLevelId == -1) return
         progressManager.removeSingleRoundProgress(currentLevelId, roundIndex)
         loadJournalSentences()
     }
 
-    /**
-     * "Удаляет" карточку, перемещая ее в архив.
-     */
     fun archiveJournalCard(roundIndex: Int) {
         if (currentLevelId == -1) return
         progressManager.archiveRound(currentLevelId, roundIndex)
@@ -104,8 +85,6 @@ class JournalViewModel @Inject constructor(
     fun saveJournalFontStyle(style: FontStyle) {
         progressManager.saveJournalFontStyle(style)
     }
-
-    // --- Методы для УПРАВЛЕНИЯ AUDIO ---
 
     fun playSoundForPage(pageIndex: Int) {
         stopAudio()

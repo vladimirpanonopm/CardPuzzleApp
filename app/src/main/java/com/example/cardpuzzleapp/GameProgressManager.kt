@@ -5,15 +5,12 @@ import android.content.Context
 class GameProgressManager(context: Context) {
     private val prefs = context.getSharedPreferences("game_progress_v3", Context.MODE_PRIVATE)
 
-    private val PREF_KEY_LANGUAGE = "user_language"
     private fun getLevelProgressKey(levelId: Int): String = "progress_level_$levelId"
     private fun getLevelArchiveKey(levelId: Int): String = "archived_level_$levelId"
 
     private val PREF_KEY_JOURNAL_FONT_SIZE = "journal_font_size_v2"
     private val PREF_KEY_JOURNAL_FONT_STYLE = "journal_font_style_v2"
     private val PREF_KEY_ALEFBET_COMPLETION_COUNT = "alefbet_completion_count"
-
-    // --- НОВЫЙ КЛЮЧ И ФУНКЦИИ ДЛЯ СОХРАНЕНИЯ ШРИФТА ---
     private val PREF_KEY_LEVEL1_FONT_STYLE = "level1_font_style"
 
     fun saveLevel1FontStyle(style: FontStyle) {
@@ -25,10 +22,9 @@ class GameProgressManager(context: Context) {
         return try {
             FontStyle.valueOf(styleName ?: FontStyle.CURSIVE.name)
         } catch (e: IllegalArgumentException) {
-            FontStyle.CURSIVE // Возвращаем значение по умолчанию, если сохранено некорректное имя
+            FontStyle.CURSIVE
         }
     }
-    // ----------------------------------------------------
 
     fun getAlefbetCompletionCount(): Int {
         return prefs.getInt(PREF_KEY_ALEFBET_COMPLETION_COUNT, 0)
@@ -68,7 +64,6 @@ class GameProgressManager(context: Context) {
         return FontStyle.valueOf(styleName ?: FontStyle.REGULAR.name)
     }
 
-
     fun saveProgress(levelId: Int, roundIndex: Int) {
         val key = getLevelProgressKey(levelId)
         val currentProgress = getCompletedRounds(levelId).toMutableSet()
@@ -92,21 +87,15 @@ class GameProgressManager(context: Context) {
         val currentProgress = getCompletedRounds(levelId).toMutableSet()
         val currentArchive = getArchivedRounds(levelId).toMutableSet()
 
-        // --- ИЗМЕНЕНИЕ: Логика изменена ---
-        // 1. Убираем из "прогресса", если он там был
         currentProgress.remove(roundIndex)
-
-        // 2. Добавляем в "архив" (даже если его не было в прогрессе)
         currentArchive.add(roundIndex)
 
-        // 3. Сохраняем оба обновленных списка
         val newProgressSet = currentProgress.map { it.toString() }.toSet()
         val newArchiveSet = currentArchive.map { it.toString() }.toSet()
         prefs.edit()
             .putStringSet(progressKey, newProgressSet)
             .putStringSet(archiveKey, newArchiveSet)
             .apply()
-        // --- КОНЕЦ ИЗМЕНЕНИЯ ---
     }
 
     fun resetLevelProgress(levelId: Int) {
@@ -118,22 +107,7 @@ class GameProgressManager(context: Context) {
             .apply()
     }
 
-    fun resetAllProgressExceptLanguage() {
-        val editor = prefs.edit()
-        prefs.all.keys.forEach { key ->
-            if (key != PREF_KEY_LANGUAGE) {
-                editor.remove(key)
-            }
-        }
-        editor.apply()
-    }
-
-
-    fun saveUserLanguage(language: String) {
-        prefs.edit().putString(PREF_KEY_LANGUAGE, language).apply()
-    }
-
-    fun getUserLanguage(): String? {
-        return prefs.getString(PREF_KEY_LANGUAGE, null)
+    fun resetAllProgress() {
+        prefs.edit().clear().apply()
     }
 }

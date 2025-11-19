@@ -1,6 +1,5 @@
 package com.example.cardpuzzleapp
 
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -13,9 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -32,13 +29,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(AppDebug.TAG, "MainActivity: onCreate")
 
         setContent {
-            val progressManager = remember { GameProgressManager(applicationContext) }
-            var languageCode by remember { mutableStateOf(progressManager.getUserLanguage()) }
-            Log.d(AppDebug.TAG, "MainActivity: setContent. Initial languageCode: $languageCode")
-
             val navController = rememberNavController()
             val cardViewModel: CardViewModel = hiltViewModel()
             val alefbetViewModel: AlefbetViewModel = hiltViewModel()
@@ -46,38 +38,21 @@ class MainActivity : ComponentActivity() {
             val matchingViewModel: MatchingViewModel = hiltViewModel()
             val dictionaryViewModel: DictionaryViewModel = hiltViewModel()
 
-            key(languageCode) {
-                Log.d(AppDebug.TAG, "MainActivity: key(languageCode) recomposing. languageCode: $languageCode")
-
-                val wrappedContext = languageCode?.let { LocaleHelper.wrap(this, it) } ?: this
-
-                CompositionLocalProvider(LocalContext provides wrappedContext) {
-                    CardPuzzleAppTheme {
-                        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-
-                            AppNavigation(
-                                navController = navController,
-                                cardViewModel = cardViewModel,
-                                alefbetViewModel = alefbetViewModel,
-                                journalViewModel = journalViewModel,
-                                matchingViewModel = matchingViewModel,
-                                dictionaryViewModel = dictionaryViewModel,
-                                initialLanguage = languageCode,
-                                onLanguageChange = { newLangCode ->
-                                    Log.d(AppDebug.TAG, "MainActivity: onLanguageChange lambda triggered with: $newLangCode")
-                                    progressManager.saveUserLanguage(newLangCode)
-                                    languageCode = newLangCode
-                                }
-                            )
-                        }
-                    }
+            CardPuzzleAppTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    AppNavigation(
+                        navController = navController,
+                        cardViewModel = cardViewModel,
+                        alefbetViewModel = alefbetViewModel,
+                        journalViewModel = journalViewModel,
+                        matchingViewModel = matchingViewModel,
+                        dictionaryViewModel = dictionaryViewModel
+                    )
                 }
             }
         }
     }
 }
-
-private const val NAV_DEBUG_TAG = "MATCHING_CARDS_DEBUG"
 
 @Composable
 fun AppNavigation(
@@ -86,36 +61,16 @@ fun AppNavigation(
     alefbetViewModel: AlefbetViewModel,
     journalViewModel: JournalViewModel,
     matchingViewModel: MatchingViewModel,
-    dictionaryViewModel: DictionaryViewModel,
-    initialLanguage: String?,
-    onLanguageChange: (String) -> Unit
+    dictionaryViewModel: DictionaryViewModel
 ) {
-    Log.d(AppDebug.TAG, "AppNavigation: Composing. initialLanguage: $initialLanguage")
-
     val coroutineScope = rememberCoroutineScope()
 
-    val startDestination = remember {
-        val dest = if (initialLanguage != null) "home" else "language_selection"
-        Log.d(AppDebug.TAG, "AppNavigation: 'remember' startDestination calculated: $dest")
-        dest
-    }
-
-    LaunchedEffect(initialLanguage) {
-        Log.d(AppDebug.TAG, "AppNavigation: LaunchedEffect triggered. initialLanguage: $initialLanguage, startDestination: $startDestination")
-        if (initialLanguage != null && startDestination == "language_selection") {
-            Log.d(AppDebug.TAG, "AppNavigation: LaunchedEffect -> Navigating to 'home'...")
-            navController.navigate("home") {
-                popUpTo("language_selection") { inclusive = true }
-            }
-            Log.d(AppDebug.TAG, "AppNavigation: LaunchedEffect -> Navigation command sent.")
-        }
-    }
+    // Всегда стартуем с главного меню
+    val startDestination = "home"
 
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { event ->
-            Log.e(AppDebug.TAG, ">>> AppNavigation RECV CardView EVENT: '$event'. Current dest: ${navController.currentDestination?.route}")
             val currentRoute = navController.currentDestination?.route
-
             when (event) {
                 is NavigationEvent.ShowRoundTrack -> {
                     navController.navigate("round_track/${event.levelId}") {
@@ -124,17 +79,13 @@ fun AppNavigation(
                         }
                     }
                 }
-
                 is NavigationEvent.ShowRound -> {
                     val taskType = cardViewModel.getTaskTypeForRound(event.roundIndex)
-
                     val route = if (taskType == TaskType.MATCHING_PAIRS) {
                         "matching_game/${event.levelId}/${event.roundIndex}?uid=${System.currentTimeMillis()}"
                     } else {
                         "game/${event.levelId}/${event.roundIndex}"
                     }
-
-                    Log.e(AppDebug.TAG, ">>> AppNavigation NAVIGATING to '$route'")
                     navController.navigate(route) {
                         if (currentRoute != null) {
                             if (currentRoute.startsWith("game") && taskType == TaskType.MATCHING_PAIRS) {
@@ -161,22 +112,10 @@ fun AppNavigation(
 
     NavHost(navController = navController, startDestination = startDestination) {
 
-        composable("language_selection") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'language_selection'")
-            LanguageSelectionScreen(
-                onLanguageSelected = { selectedLangCode ->
-                    Log.d(AppDebug.TAG, "NavHost: 'language_selection' onLanguageSelected triggered with: $selectedLangCode")
-                    onLanguageChange(selectedLangCode)
-                }
-            )
-        }
-
         composable("home") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'home'")
             HomeScreen(
                 viewModel = cardViewModel,
                 onStartLevel = { levelId ->
-                    Log.d(AppDebug.TAG, "NavHost: 'home' onStartLevel($levelId)")
                     coroutineScope.launch {
                         val isFullyCompleted = cardViewModel.loadLevel(levelId)
                         if (isFullyCompleted) {
@@ -184,19 +123,12 @@ fun AppNavigation(
                         }
                     }
                 },
-                onSettingsClick = {
-                    Log.d(AppDebug.TAG, "NavHost: 'home' onSettingsClick")
-                    navController.navigate("settings")
-                },
-                onAlefbetClick = {
-                    Log.d(AppDebug.TAG, "NavHost: 'home' onAlefbetClick")
-                    navController.navigate("alefbet")
-                }
+                onSettingsClick = { navController.navigate("settings") },
+                onAlefbetClick = { navController.navigate("alefbet") }
             )
         }
 
         composable("alefbet") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'alefbet'")
             AlefbetScreen(
                 viewModel = alefbetViewModel,
                 onBackClick = { navController.popBackStack() }
@@ -204,12 +136,8 @@ fun AppNavigation(
         }
 
         composable("settings") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'settings'")
             SettingsScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onLanguageChange = onLanguageChange,
+                onBackClick = { navController.popBackStack() },
                 onResetProgress = {
                     cardViewModel.resetAllProgress()
                     navController.navigate("home") {
@@ -226,32 +154,22 @@ fun AppNavigation(
                 navArgument("roundIndex") { type = NavType.IntType }
             )
         ) { backStackEntry ->
-            val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
+            // --- ИСПРАВЛЕНИЕ: Удалена неиспользуемая переменная levelId ---
+            // GameScreen получает уровень через ViewModel, который уже загружен
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
-            Log.d(AppDebug.TAG, "NavHost: Composing 'game/$levelId/$roundIndex'")
 
             GameScreen(
                 viewModel = cardViewModel,
                 routeRoundIndex = roundIndex,
                 onHomeClick = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    }
+                    navController.navigate("home") { popUpTo("home") { inclusive = true } }
                 },
                 onJournalClick = {
                     navController.navigate("journal/${cardViewModel.currentLevelId}?roundIndex=${cardViewModel.currentRoundIndex}")
                 },
-                onTrackClick = { levelIdNav ->
-                    navController.navigate("round_track/$levelIdNav")
-                },
-                onSkipClick = {
-                    cardViewModel.skipToNextAvailableRound()
-                },
-                // --- ИЗМЕНЕНИЕ: Подключаем навигацию ---
-                onDictionaryClick = {
-                    navController.navigate("dictionary")
-                }
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                onTrackClick = { levelIdNav -> navController.navigate("round_track/$levelIdNav") },
+                onSkipClick = { cardViewModel.skipToNextAvailableRound() },
+                onDictionaryClick = { navController.navigate("dictionary") }
             )
         }
 
@@ -260,34 +178,15 @@ fun AppNavigation(
             arguments = listOf(
                 navArgument("levelId") { type = NavType.IntType },
                 navArgument("roundIndex") { type = NavType.IntType },
-                navArgument("uid") {
-                    type = NavType.LongType
-                    defaultValue = 0L
-                }
+                navArgument("uid") { type = NavType.LongType; defaultValue = 0L }
             ),
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = tween(330)
-                )
-            },
-            exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { -it },
-                    animationSpec = tween(330)
-                )
-            },
-            popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = tween(330)
-                )
-            }
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(330)) },
+            exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(330)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(330)) }
         ) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
             val uid = backStackEntry.arguments?.getLong("uid") ?: 0L
-            Log.d(AppDebug.TAG, "NavHost: Composing 'matching_game/$levelId/$roundIndex' (UID: $uid)")
 
             MatchingGameScreen(
                 cardViewModel = cardViewModel,
@@ -295,79 +194,43 @@ fun AppNavigation(
                 routeLevelId = levelId,
                 routeRoundIndex = roundIndex,
                 routeUid = uid,
-                onBackClick = {
-                    navController.popBackStack()
-                },
+                onBackClick = { navController.popBackStack() },
                 onJournalClick = {
                     navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
                 },
-                onTrackClick = {
-                    navController.navigate("round_track/${matchingViewModel.currentLevelId}")
-                },
-                // --- ИЗМЕНЕНИЕ: Подключаем навигацию ---
-                onDictionaryClick = {
-                    navController.navigate("dictionary")
-                }
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+                onTrackClick = { navController.navigate("round_track/${matchingViewModel.currentLevelId}") },
+                onDictionaryClick = { navController.navigate("dictionary") }
             )
         }
 
-
-        composable(
-            route = "round_track/{levelId}",
-            arguments = listOf(navArgument("levelId") { type = NavType.IntType })
-        ) { backStackEntry ->
+        composable("round_track/{levelId}", arguments = listOf(navArgument("levelId") { type = NavType.IntType })) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
-            Log.d(AppDebug.TAG, "NavHost: Composing 'round_track/$levelId'")
             RoundTrackScreen(
                 levelId = levelId,
                 viewModel = cardViewModel,
-                onHomeClick = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                },
-                onResetClick = {
-                    coroutineScope.launch {
-                        cardViewModel.resetCurrentLevelProgress()
-                    }
-                },
-                onJournalClick = {
-                    navController.navigate("journal/$levelId?roundIndex=-1")
-                },
-                onBackClick = {
-                    navController.popBackStack()
-                }
+                onHomeClick = { navController.navigate("home") { popUpTo("home") { inclusive = true } } },
+                onResetClick = { coroutineScope.launch { cardViewModel.resetCurrentLevelProgress() } },
+                onJournalClick = { navController.navigate("journal/$levelId?roundIndex=-1") },
+                onBackClick = { navController.popBackStack() }
             )
         }
 
-        composable(
-            route = "journal/{levelId}?roundIndex={roundIndex}",
-            arguments = listOf(
-                navArgument("levelId") { type = NavType.IntType },
-                navArgument("roundIndex") {
-                    type = NavType.IntType
-                    defaultValue = -1
-                }
-            )
-        ) { backStackEntry ->
+        composable("journal/{levelId}?roundIndex={roundIndex}", arguments = listOf(
+            navArgument("levelId") { type = NavType.IntType },
+            navArgument("roundIndex") { type = NavType.IntType; defaultValue = -1 }
+        )) { backStackEntry ->
             val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
             val initialRoundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: -1
-            Log.d(AppDebug.TAG, "NavHost: Composing 'journal/$levelId/$initialRoundIndex'")
-
             JournalScreen(
                 levelId = levelId,
                 journalViewModel = journalViewModel,
                 onBackClick = { navController.popBackStack() },
-                onTrackClick = {
-                    navController.navigate("round_track/$levelId")
-                },
+                onTrackClick = { navController.navigate("round_track/$levelId") },
                 initialRoundIndex = initialRoundIndex
             )
         }
 
         composable("dictionary") {
-            Log.d(AppDebug.TAG, "NavHost: Composing 'dictionary'")
             DictionaryScreen(
                 viewModel = dictionaryViewModel,
                 onBackClick = { navController.popBackStack() }
