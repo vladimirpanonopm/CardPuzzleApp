@@ -24,7 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Speed // <-- Иконка скорости
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +62,9 @@ private data class GameRoundState(
     val originalHebrewText: String?,
     val segments: List<AudioSegment>?
 )
+
+// --- ВАЖНО: ТЕГ ДЛЯ ЛОГОВ ---
+private const val AUDIO_TAG = "AUDIO_DEBUG"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -236,7 +239,7 @@ private fun GameScreenLayout(
     val fontStyle = dynamicState.fontStyle
     val isRoundWon = dynamicState.isRoundWon
     val isInteractionEnabled = !dynamicState.isAudioPlaying
-    val isSlowMode = dynamicState.isSlowMode // Получаем состояние из VM
+    val isSlowMode = dynamicState.isSlowMode
     val styleConfig = CardStyles.getStyle(fontStyle)
 
     val baseFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
@@ -271,27 +274,21 @@ private fun GameScreenLayout(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-
-        // --- ВЕРХНЯЯ ЗОНА (КОНТЕНТ) ---
         Surface(
             modifier = Modifier.fillMaxWidth().weight(0.7f),
             color = StickyNoteYellow,
         ) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
-                // 1. КНОПКИ УПРАВЛЕНИЯ (Для Audition)
-                if (staticState.taskType == TaskType.AUDITION) {
+                if (staticState.taskType == TaskType.AUDITION && staticState.segments != null) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.Center, // По центру
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Кнопка "Слушать всё"
                         OutlinedButton(
                             onClick = { viewModel.playFullAudio() },
-                            enabled = isInteractionEnabled,
+                            enabled = true,
                             modifier = Modifier.size(50.dp),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(0.dp),
@@ -307,7 +304,6 @@ private fun GameScreenLayout(
 
                         Spacer(modifier = Modifier.width(16.dp))
 
-                        // --- КНОПКА "ЧЕРЕПАХА" ---
                         val turtleColor = if (isSlowMode) MaterialTheme.colorScheme.primary else StickyNoteText
                         val turtleAlpha = if (isSlowMode) 1f else 0.5f
                         val turtleBorder = if (isSlowMode) 2.dp else 1.dp
@@ -329,14 +325,11 @@ private fun GameScreenLayout(
                                 modifier = Modifier.size(28.dp)
                             )
                         }
-                        // --------------------------
                     }
 
-                    // Разбиваем список assemblyLine на строки
                     val linesOfSlots = remember(dynamicState.assemblyLine) {
                         val result = mutableListOf<List<AssemblySlot>>()
                         var currentLine = mutableListOf<AssemblySlot>()
-
                         dynamicState.assemblyLine.forEach { slot ->
                             if (slot.text == "\n") {
                                 if (currentLine.isNotEmpty()) {
@@ -351,7 +344,6 @@ private fun GameScreenLayout(
                         result
                     }
 
-                    // ИНТЕРАКТИВНЫЙ СПИСОК
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -371,8 +363,12 @@ private fun GameScreenLayout(
                             ) {
                                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                                     IconButton(
-                                        onClick = { viewModel.playAudioSegment(index) },
-                                        enabled = isInteractionEnabled,
+                                        onClick = {
+                                            // --- ЛОГ НАЖАТИЯ ---
+                                            Log.d(AUDIO_TAG, "UI: CLICKED speaker [$index]")
+                                            viewModel.playAudioSegment(index)
+                                        },
+                                        enabled = true,
                                         modifier = Modifier.size(36.dp)
                                     ) {
                                         Icon(
@@ -382,9 +378,7 @@ private fun GameScreenLayout(
                                         )
                                     }
                                 }
-
                                 Spacer(modifier = Modifier.width(8.dp))
-
                                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                                     FlowRow(
                                         modifier = Modifier.weight(1f),
@@ -426,7 +420,6 @@ private fun GameScreenLayout(
                     }
 
                 } else {
-                    // --- ЛОГИКА ДЛЯ ОСТАЛЬНЫХ (ВКЛЮЧАЯ ASSEMBLE) ---
                     if (!staticState.taskPrompt.isNullOrBlank()) {
                         Text(
                             text = staticState.taskPrompt,
@@ -441,7 +434,20 @@ private fun GameScreenLayout(
 
                     if (staticState.taskType == TaskType.QUIZ) {
                         val fullPrompt = staticState.originalHebrewText ?: ""
-                        Text(text = fullPrompt, style = hebrewTextStyle, modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()))
+                        val lines = fullPrompt.lines().filter { it.isNotBlank() }
+
+                        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                            if (lines.size > 1) {
+                                val context = lines.dropLast(1).joinToString("\n")
+                                val question = lines.last()
+
+                                Text(text = context, style = hebrewTextStyle, modifier = Modifier.fillMaxWidth())
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = StickyNoteText.copy(alpha = 0.5f), thickness = 2.dp)
+                                Text(text = question, style = hebrewTextStyle, modifier = Modifier.fillMaxWidth())
+                            } else {
+                                Text(text = fullPrompt, style = hebrewTextStyle, modifier = Modifier.fillMaxWidth())
+                            }
+                        }
                     }
 
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -466,7 +472,6 @@ private fun GameScreenLayout(
             }
         }
 
-        // --- НИЖНЯЯ ЗОНА ---
         if (!isRoundWon) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 FlowRow(

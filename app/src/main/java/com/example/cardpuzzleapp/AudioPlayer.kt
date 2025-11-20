@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+// TAG для фильтрации
+private const val TAG = "AUDIO_DEBUG"
+
 class AudioPlayer(private val context: Context) {
     private var mediaPlayer: MediaPlayer? = null
 
@@ -26,18 +29,19 @@ class AudioPlayer(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun play(filename: String, speed: Float = 1.0f) {
-        Log.d(AppDebug.TAG, "AudioPlayer: play($filename) called")
+        Log.d(TAG, "Player: play($filename, speed=$speed)")
         stop()
         startPlayback(filename, 0, -1, speed)
     }
 
     fun playSegment(filename: String, startMs: Long, endMs: Long, speed: Float = 1.0f) {
-        Log.d(AppDebug.TAG, "AudioPlayer: playSegment($filename, $startMs, $endMs) called")
+        Log.d(TAG, "Player: playSegment($filename, $startMs-$endMs, speed=$speed)")
         stop()
         startPlayback(filename, startMs.toInt(), endMs.toInt(), speed)
     }
 
     suspend fun playAndAwaitCompletion(filename: String, speed: Float = 1.0f) {
+        Log.d(TAG, "Player: playAndAwaitCompletion")
         stop()
         play(filename, speed)
         delay(100)
@@ -49,7 +53,8 @@ class AudioPlayer(private val context: Context) {
     private fun startPlayback(filename: String, startMs: Int, endMs: Int, speed: Float) {
         try {
             releaseMediaPlayer()
-            Log.d(AppDebug.TAG, "AudioPlayer: startPlayback creating MediaPlayer...")
+
+            Log.d(TAG, "Player: Creating MediaPlayer for $filename")
             val assetFileDescriptor = context.assets.openFd("audio/$filename")
 
             mediaPlayer = MediaPlayer().apply {
@@ -62,41 +67,39 @@ class AudioPlayer(private val context: Context) {
                 }
 
                 setOnCompletionListener {
-                    Log.d(AppDebug.TAG, "AudioPlayer: onCompletionListener FIRED.")
-                    // Сразу сбрасываем флаг, чтобы UI разморозился
+                    Log.d(TAG, "Player: onCompletionListener -> Stop immediately")
                     _isPlaying.value = false
-                    Log.d(AppDebug.TAG, "AudioPlayer: _isPlaying set to false immediately.")
-
-                    // А очистку ресурсов делаем через Handler
-                    mainHandler.post {
-                        Log.d(AppDebug.TAG, "AudioPlayer: Handler executing stop().")
-                        stop()
-                    }
+                    mainHandler.post { stop() }
                 }
 
                 setOnErrorListener { _, what, extra ->
-                    Log.e(AppDebug.TAG, "AudioPlayer: onError FIRED ($what, $extra)")
+                    Log.e(TAG, "Player: onError ($what, $extra)")
                     _isPlaying.value = false
                     mainHandler.post { stop() }
                     true
                 }
 
                 prepare()
-                if (startMs > 0) seekTo(startMs)
+                if (startMs > 0) {
+                    seekTo(startMs)
+                    Log.d(TAG, "Player: SeekTo $startMs")
+                }
                 start()
             }
             assetFileDescriptor.close()
 
             _isPlaying.value = true
-            Log.d(AppDebug.TAG, "AudioPlayer: MediaPlayer STARTED. isPlaying = true")
+            Log.d(TAG, "Player: START SUCCESS. isPlaying=true")
 
             if (endMs > startMs) {
                 val durationMs = endMs - startMs
                 val timeToWait = (durationMs / speed).toLong()
+                Log.d(TAG, "Player: Timer set for $timeToWait ms")
+
                 playbackJob = scope.launch {
                     delay(timeToWait)
                     if (_isPlaying.value) {
-                        Log.d(AppDebug.TAG, "AudioPlayer: Timer FINISHED. Pausing.")
+                        Log.d(TAG, "Player: Timer FINISHED. Force pausing.")
                         try { mediaPlayer?.pause() } catch (e: Exception) { }
                         stop()
                     }
@@ -104,14 +107,14 @@ class AudioPlayer(private val context: Context) {
             }
 
         } catch (e: Exception) {
-            Log.e(AppDebug.TAG, "AudioPlayer: EXCEPTION: $e")
+            Log.e(TAG, "Player: EXCEPTION: $e")
             e.printStackTrace()
             stop()
         }
     }
 
     fun stop() {
-        Log.d(AppDebug.TAG, "AudioPlayer: stop() called.")
+        Log.d(TAG, "Player: stop() called")
 
         mainHandler.removeCallbacksAndMessages(null)
         playbackJob?.cancel()
@@ -119,10 +122,9 @@ class AudioPlayer(private val context: Context) {
 
         releaseMediaPlayer()
 
-        // Дублируем сброс флага на всякий случай
         if (_isPlaying.value) {
             _isPlaying.value = false
-            Log.d(AppDebug.TAG, "AudioPlayer: stop() reset isPlaying to false.")
+            Log.d(TAG, "Player: isPlaying forcibly set to false")
         }
     }
 

@@ -58,7 +58,7 @@
     <string name="round_track_title">Уровень %1$d</string>
     <string name="round_track_progress">Пройдено: %1$d / %2$d</string>
 
-    <string name="hint_tap_to_listen">Нажми на иврит, чтобы послушать</string>
+    <string name="hint_tap_to_listen">Нажми, чтобы послушать</string>
 
     <string name="settings_title">Настройки</string>
     <string name="settings_danger_zone">Опасная зона</string>

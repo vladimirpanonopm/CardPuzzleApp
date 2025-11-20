@@ -12,10 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// --- ИЗМЕНЕНИЕ: Меняем иконку "Словаря" ---
-import androidx.compose.material.icons.filled.Book // <-- Новая иконка "Словаря"
-import androidx.compose.material.icons.automirrored.filled.MenuBook // <-- Иконка "Журнала"
-// --- КОНЕЦ ИЗМЕНЕНИЯ ---
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
@@ -28,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection // Импорт
+import androidx.compose.ui.unit.LayoutDirection // Импорт
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.flow.collectLatest
@@ -68,14 +68,12 @@ fun MatchingGameScreen(
     val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(routeUid) {
-        Log.d(TAG, ">>> MatchingGameScreen LaunchedEffect(uid=$routeUid). Вызов loadLevel...")
         cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
 
     LaunchedEffect(Unit) {
         viewModel.hapticEvents.collectLatest { event ->
-            Log.d("VIBRATE_DEBUG", "MatchingGameScreen received event: $event")
             when (event) {
                 HapticEvent.Success -> haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 HapticEvent.Failure -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -84,12 +82,6 @@ fun MatchingGameScreen(
     }
 
     val shouldShowLoading = viewModel.isLoading || viewModel.loadedUid != routeUid
-
-    Log.d(TAG, ">>> MatchingGameScreen RECOMPOSING (Route UID: $routeUid):")
-    Log.d(TAG, "  > viewModel.isLoading = ${viewModel.isLoading}")
-    Log.d(TAG, "  > viewModel.loadedUid = ${viewModel.loadedUid}")
-    Log.d(TAG, "  > viewModel.isExamMode = ${viewModel.isExamMode}")
-    Log.d(TAG, "  > ==>> shouldShowLoading = $shouldShowLoading (isLoading: ${viewModel.isLoading} || ${viewModel.loadedUid} != $routeUid)")
 
     Scaffold(
         topBar = {
@@ -101,21 +93,17 @@ fun MatchingGameScreen(
         bottomBar = {
             AppBottomBar {
                 AppBottomBarIcon(
-                    imageVector = Icons.AutoMirrored.Filled.MenuBook, // <-- Журнал
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = stringResource(R.string.journal_title),
                     onClick = onJournalClick
                 )
-
-                // --- ИЗМЕНЕНИЕ: Кнопка Словаря (Книга) ---
                 AppBottomBarIcon(
-                    imageVector = Icons.Default.Book, // <-- Новая иконка Словаря
+                    imageVector = Icons.Default.Book,
                     contentDescription = stringResource(R.string.dictionary_title),
                     onClick = onDictionaryClick
                 )
-                // --- КОНЕЦ ИЗМЕНЕНИЯ ---
-
                 AppBottomBarIcon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck, // <-- Трек
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
                     contentDescription = stringResource(R.string.round_track_title, viewModel.currentLevelId),
                     onClick = onTrackClick
                 )
@@ -157,8 +145,6 @@ fun MatchingGameScreen(
         ) {
 
             if (!shouldShowLoading) {
-                Log.d(TAG, "  > UI: Рисуем КОЛОНКИ (shouldShowLoading=false)")
-
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -166,28 +152,9 @@ fun MatchingGameScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        HintText(
-                            text = if (viewModel.isExamMode) "" else stringResource(R.string.hint_tap_to_listen)
-                        )
-
-                        MatchColumn(
-                            items = viewModel.hebrewCards,
-                            onItemClick = viewModel::onMatchItemClicked,
-                            modifier = Modifier.fillMaxWidth(),
-                            isHebrewColumn = true,
-                            roundIndex = viewModel.currentRoundIndex,
-                            errorCount = viewModel.errorCount,
-                            errorItemId = viewModel.errorItemId,
-                            isExamMode = viewModel.isExamMode
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
+                    // --- ЛЕВАЯ КОЛОНКА: РУССКИЙ ---
                     Column(modifier = Modifier.weight(1f)) {
                         HintText(text = "")
-
                         MatchColumn(
                             items = viewModel.translationCards,
                             onItemClick = viewModel::onMatchItemClicked,
@@ -199,26 +166,37 @@ fun MatchingGameScreen(
                             isExamMode = viewModel.isExamMode
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // --- ПРАВАЯ КОЛОНКА: ИВРИТ ---
+                    Column(modifier = Modifier.weight(1f)) {
+                        HintText(
+                            text = if (viewModel.isExamMode) "" else stringResource(R.string.hint_tap_to_listen)
+                        )
+                        MatchColumn(
+                            items = viewModel.hebrewCards,
+                            onItemClick = viewModel::onMatchItemClicked,
+                            modifier = Modifier.fillMaxWidth(),
+                            isHebrewColumn = true,
+                            roundIndex = viewModel.currentRoundIndex,
+                            errorCount = viewModel.errorCount,
+                            errorItemId = viewModel.errorItemId,
+                            isExamMode = viewModel.isExamMode
+                        )
+                    }
                 }
             } else {
-                Log.d(TAG, "  > UI: Рисуем СПИННЕР (shouldShowLoading=true)")
-                CircularProgressIndicator(
-                    modifier = Modifier.size(64.dp)
-                )
+                CircularProgressIndicator(modifier = Modifier.size(64.dp))
             }
 
             val shouldShowSheet = viewModel.showResultSheet && snapshot != null
-            Log.d(TAG, "  > UI: Проверка шторки (shouldShowSheet = $shouldShowSheet)")
 
             if (shouldShowSheet) {
-                Log.d(TAG, "  > UI: Рисуем BottomSheet")
                 val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
                 ModalBottomSheet(
-                    onDismissRequest = {
-                        Log.d(TAG, "  > UI: Шторка закрыта (onDismissRequest). Вызов hideResultSheet().")
-                        viewModel.hideResultSheet()
-                    },
+                    onDismissRequest = { viewModel.hideResultSheet() },
                     sheetState = sheetState,
                     dragHandle = null,
                     scrimColor = Color.Transparent
@@ -232,7 +210,6 @@ fun MatchingGameScreen(
                             }
                         },
                         onRepeatClick = {
-                            Log.d(TAG, "  > UI: Нажата кнопка ПОВТОРИТЬ (onRepeatClick). Вызов restartCurrentRound().")
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
                                 viewModel.hideResultSheet()
                                 viewModel.restartCurrentRound()
@@ -262,9 +239,6 @@ private fun MatchColumn(
     errorItemId: UUID?,
     isExamMode: Boolean
 ) {
-    val columnName = if (isHebrewColumn) "Hebrew" else "Translation"
-    Log.d(TAG, "MatchColumn Composing: $columnName. Round=$roundIndex, Items.size=${items.size}")
-
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -319,61 +293,61 @@ private fun MatchLineItem(
 
     val styleConfig = CardStyles.getStyle(FontStyle.REGULAR)
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 56.dp)
-            .clickable(
-                enabled = true,
-                onClick = { onItemClick(item) },
-                interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple()
-            ),
-        shape = RoundedCornerShape(cornerRadius),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = BorderStroke(2.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Box(
-            modifier = Modifier
+    // --- ЯДЕРНОЕ РЕШЕНИЕ: ЕСЛИ ИВРИТ, ВКЛЮЧАЕМ RTL КОНТЕКСТ ---
+    val currentDirection = if (isHebrew) LayoutDirection.Rtl else LayoutDirection.Ltr
+
+    CompositionLocalProvider(LocalLayoutDirection provides currentDirection) {
+        Card(
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            contentAlignment = Alignment.CenterStart
+                .defaultMinSize(minHeight = 56.dp)
+                .clickable(
+                    enabled = true,
+                    onClick = { onItemClick(item) },
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = rememberRipple()
+                ),
+            shape = RoundedCornerShape(cornerRadius),
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            border = BorderStroke(2.dp, borderColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            val textStyle = if (isHebrew) {
-                TextStyle(
-                    fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                        FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                        FontVariation.width(styleConfig.fontWidth)
-                    ))),
-                    textAlign = TextAlign.Right,
-                    textDirection = TextDirection.Rtl,
-                    fontSize = 18.sp,
-                    color = StickyNoteText
-                )
-            } else {
-                TextStyle(
-                    fontFamily = FontFamily.Default,
-                    textAlign = TextAlign.Left,
-                    textDirection = TextDirection.Ltr,
-                    fontSize = 18.sp,
-                    color = StickyNoteText
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp, horizontal = 6.dp), // <-- СЖАТЫЕ ОТСТУПЫ
+                contentAlignment = if (isHebrew) Alignment.CenterEnd else Alignment.CenterStart
+            ) {
+                val textStyle = if (isHebrew) {
+                    TextStyle(
+                        fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                            FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                            FontVariation.width(styleConfig.fontWidth)
+                        ))),
+                        textAlign = TextAlign.Right, // Право
+                        fontSize = 26.sp, // <-- УВЕЛИЧЕННЫЙ ШРИФТ (26sp)
+                        color = StickyNoteText
+                    )
+                } else {
+                    TextStyle(
+                        fontFamily = FontFamily.Default,
+                        textAlign = TextAlign.Left, // Лево
+                        textDirection = TextDirection.Ltr,
+                        fontSize = 20.sp,
+                        color = StickyNoteText
+                    )
+                }
+
+                Text(
+                    text = item.text,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = textStyle
                 )
             }
-
-            Text(
-                text = item.text,
-                modifier = Modifier.fillMaxWidth(),
-                style = textStyle
-            )
         }
     }
 }
 
-/**
- * Composable-хелпер, который рисует подсказку или (если текст пуст)
- * занимает то же место для выравнивания.
- */
 @Composable
 private fun HintText(text: String) {
     Text(

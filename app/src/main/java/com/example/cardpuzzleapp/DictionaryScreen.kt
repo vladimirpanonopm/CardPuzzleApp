@@ -1,6 +1,5 @@
 package com.example.cardpuzzleapp
 
-import androidx.compose.foundation.clickable // <-- Импорт
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,8 +16,11 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider // Добавлен импорт
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection // Добавлен импорт
+import androidx.compose.ui.unit.LayoutDirection // Добавлен импорт
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -29,24 +31,16 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.text.font.FontWeight
-// --- ИЗМЕНЕНИЕ: 'hiltViewModel' УДАЛЕН ---
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import kotlin.math.roundToInt
 
 
-/**
- * Новый, полноэкранный режим "Глобального Словаря".
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DictionaryScreen(
     viewModel: DictionaryViewModel,
     onBackClick: () -> Unit
-    // --- ИЗМЕНЕНИЕ: TtsPlayer УДАЛЕН ---
 ) {
-    // "forceRefresh = true" гарантирует, что словарь
-    // всегда будет актуальным, включая только что пройденные раунды.
     LaunchedEffect(Unit) {
         viewModel.loadDictionary(forceRefresh = true)
     }
@@ -83,7 +77,6 @@ fun DictionaryScreen(
                     textAlign = TextAlign.Center
                 )
             } else {
-                // --- ИЗМЕНЕНИЕ: Передаем лямбду из ViewModel ---
                 DictionaryContent(
                     dictionary = dictionary,
                     onHebrewClick = { viewModel.onHebrewWordClicked(it) }
@@ -93,9 +86,6 @@ fun DictionaryScreen(
     }
 }
 
-/**
- * Верхняя панель с кнопкой "Назад" и Поиском.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DictionaryTopBar(
@@ -105,14 +95,13 @@ private fun DictionaryTopBar(
 ) {
     TopAppBar(
         title = {
-            // Поле поиска
             OutlinedTextField(
                 value = searchText,
                 onValueChange = onSearchTextChanged,
                 placeholder = { Text(stringResource(R.string.dictionary_search_placeholder)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 8.dp), // Отступ от 'actions'
+                    .padding(end = 8.dp),
                 singleLine = true,
                 trailingIcon = {
                     if (searchText.isNotEmpty()) {
@@ -134,13 +123,10 @@ private fun DictionaryTopBar(
     )
 }
 
-/**
- * Вертикальный скроллинг (LazyColumn) для пар.
- */
 @Composable
 private fun DictionaryContent(
     dictionary: List<List<String>>,
-    onHebrewClick: (String) -> Unit // <-- ИЗМЕНЕНИЕ
+    onHebrewClick: (String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -151,26 +137,22 @@ private fun DictionaryContent(
             DictionaryRow(
                 hebrew = pair.getOrNull(0) ?: "??",
                 translation = pair.getOrNull(1) ?: "??",
-                onHebrewClick = onHebrewClick // <-- Передаем лямбду
+                onHebrewClick = onHebrewClick
             )
         }
     }
 }
 
-/**
- * Одна строка в Словаре.
- */
 @OptIn(ExperimentalTextApi::class)
 @Composable
 private fun DictionaryRow(
     hebrew: String,
     translation: String,
-    onHebrewClick: (String) -> Unit // <-- ИЗМЕНЕНИЕ
+    onHebrewClick: (String) -> Unit
 ) {
-
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
         val styleConfig = CardStyles.getStyle(FontStyle.REGULAR)
@@ -186,39 +168,41 @@ private fun DictionaryRow(
                 text = translation,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp), // Малый отступ
                 fontSize = 18.sp,
                 textAlign = TextAlign.Start
             )
         }
 
-        // --- Карточка 2: Иврит (справа) + TTS ---
-        Card(
-            modifier = Modifier.weight(1f),
-            shape = MaterialTheme.shapes.medium,
-            // --- ИЗМЕНЕНИЕ: Вызываем лямбду ---
-            onClick = { onHebrewClick(hebrew) },
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            val hebrewTextStyle = TextStyle(
-                fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
-                    FontVariation.weight(styleConfig.fontWeight.roundToInt()),
-                    FontVariation.width(styleConfig.fontWidth)
-                ))),
-                textAlign = TextAlign.End,
-                textDirection = TextDirection.Rtl,
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        // --- Карточка 2: Иврит (справа) ---
+        // Принудительно задаем RTL контекст для этой карточки
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.medium,
+                onClick = { onHebrewClick(hebrew) },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                val hebrewTextStyle = TextStyle(
+                    fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
+                        FontVariation.weight(styleConfig.fontWeight.roundToInt()),
+                        FontVariation.width(styleConfig.fontWidth)
+                    ))),
+                    // Даже внутри RTL контейнера явно указываем Right для надежности
+                    textAlign = TextAlign.Right,
+                    fontSize = 26.sp, // УВЕЛИЧЕННЫЙ ШРИФТ
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-            Text(
-                text = hebrew,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                style = hebrewTextStyle
-            )
+                Text(
+                    text = hebrew,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp, vertical = 6.dp), // МИНИМАЛЬНЫЙ ОТСТУП
+                    style = hebrewTextStyle
+                )
+            }
         }
     }
 }

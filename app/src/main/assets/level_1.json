@@ -55,7 +55,7 @@
         }
       ],
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
       "distractorOptions": [],
       "taskTargetCards": [
         "מִי",
@@ -94,7 +94,7 @@
         }
       ],
       "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна. Как тебя(ж) зовут?\nЯ Нина.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
       "distractorOptions": [],
       "taskTargetCards": [
         "מִי",
@@ -320,7 +320,11 @@
       ],
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": [],
+      "distractorOptions": [
+        "אֲנִי",
+        "אֲתְ",
+        "מִי"
+      ],
       "taskTargetCards": [
         "מָה",
         "תַמִי",
@@ -345,7 +349,11 @@
       ],
       "uiDisplayTitle": "מָה תַמִי?\nתַמִי אִמָא.",
       "translationPrompt": "Кто это - Тами?\nТами это мама.",
-      "distractorOptions": [],
+      "distractorOptions": [
+        "אֲנִי",
+        "אֲתְ",
+        "מִי"
+      ],
       "taskTargetCards": [
         "מָה",
         "תַמִי",

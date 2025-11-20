@@ -17,6 +17,9 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 
+// ЕДИНЫЙ ТЕГ ДЛЯ ОТЛАДКИ ЗВУКА
+private const val TAG = "AUDIO_DEBUG"
+
 data class AssemblySlot(
     val id: UUID = UUID.randomUUID(),
     val text: String,
@@ -90,13 +93,17 @@ class CardViewModel @Inject constructor(
     private val _navigationEvent = Channel<NavigationEvent>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
+    private var desiredSegmentIndex: Int = -1
+
     init {
         viewModelScope.launch {
             audioPlayer.isPlaying.collect { isPlaying ->
-                // Log.d(AppDebug.TAG, "CardViewModel: Collected isPlaying = $isPlaying") // (Можно раскомментировать для отладки)
+                // Лог убран, чтобы не шуметь, если всё работает
+                val uiIndex = if (isPlaying) desiredSegmentIndex else -1
+
                 uiState = uiState.copy(
                     isAudioPlaying = isPlaying,
-                    playingSegmentIndex = if (isPlaying) uiState.playingSegmentIndex else -1
+                    playingSegmentIndex = uiIndex
                 )
             }
         }
@@ -108,22 +115,43 @@ class CardViewModel @Inject constructor(
 
     fun playFullAudio() {
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
+        Log.d(TAG, "VM: playFullAudio() -> Filename: ${currentSentence?.audioFilename}")
+
         currentSentence?.audioFilename?.let { filename ->
-            uiState = uiState.copy(playingSegmentIndex = -1)
+            desiredSegmentIndex = -1
             val speed = if (uiState.isSlowMode) 0.75f else 1.0f
             audioPlayer.play(filename, speed)
         }
     }
 
     fun playAudioSegment(index: Int) {
-        val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
-        val segment = currentSentence?.segments?.getOrNull(index)
-        val filename = currentSentence?.audioFilename
+        Log.d(TAG, "VM: playAudioSegment(index=$index) called")
 
-        if (segment != null && filename != null) {
-            uiState = uiState.copy(playingSegmentIndex = index)
+        val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
+        val segments = currentSentence?.segments
+
+        if (segments == null) {
+            Log.e(TAG, "VM: ERROR -> Segments list is NULL")
+            return
+        }
+
+        if (index < 0 || index >= segments.size) {
+            Log.e(TAG, "VM: ERROR -> Index $index out of bounds (Size: ${segments.size})")
+            return
+        }
+
+        val segment = segments[index]
+        val filename = currentSentence.audioFilename
+
+        Log.d(TAG, "VM: Found segment: start=${segment.startMs}, end=${segment.endMs}, file=$filename")
+
+        if (filename != null) {
+            desiredSegmentIndex = index
             val speed = if (uiState.isSlowMode) 0.75f else 1.0f
+
             audioPlayer.playSegment(filename, segment.startMs, segment.endMs, speed)
+        } else {
+            Log.e(TAG, "VM: ERROR -> Filename is null")
         }
     }
 
@@ -132,7 +160,11 @@ class CardViewModel @Inject constructor(
         val sentence = currentLevelSentences.getOrNull(index)
         this.currentTaskType = sentence?.taskType ?: TaskType.UNKNOWN
         this.currentSegments = sentence?.segments
+
+        Log.d(TAG, "VM: updateCurrentRoundIndex($index). TaskType: $currentTaskType. Segments count: ${currentSegments?.size ?: 0}")
     }
+
+    // ... (Остальной код ниже без изменений) ...
 
     fun getTaskTypeForRound(roundIndex: Int): TaskType {
         return currentLevelSentences.getOrNull(roundIndex)?.taskType ?: TaskType.UNKNOWN
@@ -345,8 +377,10 @@ class CardViewModel @Inject constructor(
             resultSnapshot = null,
             showResultSheet = false,
             playingSegmentIndex = -1,
-            isSlowMode = false // --- ИСПРАВЛЕНИЕ: Сброс скорости при старте нового раунда ---
+            isSlowMode = false
         )
+
+        desiredSegmentIndex = -1
 
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
@@ -356,7 +390,6 @@ class CardViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
-    // ... (Остальные методы без изменений) ...
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
@@ -470,7 +503,6 @@ class CardViewModel @Inject constructor(
             uiState = uiState.copy(showResultSheet = true)
             if (result == GameResult.WIN) {
                 newSnapshot.audioFilename?.let {
-                    // Играем финальную фразу с учетом текущей скорости, чтобы не сбивать пользователя, если он включил Черепаху
                     val speed = if (uiState.isSlowMode) 0.75f else 1.0f
                     audioPlayer.play(it, speed)
                 }
@@ -525,9 +557,5 @@ class CardViewModel @Inject constructor(
         super.onCleared()
         ttsPlayer.stop()
         audioPlayer.release()
-    }
-
-    companion object {
-        private const val TAG = "VIBRATE_DEBUG"
     }
 }
