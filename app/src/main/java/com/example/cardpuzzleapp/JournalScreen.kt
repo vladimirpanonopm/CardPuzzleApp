@@ -1,5 +1,7 @@
 package com.example.cardpuzzleapp
+
 import androidx.compose.ui.text.style.TextDirection
+import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -9,8 +11,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -38,26 +39,27 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
+private const val TAG = "JOURNAL_DEBUG"
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
-    levelId: Int,
     journalViewModel: JournalViewModel,
-    onBackClick: () -> Unit,
-    onTrackClick: () -> Unit,
-    initialRoundIndex: Int
+    onBackClick: () -> Unit
 ) {
-    val journalSentences = journalViewModel.journalSentences
+    Log.d(TAG, "UI: Composing JournalScreen")
+
+    val journalItems = journalViewModel.journalItems
+    val isLoading = journalViewModel.isLoading
     val coroutineScope = rememberCoroutineScope()
 
     var isFlipped by remember { mutableStateOf(false) }
-
     var journalFontSize by remember { mutableStateOf(journalViewModel.initialFontSize.sp) }
     var journalFontStyle by remember { mutableStateOf(journalViewModel.initialFontStyle) }
 
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var cardToDelete by remember { mutableStateOf<SentenceData?>(null) }
+    var itemToDelete by remember { mutableStateOf<JournalItem?>(null) }
 
     var showRepeatPanel by remember { mutableStateOf(false) }
     var pointA by remember { mutableStateOf<Int?>(null) }
@@ -66,30 +68,20 @@ fun JournalScreen(
     var playbackSpeed by remember { mutableStateOf(1.0f) }
     var pauseDuration by remember { mutableStateOf(1f) }
 
-    LaunchedEffect(key1 = levelId) {
-        journalViewModel.loadJournalForLevel(levelId)
+    LaunchedEffect(Unit) {
+        journalViewModel.loadGlobalJournal()
     }
 
     val pagerState = rememberPagerState(
         initialPage = 0,
-        pageCount = { journalSentences.size }
+        pageCount = { journalItems.size }
     )
 
-    LaunchedEffect(journalSentences, initialRoundIndex) {
-        if (journalSentences.isNotEmpty()) {
-            val page = if (initialRoundIndex != -1) {
-                val sentenceToShow = journalViewModel.currentLevelSentences.getOrNull(initialRoundIndex)
-                journalSentences.indexOf(sentenceToShow).coerceAtLeast(0)
-            } else 0
-            pagerState.scrollToPage(page)
-        }
-    }
-
-    LaunchedEffect(pagerState.isScrollInProgress, isFlipped, journalSentences.size) {
+    LaunchedEffect(pagerState.isScrollInProgress, isFlipped, journalItems.size) {
         if (pagerState.isScrollInProgress) {
             journalViewModel.stopAudio()
-        } else if (!isFlipped && !isLooping && journalSentences.isNotEmpty()) {
-            val currentPage = pagerState.currentPage.coerceIn(0, journalSentences.size - 1)
+        } else if (!isFlipped && !isLooping && journalItems.isNotEmpty()) {
+            val currentPage = pagerState.currentPage.coerceIn(0, journalItems.size - 1)
             journalViewModel.playSoundForPage(currentPage)
         }
     }
@@ -108,13 +100,10 @@ fun JournalScreen(
 
             while (isLooping) {
                 val currentPage = pagerState.currentPage
-
                 journalViewModel.playAndAwait(currentPage, playbackSpeed)
                 if (!isLooping) break
-
                 kotlinx.coroutines.delay((pauseDuration * 1000).toLong())
                 if (!isLooping) break
-
                 val nextPage = if (currentPage >= end) start else currentPage + 1
                 pagerState.animateScrollToPage(nextPage)
             }
@@ -128,61 +117,32 @@ fun JournalScreen(
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    LaunchedEffect(showRepeatPanel) {
-        if (showRepeatPanel) {
-            sheetState.expand()
-        }
-    }
-
     if (showRepeatPanel) {
-        ModalBottomSheet(
-            onDismissRequest = { showRepeatPanel = false },
-            sheetState = sheetState
-        ) {
+        ModalBottomSheet(onDismissRequest = { showRepeatPanel = false }, sheetState = sheetState) {
             RepeatControlPanel(
-                cardCount = journalSentences.size,
+                cardCount = journalItems.size,
                 currentCardIndex = pagerState.currentPage,
                 onSliderPositionChange = { newIndex ->
-                    if (newIndex != pagerState.currentPage) {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(newIndex)
-                        }
-                    }
+                    if (newIndex != pagerState.currentPage) coroutineScope.launch { pagerState.animateScrollToPage(newIndex) }
                 },
-                cardPreviewText = journalSentences.getOrNull(pagerState.currentPage)?.hebrew ?: "",
-                pointA = pointA,
-                pointB = pointB,
+                cardPreviewText = journalItems.getOrNull(pagerState.currentPage)?.sentence?.hebrew ?: "",
+                pointA = pointA, pointB = pointB,
                 onSetAClick = {
                     val localB = pointB
                     val newPointA = pagerState.currentPage
-                    if (localB != null && newPointA > localB) {
-                        pointA = localB
-                        pointB = newPointA
-                    } else {
-                        pointA = newPointA
-                    }
+                    if (localB != null && newPointA > localB) { pointA = localB; pointB = newPointA } else { pointA = newPointA }
                 },
                 onSetBClick = {
                     val localA = pointA
                     val newPointB = pagerState.currentPage
-                    if (localA != null && newPointB < localA) {
-                        pointB = localA
-                        pointA = newPointB
-                    } else {
-                        pointB = newPointB
-                    }
+                    if (localA != null && newPointB < localA) { pointB = localA; pointA = newPointB } else { pointB = newPointB }
                 },
                 onStartLoopClick = { isLooping = !isLooping },
-                isLooping = isLooping,
-                playbackSpeed = playbackSpeed,
-                onSpeedChange = { speed -> playbackSpeed = speed },
-                pauseDuration = pauseDuration,
-                onPauseChange = { duration -> pauseDuration = duration }
+                isLooping = isLooping, playbackSpeed = playbackSpeed, onSpeedChange = { playbackSpeed = it },
+                pauseDuration = pauseDuration, onPauseChange = { pauseDuration = it }
             )
         }
     }
-
 
     Scaffold(
         topBar = {
@@ -192,46 +152,27 @@ fun JournalScreen(
                 actions = {
                     Box {
                         IconButton(onClick = { fontMenuExpanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.TextFormat,
-                                contentDescription = stringResource(R.string.cd_font_settings)
-                            )
+                            Icon(Icons.Default.TextFormat, contentDescription = stringResource(R.string.cd_font_settings))
                         }
-                        DropdownMenu(
-                            expanded = fontMenuExpanded,
-                            onDismissRequest = { fontMenuExpanded = false }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                        DropdownMenu(expanded = fontMenuExpanded, onDismissRequest = { fontMenuExpanded = false }) {
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                                     FontStyle.values().forEach { style ->
                                         SegmentedButton(
                                             shape = RoundedCornerShape(16.dp),
-                                            onClick = {
-                                                journalFontStyle = style
-                                                journalViewModel.saveJournalFontStyle(style)
-                                            },
+                                            onClick = { journalFontStyle = style; journalViewModel.saveJournalFontStyle(style) },
                                             selected = journalFontStyle == style
-                                        ) {
-                                            Text(stringResource(style.displayNameRes))
-                                        }
+                                        ) { Text(stringResource(style.displayNameRes)) }
                                     }
                                 }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("A", fontSize = 16.sp)
                                     Slider(
                                         modifier = Modifier.weight(1f),
                                         value = journalFontSize.value,
                                         onValueChange = { journalFontSize = it.sp },
                                         valueRange = 28f..56f,
-                                        onValueChangeFinished = {
-                                            journalViewModel.saveJournalFontSize(journalFontSize.value)
-                                        }
+                                        onValueChangeFinished = { journalViewModel.saveJournalFontSize(journalFontSize.value) }
                                     )
                                     Text("A", fontSize = 32.sp)
                                 }
@@ -242,16 +183,14 @@ fun JournalScreen(
             )
         },
         bottomBar = {
-            if (journalSentences.isNotEmpty()) {
-                val currentPage = pagerState.currentPage.coerceIn(0, journalSentences.size - 1)
-                val currentSentence = journalSentences[currentPage]
+            if (journalItems.isNotEmpty()) {
+                val currentPage = pagerState.currentPage.coerceIn(0, journalItems.size - 1)
+                val currentItem = journalItems[currentPage]
                 AppBottomBar {
                     AppBottomBarIcon(
                         imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = stringResource(R.string.button_listen),
-                        onClick = {
-                            if (!isLooping) journalViewModel.playSoundForPage(currentPage)
-                        }
+                        onClick = { if (!isLooping) journalViewModel.playSoundForPage(currentPage) }
                     )
                     AppBottomBarIcon(
                         imageVector = Icons.Default.Repeat,
@@ -259,22 +198,14 @@ fun JournalScreen(
                         onClick = { showRepeatPanel = true }
                     )
                     AppBottomBarIcon(
-                        imageVector = Icons.AutoMirrored.Filled.PlaylistAddCheck,
-                        contentDescription = stringResource(R.string.round_track_title, levelId),
-                        onClick = onTrackClick
-                    )
-                    AppBottomBarIcon(
                         imageVector = Icons.Default.Restore,
                         contentDescription = stringResource(R.string.button_forget),
                         onClick = {
-                            val roundIndex = journalViewModel.currentLevelSentences.indexOf(currentSentence)
-                            if (roundIndex != -1) {
-                                coroutineScope.launch {
-                                    if (pagerState.currentPage > 0 && pagerState.currentPage == journalSentences.size - 1) {
-                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                    }
-                                    journalViewModel.resetSingleRoundProgress(roundIndex)
+                            coroutineScope.launch {
+                                if (pagerState.currentPage > 0 && pagerState.currentPage == journalItems.size - 1) {
+                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
                                 }
+                                journalViewModel.resetProgress(currentItem)
                             }
                         }
                     )
@@ -282,7 +213,7 @@ fun JournalScreen(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(R.string.button_delete),
                         onClick = {
-                            cardToDelete = currentSentence
+                            itemToDelete = currentItem
                             showDeleteDialog = true
                         }
                     )
@@ -290,32 +221,22 @@ fun JournalScreen(
             }
         }
     ) { paddingValues ->
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            color = MaterialTheme.colorScheme.surfaceContainer
-        ) {
-            if (showDeleteDialog && cardToDelete != null) {
+        Surface(modifier = Modifier.fillMaxSize().padding(paddingValues), color = MaterialTheme.colorScheme.surfaceContainer) {
+            if (showDeleteDialog && itemToDelete != null) {
                 AlertDialog(
                     onDismissRequest = { showDeleteDialog = false },
                     title = { Text(stringResource(R.string.dialog_delete_title)) },
                     text = { Text(stringResource(R.string.dialog_delete_body)) },
                     confirmButton = {
-                        TextButton(
-                            onClick = {
-                                val roundIndex = journalViewModel.currentLevelSentences.indexOf(cardToDelete)
-                                if (roundIndex != -1) {
-                                    coroutineScope.launch {
-                                        if (pagerState.currentPage > 0 && pagerState.currentPage == journalSentences.size - 1) {
-                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                        }
-                                        journalViewModel.archiveJournalCard(roundIndex)
-                                    }
+                        TextButton(onClick = {
+                            coroutineScope.launch {
+                                if (pagerState.currentPage > 0 && pagerState.currentPage == journalItems.size - 1) {
+                                    pagerState.animateScrollToPage(pagerState.currentPage - 1)
                                 }
-                                showDeleteDialog = false
+                                journalViewModel.archiveCard(itemToDelete!!)
                             }
-                        ) { Text(stringResource(R.string.button_yes)) }
+                            showDeleteDialog = false
+                        }) { Text(stringResource(R.string.button_yes)) }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.button_no)) }
@@ -323,20 +244,14 @@ fun JournalScreen(
                 )
             }
 
-            if (journalSentences.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            } else if (journalItems.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.journal_empty), style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
+                Box(Modifier.fillMaxSize().padding(vertical = 16.dp), contentAlignment = Alignment.TopCenter) {
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
@@ -344,21 +259,27 @@ fun JournalScreen(
                         userScrollEnabled = !isLooping
                     ) { pageIndex ->
                         val pageOffset = (pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction
-                        FlippableJournalCard(
-                            sentence = journalSentences[pageIndex],
-                            fontSize = journalFontSize,
-                            fontStyle = journalFontStyle,
-                            isFlipped = isFlipped,
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    scaleY = 1f - (abs(pageOffset) * 0.15f)
-                                    scaleX = 1f - (abs(pageOffset) * 0.15f)
-                                    alpha = 1f - (abs(pageOffset) * 0.5f)
-                                }
-                                .pointerInput(Unit) {
-                                    detectTapGestures(onTap = { if (!isLooping) isFlipped = !isFlipped })
-                                }
-                        )
+                        val item = journalItems.getOrNull(pageIndex)
+
+                        if (item != null) {
+                            FlippableJournalCard(
+                                sentence = item.sentence,
+                                fontSize = journalFontSize,
+                                fontStyle = journalFontStyle,
+                                isFlipped = isFlipped,
+                                levelId = item.levelId,
+                                roundIndex = item.roundIndex,
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        scaleY = 1f - (abs(pageOffset) * 0.15f)
+                                        scaleX = 1f - (abs(pageOffset) * 0.15f)
+                                        alpha = 1f - (abs(pageOffset) * 0.5f)
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(onTap = { if (!isLooping) isFlipped = !isFlipped })
+                                    }
+                            )
+                        }
                     }
                 }
             }
@@ -373,6 +294,8 @@ fun FlippableJournalCard(
     fontSize: TextUnit,
     fontStyle: FontStyle,
     isFlipped: Boolean,
+    levelId: Int,
+    roundIndex: Int,
     modifier: Modifier = Modifier
 ) {
     val animatedRotation by animateFloatAsState(
@@ -394,7 +317,9 @@ fun FlippableJournalCard(
                 sentence = sentence,
                 isHebrewSide = true,
                 fontSize = fontSize,
-                fontStyle = fontStyle
+                fontStyle = fontStyle,
+                levelId = levelId,
+                roundIndex = roundIndex
             )
         } else {
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
@@ -402,13 +327,14 @@ fun FlippableJournalCard(
                     sentence = sentence,
                     isHebrewSide = false,
                     fontSize = fontSize,
-                    fontStyle = fontStyle
+                    fontStyle = fontStyle,
+                    levelId = levelId,
+                    roundIndex = roundIndex
                 )
             }
         }
     }
 }
-
 
 @OptIn(ExperimentalTextApi::class)
 @Composable
@@ -416,7 +342,9 @@ private fun JournalPageContent(
     sentence: SentenceData,
     isHebrewSide: Boolean,
     fontSize: TextUnit,
-    fontStyle: FontStyle
+    fontStyle: FontStyle,
+    levelId: Int,
+    roundIndex: Int
 ) {
 
     Box(
@@ -432,20 +360,18 @@ private fun JournalPageContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.TopStart
+                    .padding(16.dp)
             ) {
                 val scrollState = rememberScrollState()
 
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(scrollState),
+                        .verticalScroll(scrollState)
+                        .padding(bottom = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 2. ТЕКСТ (Иврит)
                     if (isHebrewSide) {
-
                         val (textToShow, alignment) = when (sentence.taskType) {
                             TaskType.MATCHING_PAIRS -> {
                                 val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(0) ?: "" } ?: ""
@@ -471,7 +397,6 @@ private fun JournalPageContent(
                         }
 
                         val styleConfig = CardStyles.getStyle(fontStyle)
-
                         val hebrewTextStyle = if (fontStyle == FontStyle.REGULAR) {
                             TextStyle(
                                 fontFamily = FontFamily(Font(R.font.noto_sans_hebrew_variable, variationSettings = FontVariation.Settings(
@@ -483,7 +408,7 @@ private fun JournalPageContent(
                                 color = StickyNoteText,
                                 textDirection = TextDirection.Rtl
                             )
-                        } else { // CURSIVE
+                        } else {
                             TextStyle(
                                 fontFamily = fontStyle.fontFamily,
                                 fontSize = fontSize,
@@ -499,13 +424,13 @@ private fun JournalPageContent(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // 3. ТЕКСТ (Перевод)
                     } else {
+                        // --- ИСПРАВЛЕНИЕ: Используем sentence.translation ---
                         val (textToShow, alignment) = if (sentence.taskType == TaskType.MATCHING_PAIRS) {
                             val pairsText = sentence.task_pairs?.joinToString("\n") { it.getOrNull(1) ?: "" } ?: ""
                             pairsText to TextAlign.Left
                         } else {
-                            // Используем поле translation напрямую
+                            // Просто берем translation (он же русский)
                             sentence.translation to TextAlign.Left
                         }
 
@@ -521,6 +446,14 @@ private fun JournalPageContent(
                         )
                     }
                 }
+
+                // ФУТЕР
+                Text(
+                    text = "${stringResource(R.string.round_track_title, levelId)} • #${roundIndex + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = StickyNoteText.copy(alpha = 0.4f),
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
     }

@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(AppDebug.TAG, "MainActivity: onCreate")
 
         setContent {
             val navController = rememberNavController()
@@ -64,19 +65,16 @@ fun AppNavigation(
     dictionaryViewModel: DictionaryViewModel
 ) {
     val coroutineScope = rememberCoroutineScope()
-
-    // Всегда стартуем с главного меню
+    // Стартуем всегда с Карты (Home)
     val startDestination = "home"
 
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { event ->
-            val currentRoute = navController.currentDestination?.route
             when (event) {
                 is NavigationEvent.ShowRoundTrack -> {
-                    navController.navigate("round_track/${event.levelId}") {
-                        if (currentRoute != null && (currentRoute.startsWith("game") || currentRoute.startsWith("matching_game"))) {
-                            popUpTo(currentRoute) { inclusive = true }
-                        }
+                    // Возврат на карту после прохождения уровня
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
                     }
                 }
                 is NavigationEvent.ShowRound -> {
@@ -87,12 +85,8 @@ fun AppNavigation(
                         "game/${event.levelId}/${event.roundIndex}"
                     }
                     navController.navigate(route) {
-                        if (currentRoute != null) {
-                            if (currentRoute.startsWith("game") && taskType == TaskType.MATCHING_PAIRS) {
-                                popUpTo(currentRoute) { inclusive = true }
-                            } else if (currentRoute.startsWith("matching_game") && taskType != TaskType.MATCHING_PAIRS) {
-                                popUpTo(currentRoute) { inclusive = true }
-                            }
+                        if (navController.currentDestination?.route != route) {
+                            popUpTo("home") { inclusive = false }
                         }
                     }
                 }
@@ -113,18 +107,30 @@ fun AppNavigation(
     NavHost(navController = navController, startDestination = startDestination) {
 
         composable("home") {
-            HomeScreen(
-                viewModel = cardViewModel,
-                onStartLevel = { levelId ->
+            LevelMapScreen(
+                onAlefbetClick = { navController.navigate("alefbet") },
+                onSettingsClick = { navController.navigate("settings") },
+
+                // Глобальный журнал
+                onJournalClick = { navController.navigate("journal") },
+
+                onRoundClick = { levelId, roundIndex ->
                     coroutineScope.launch {
-                        val isFullyCompleted = cardViewModel.loadLevel(levelId)
-                        if (isFullyCompleted) {
-                            navController.navigate("round_track/$levelId")
+                        cardViewModel.ensureLevelLoaded(levelId)
+                        val taskType = cardViewModel.getTaskTypeForRound(roundIndex)
+
+                        if (taskType != TaskType.UNKNOWN) {
+                            val route = if (taskType == TaskType.MATCHING_PAIRS) {
+                                "matching_game/$levelId/$roundIndex?uid=${System.currentTimeMillis()}"
+                            } else {
+                                "game/$levelId/$roundIndex"
+                            }
+                            navController.navigate(route)
+                        } else {
+                            Log.e(AppDebug.TAG, "Nav: Error - Unknown task type")
                         }
                     }
-                },
-                onSettingsClick = { navController.navigate("settings") },
-                onAlefbetClick = { navController.navigate("alefbet") }
+                }
             )
         }
 
@@ -138,6 +144,7 @@ fun AppNavigation(
         composable("settings") {
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
+                // Удален параметр onLanguageChange, так как в SettingsScreen его больше нет
                 onResetProgress = {
                     cardViewModel.resetAllProgress()
                     navController.navigate("home") {
@@ -154,8 +161,6 @@ fun AppNavigation(
                 navArgument("roundIndex") { type = NavType.IntType }
             )
         ) { backStackEntry ->
-            // --- ИСПРАВЛЕНИЕ: Удалена неиспользуемая переменная levelId ---
-            // GameScreen получает уровень через ViewModel, который уже загружен
             val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
 
             GameScreen(
@@ -164,9 +169,7 @@ fun AppNavigation(
                 onHomeClick = {
                     navController.navigate("home") { popUpTo("home") { inclusive = true } }
                 },
-                onJournalClick = {
-                    navController.navigate("journal/${cardViewModel.currentLevelId}?roundIndex=${cardViewModel.currentRoundIndex}")
-                },
+                onJournalClick = { navController.navigate("journal") },
                 onTrackClick = { levelIdNav -> navController.navigate("round_track/$levelIdNav") },
                 onSkipClick = { cardViewModel.skipToNextAvailableRound() },
                 onDictionaryClick = { navController.navigate("dictionary") }
@@ -195,9 +198,7 @@ fun AppNavigation(
                 routeRoundIndex = roundIndex,
                 routeUid = uid,
                 onBackClick = { navController.popBackStack() },
-                onJournalClick = {
-                    navController.navigate("journal/${matchingViewModel.currentLevelId}?roundIndex=${matchingViewModel.currentRoundIndex}")
-                },
+                onJournalClick = { navController.navigate("journal") },
                 onTrackClick = { navController.navigate("round_track/${matchingViewModel.currentLevelId}") },
                 onDictionaryClick = { navController.navigate("dictionary") }
             )
@@ -210,23 +211,15 @@ fun AppNavigation(
                 viewModel = cardViewModel,
                 onHomeClick = { navController.navigate("home") { popUpTo("home") { inclusive = true } } },
                 onResetClick = { coroutineScope.launch { cardViewModel.resetCurrentLevelProgress() } },
-                onJournalClick = { navController.navigate("journal/$levelId?roundIndex=-1") },
+                onJournalClick = { navController.navigate("journal") },
                 onBackClick = { navController.popBackStack() }
             )
         }
 
-        composable("journal/{levelId}?roundIndex={roundIndex}", arguments = listOf(
-            navArgument("levelId") { type = NavType.IntType },
-            navArgument("roundIndex") { type = NavType.IntType; defaultValue = -1 }
-        )) { backStackEntry ->
-            val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
-            val initialRoundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: -1
+        composable("journal") {
             JournalScreen(
-                levelId = levelId,
                 journalViewModel = journalViewModel,
-                onBackClick = { navController.popBackStack() },
-                onTrackClick = { navController.navigate("round_track/$levelId") },
-                initialRoundIndex = initialRoundIndex
+                onBackClick = { navController.popBackStack() }
             )
         }
 

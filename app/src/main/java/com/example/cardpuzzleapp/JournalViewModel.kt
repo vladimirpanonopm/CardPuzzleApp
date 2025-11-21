@@ -1,5 +1,6 @@
 package com.example.cardpuzzleapp
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,6 +14,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+private const val TAG = "JOURNAL_DEBUG"
+
 @HiltViewModel
 class JournalViewModel @Inject constructor(
     private val progressManager: GameProgressManager,
@@ -21,11 +24,10 @@ class JournalViewModel @Inject constructor(
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
-    var journalSentences by mutableStateOf<List<SentenceData>>(emptyList())
+    var journalItems by mutableStateOf<List<JournalItem>>(emptyList())
         private set
 
-    private var currentLevelId: Int = -1
-    var currentLevelSentences by mutableStateOf<List<SentenceData>>(emptyList())
+    var isLoading by mutableStateOf(true)
         private set
 
     private var audioPlaybackJob: Job? = null
@@ -33,49 +35,87 @@ class JournalViewModel @Inject constructor(
     val initialFontSize: Float = progressManager.getJournalFontSize()
     val initialFontStyle: FontStyle = progressManager.getJournalFontStyle()
 
-    fun loadJournalForLevel(levelId: Int) {
-        if (levelId == -1) return
-        this.currentLevelId = levelId
+    fun loadGlobalJournal() {
+        Log.d(TAG, "VM: loadGlobalJournal() called")
 
         viewModelScope.launch(Dispatchers.IO) {
-            levelRepository.loadLevelDataIfNeeded(levelId)
-            val levelData = levelRepository.getSentencesForLevel(levelId)
+            try {
+                withContext(Dispatchers.Main) { isLoading = true }
 
-            withContext(Dispatchers.Main) {
-                this@JournalViewModel.currentLevelSentences = levelData
-                loadJournalSentences()
+                val allItems = mutableListOf<JournalItem>()
+
+                // 1. Получаем список всех уровней
+                Log.d(TAG, "VM: Fetching levels metadata...")
+                val levelsMeta = levelRepository.getLevelsMetadata()
+                Log.d(TAG, "VM: Found ${levelsMeta.size} levels")
+
+                // 2. Пробегаем по каждому уровню
+                for (meta in levelsMeta) {
+                    val levelId = meta.levelId
+                    // Log.d(TAG, "VM: Processing Level $levelId...") // (Раскомментируй, если нужно детальнее)
+
+                    // Грузим данные уровня
+                    levelRepository.loadLevelDataIfNeeded(levelId)
+                    val sentences = levelRepository.getSentencesForLevel(levelId)
+
+                    if (sentences.isEmpty()) {
+                        Log.w(TAG, "VM: Warning - Level $levelId has NO sentences loaded")
+                        continue
+                    }
+
+                    // 3. Получаем прогресс
+                    val completed = progressManager.getCompletedRounds(levelId)
+                    val archived = progressManager.getArchivedRounds(levelId)
+
+                    // Фильтр
+                    val activeIndices = completed - archived
+                    // Log.d(TAG, "VM: Level $levelId -> Active indices: ${activeIndices.size}")
+
+                    activeIndices.sorted().forEach { index ->
+                        val sentence = sentences.getOrNull(index)
+                        if (sentence != null) {
+                            // Фильтруем AUDITION
+                            if (sentence.taskType != TaskType.AUDITION) {
+                                allItems.add(JournalItem(
+                                    sentence = sentence,
+                                    levelId = levelId,
+                                    roundIndex = index
+                                ))
+                            }
+                        } else {
+                            Log.e(TAG, "VM: ERROR! Index $index in Level $levelId is out of bounds/null")
+                        }
+                    }
+                }
+
+                Log.d(TAG, "VM: Global Journal constructed. Total items: ${allItems.size}")
+
+                withContext(Dispatchers.Main) {
+                    journalItems = allItems
+                    isLoading = false
+                    Log.d(TAG, "VM: UI updated. isLoading = false")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "VM: CRASH inside loadGlobalJournal!", e)
+                e.printStackTrace()
+                // Не даем приложению упасть молча, сбрасываем загрузку
+                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }
 
-    private fun loadJournalSentences() {
-        if (currentLevelId == -1) return
+    // --- Методы управления ---
 
-        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
-        val allArchived = progressManager.getArchivedRounds(currentLevelId)
-
-        // Мы показываем только то, что в "Completed" и НЕ в "Archived"
-        val activeJournalIndices = allCompleted - allArchived
-
-        journalSentences = currentLevelSentences.filterIndexed { index, sentence ->
-            // ФИЛЬТР:
-            // 1. Индекс должен быть в списке "активных" (пройденных)
-            // 2. Тип задания НЕ должен быть AUDITION (аудирование в журнал не пишем)
-            val isAudition = sentence.taskType == TaskType.AUDITION
-            (index in activeJournalIndices) && !isAudition
-        }
+    fun resetProgress(item: JournalItem) {
+        Log.d(TAG, "VM: resetProgress for L${item.levelId}-R${item.roundIndex}")
+        progressManager.removeSingleRoundProgress(item.levelId, item.roundIndex)
+        loadGlobalJournal()
     }
 
-    fun resetSingleRoundProgress(roundIndex: Int) {
-        if (currentLevelId == -1) return
-        progressManager.removeSingleRoundProgress(currentLevelId, roundIndex)
-        loadJournalSentences()
-    }
-
-    fun archiveJournalCard(roundIndex: Int) {
-        if (currentLevelId == -1) return
-        progressManager.archiveRound(currentLevelId, roundIndex)
-        loadJournalSentences()
+    fun archiveCard(item: JournalItem) {
+        Log.d(TAG, "VM: archiveCard for L${item.levelId}-R${item.roundIndex}")
+        progressManager.archiveRound(item.levelId, item.roundIndex)
+        loadGlobalJournal()
     }
 
     fun saveJournalFontSize(size: Float) {
@@ -86,12 +126,15 @@ class JournalViewModel @Inject constructor(
         progressManager.saveJournalFontStyle(style)
     }
 
-    fun playSoundForPage(pageIndex: Int) {
-        stopAudio()
+    // --- Аудио ---
 
+    fun playSoundForPage(pageIndex: Int) {
+        Log.d(TAG, "VM: playSoundForPage($pageIndex)")
+        stopAudio()
         audioPlaybackJob?.cancel()
         audioPlaybackJob = viewModelScope.launch {
-            val sentence = journalSentences.getOrNull(pageIndex) ?: return@launch
+            val item = journalItems.getOrNull(pageIndex) ?: return@launch
+            val sentence = item.sentence
 
             if (sentence.taskType == TaskType.MATCHING_PAIRS) {
                 val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()
@@ -100,13 +143,15 @@ class JournalViewModel @Inject constructor(
                     delay(500)
                 }
             } else if (sentence.audioFilename != null) {
+                Log.d(TAG, "VM: Playing file ${sentence.audioFilename}")
                 audioPlayer.play(sentence.audioFilename)
             }
         }
     }
 
     suspend fun playAndAwait(pageIndex: Int, speed: Float) {
-        val sentence = journalSentences.getOrNull(pageIndex) ?: return
+        val item = journalItems.getOrNull(pageIndex) ?: return
+        val sentence = item.sentence
 
         if (sentence.taskType == TaskType.MATCHING_PAIRS) {
             val words = sentence.task_pairs?.mapNotNull { it.getOrNull(0) } ?: emptyList()

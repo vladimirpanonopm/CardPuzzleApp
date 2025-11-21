@@ -45,3 +45,15 @@ data class AvailableCardSlot(
     val card: Card,
     val isVisible: Boolean = true
 )
+// ... (остальные классы)
+
+/**
+ * Обертка для элемента Журнала.
+ * Хранит данные карточки + её адрес (уровень/раунд),
+ * чтобы мы могли удалять/восстанавливать её в конкретном уровне.
+ */
+data class JournalItem(
+    val sentence: SentenceData,
+    val levelId: Int,
+    val roundIndex: Int
+)
