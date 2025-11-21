@@ -848,7 +848,7 @@
       "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nמי מוֹרָה?",
       "translationPrompt": "",
       "correctOptions": [
-        "אוֹרָה מוֹרָה"
+        "אוֹרָה מוֹרָה."
       ],
       "distractorOptions": [
         "דָנִי",
@@ -860,31 +860,42 @@
       ]
     },
     {
-      "taskType": "FILL_IN_BLANK",
-      "audioFilename": "953e42b5df9e004c6118eaefd3bdff8e.mp3",
-      "segments": [
-        {
-          "text": "לֹא, דָנִי תַלְמִד.",
-          "start_ms": 0,
-          "end_ms": 1440
-        },
-        {
-          "text": "לֹא, אוֹרָה מוֹרָה.",
-          "start_ms": 1940,
-          "end_ms": 3380
-        }
-      ],
-      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nדָנִי מוֹרֶה?\nאוֹרָה תַלְמִדָה?\n___, דָנִי ___\n___, אוֹרָה ___",
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nדָנִי מוֹרֶה?",
       "translationPrompt": "",
       "correctOptions": [
+        "לֹא, דָנִי תַלְמִד."
+      ],
+      "distractorOptions": [
+        "מוֹרָה",
+        "מוֹרֶה",
+        "אוֹרָה"
+      ],
+      "taskTargetCards": [
         "לֹא",
-        "תַלְמִד",
-        "לֹא",
-        "מוֹרָה"
+        "דָנִי",
+        "תַלְמִד"
+      ]
+    },
+    {
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "דָנִי תַלְמִד.\nאוֹרָה מוֹרָה.\nאוֹרָה תַלְמִדָה?",
+      "translationPrompt": "",
+      "correctOptions": [
+        "לֹא, אוֹרָה מוֹרָה."
       ],
       "distractorOptions": [
         "מוֹרֶה",
         "תַלְמִדָה"
+      ],
+      "taskTargetCards": [
+        "לֹא",
+        "אוֹרָה",
+        "מוֹרָה"
       ]
     },
     {

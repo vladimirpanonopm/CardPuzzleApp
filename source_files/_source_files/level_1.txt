@@ -54,7 +54,7 @@ RUSSIAN_CORRECT:
 
 ===
 
-# --- Карточка 4 ---
+# --- Карточка 3 ---
 TASK: AUDITION
 HEBREW:
 מִי אַתָה?
@@ -75,7 +75,7 @@ male_d,500
 male_b
 ===
 
-# --- Карточка 2 ---
+# --- Карточка 4 ---
 TASK: MATCHING_PAIRS
 
 HEBREW_CORRECT:
@@ -88,7 +88,7 @@ RUSSIAN_CORRECT:
 кто?
 ===
 
-# --- Карточка 4 ---
+# --- Карточка 5 ---
 TASK: AUDITION
 HEBREW:
 מִי אֲתְ?
@@ -109,7 +109,7 @@ male_d,500
 female_c
 ===
 
-# --- Карточка 4 ---
+# --- Карточка 6 ---
 TASK: AUDITION
 HEBREW:
 מָה תַמִי?
@@ -128,7 +128,7 @@ female_c,400
 
 ===
 
-# --- Карточка 2 ---
+# --- Карточка 7 ---
 TASK: MATCHING_PAIRS
 
 HEBREW_CORRECT:
@@ -147,7 +147,7 @@ RUSSIAN_CORRECT:
 Мири (имя)
 ===
 
-# --- Карточка 2 ---
+# --- Карточка 8 ---
 TASK: AUDITION
 HEBREW:
 מִי אַתְ?
@@ -171,7 +171,7 @@ female_c,400
 female_a,400
 ===
 
-# --- Карточка 2 ---
+# --- Карточка 9 ---
 TASK: QUIZ
 #
 HEBREW_PROMPT:
@@ -190,7 +190,7 @@ HEBREW_DISTRACTORS:
 אַתְ
 אֲנִי
 ===
-# --- Карточка 2 ---
+# --- Карточка 10 ---
 TASK: QUIZ
 #
 HEBREW_PROMPT:
@@ -225,7 +225,7 @@ male_b,500
 male_d,400
 ===
 
-# --- Карточка 2 --- стр 8
+# --- Карточка 11 --- стр 8
 TASK: MATCHING_PAIRS
 
 HEBREW_CORRECT:
@@ -249,6 +249,7 @@ RUSSIAN_CORRECT:
 ученица
 Лод(город)
 ===
+# --- Карточка 12 --- стр 8
 TASK: AUDITION
 HEBREW:
 לִילִי מוֹרָה?
@@ -273,6 +274,7 @@ female_a,600
 female_c,500
 female_a
 ===
+# --- Карточка 13 --- стр 8
 TASK: QUIZ
 HEBREW_PROMPT:
 לִילִי מוֹרָה?
@@ -291,6 +293,7 @@ HEBREW_DISTRACTORS:
 אֶלָה
 
 ===
+# --- Карточка 14 --- стр 8
 TASK: QUIZ
 HEBREW_PROMPT:
 לִילִי מוֹרָה?
@@ -308,6 +311,7 @@ HEBREW_DISTRACTORS:
 אַתָ
 לִילִי
 ===
+# --- Карточка 15 --- стр 8
 TASK: AUDITION
 HEBREW:
 דָנִי תַלְמִד.
@@ -326,7 +330,7 @@ female_c,500
 female_a,600
 
 ===
-# --- Карточка 2 ---
+# --- Карточка 16 ---
 TASK: QUIZ
 #
 HEBREW_PROMPT:
@@ -341,7 +345,14 @@ HEBREW_CORRECT:
 HEBREW_DISTRACTORS:
 אוֹרָה
 מוֹרָה
+# 5. Аудио (ПОЛНАЯ фраза, разбитая на строки)
+HEBREW:
+דָנִי תַלְמִד. 
+# 6. Голос (по одной для каждой строки HEBREW)
+VOICES:
+female_c,500
 ===
+# --- Карточка 17 ---
 TASK: QUIZ
 #
 HEBREW_PROMPT:
@@ -351,50 +362,68 @@ HEBREW_PROMPT:
 מי מוֹרָה?
 #
 HEBREW_CORRECT:
-אוֹרָה מוֹרָה
+אוֹרָה מוֹרָה.
 #
 HEBREW_DISTRACTORS:
 דָנִי
 מוֹרֶה
+# 5. Аудио (ПОЛНАЯ фраза, разбитая на строки)
+HEBREW:
+אוֹרָה מוֹרָה. 
+# 6. Голос (по одной для каждой строки HEBREW)
+VOICES:
+female_c,500
 ===
-# --- Карточка 2 ---
+# --- Карточка 18 ---
+TASK: QUIZ
+# 1
+HEBREW_PROMPT:
+דָנִי תַלְמִד.
+אוֹרָה מוֹרָה.
 
-TASK: FILL_IN_BLANK
+דָנִי מוֹרֶה?
+# 2
+HEBREW_CORRECT:
+לֹא, דָנִי תַלְמִד.
+# 3
+HEBREW_DISTRACTORS:
+מוֹרָה
+מוֹרֶה
+אוֹרָה
+#
+# 5. Аудио (ПОЛНАЯ фраза, разбитая на строки)
+HEBREW:
+לֹא, דָנִי תַלְמִד. 
+#
+VOICES:
+female_c,500
+===
 
+# --- Карточка 19 ---
+TASK: QUIZ
+ 
 # 1. Задание 
 HEBREW_PROMPT:
 דָנִי תַלְמִד.
 אוֹרָה מוֹרָה.
-דָנִי מוֹרֶה?
 אוֹרָה תַלְמִדָה?
-___, דָנִי ___
-___, אוֹרָה ___
-
-# 2. Карточки (Правильные, ПО ПОРЯДКУ)
+#
 HEBREW_CORRECT:
-לֹא
-תַלְמִד
-לֹא
-מוֹרָה
+לֹא, אוֹרָה מוֹרָה. 
 # 3. Карточки (Неправильные)
 HEBREW_DISTRACTORS:
 מוֹרֶה
 תַלְמִדָה
 
-# 4. LTR-подсказка
-RUSSIAN:
-
-
 # 5. Аудио (ПОЛНАЯ фраза, разбитая на строки)
 HEBREW:
-לֹא, דָנִי תַלְמִד. 
 לֹא, אוֹרָה מוֹרָה. 
 # 6. Голос (по одной для каждой строки HEBREW)
 VOICES:
 female_c,500
-female_a,600
+
 ===
-# --- Карточка 2 ---
+# --- Карточка 20 ---
 
 TASK: FILL_IN_BLANK
 

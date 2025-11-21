@@ -36,6 +36,7 @@ class CardViewModel @Inject constructor(
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
+    // Regex для разбиения на слова и знаки препинания
     private val partsRegex = Regex("""([\u0590-\u05FF\']+)|\n|([.,:?!\s])""")
 
     data class GameUiState(
@@ -93,12 +94,13 @@ class CardViewModel @Inject constructor(
     private val _navigationEvent = Channel<NavigationEvent>()
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
+    // Храним индекс, который мы "хотим" играть
     private var desiredSegmentIndex: Int = -1
 
     init {
         viewModelScope.launch {
             audioPlayer.isPlaying.collect { isPlaying ->
-                // Лог убран, чтобы не шуметь, если всё работает
+                // Если играет - берем наш желаемый индекс. Если нет - -1.
                 val uiIndex = if (isPlaying) desiredSegmentIndex else -1
 
                 uiState = uiState.copy(
@@ -118,7 +120,7 @@ class CardViewModel @Inject constructor(
         Log.d(TAG, "VM: playFullAudio() -> Filename: ${currentSentence?.audioFilename}")
 
         currentSentence?.audioFilename?.let { filename ->
-            desiredSegmentIndex = -1
+            desiredSegmentIndex = -1 // Сбрасываем, играем всё
             val speed = if (uiState.isSlowMode) 0.75f else 1.0f
             audioPlayer.play(filename, speed)
         }
@@ -143,8 +145,6 @@ class CardViewModel @Inject constructor(
         val segment = segments[index]
         val filename = currentSentence.audioFilename
 
-        Log.d(TAG, "VM: Found segment: start=${segment.startMs}, end=${segment.endMs}, file=$filename")
-
         if (filename != null) {
             desiredSegmentIndex = index
             val speed = if (uiState.isSlowMode) 0.75f else 1.0f
@@ -160,11 +160,7 @@ class CardViewModel @Inject constructor(
         val sentence = currentLevelSentences.getOrNull(index)
         this.currentTaskType = sentence?.taskType ?: TaskType.UNKNOWN
         this.currentSegments = sentence?.segments
-
-        Log.d(TAG, "VM: updateCurrentRoundIndex($index). TaskType: $currentTaskType. Segments count: ${currentSegments?.size ?: 0}")
     }
-
-    // ... (Остальной код ниже без изменений) ...
 
     fun getTaskTypeForRound(roundIndex: Int): TaskType {
         return currentLevelSentences.getOrNull(roundIndex)?.taskType ?: TaskType.UNKNOWN
@@ -390,6 +386,8 @@ class CardViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
+    // --- МЕТОДЫ ПОДГОТОВКИ ЗАДАНИЙ (ОБНОВЛЕНЫ ДЛЯ ПУНКТУАЦИИ) ---
+
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
@@ -413,15 +411,24 @@ class CardViewModel @Inject constructor(
 
     private fun setupQuizTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
+        // Берем полный ответ с пунктуацией
+        val fullCorrectSentence = roundData.task_correct_cards?.joinToString(" ") ?: ""
+
         val targetWordsList = roundData.task_target_cards ?: emptyList()
         val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
+        val targetCardsIterator = targetCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
 
-        targetCards.forEachIndexed { index, card ->
-            newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = card))
-            if (index < targetCards.size - 1) {
-                newAssemblyLine.add(AssemblySlot(text = " ", isBlank = false, filledCard = null, targetCard = null))
+        val targetWordsSet = targetWordsList.toSet()
+
+        // Умный парсинг для QUIZ
+        partsRegex.findAll(fullCorrectSentence).forEach { match ->
+            val token = match.value
+            if (targetWordsSet.contains(token) && targetCardsIterator.hasNext()) {
+                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next()))
+            } else {
+                newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null))
             }
         }
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
@@ -433,13 +440,16 @@ class CardViewModel @Inject constructor(
         val correctCardsIterator = correctCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (correctCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
+
         val hebrewPrompt = roundData.hebrew
         val promptParts = hebrewPrompt.split("___")
 
         promptParts.forEachIndexed { index, part ->
+            // Умный парсинг кусочков вокруг пропуска
             partsRegex.findAll(part).forEach { match ->
                 newAssemblyLine.add(AssemblySlot(text = match.value, isBlank = false, filledCard = null, targetCard = null))
             }
+            // Если был пропуск
             if (index < promptParts.size - 1) {
                 if (correctCardsIterator.hasNext()) {
                     newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = correctCardsIterator.next()))
@@ -557,5 +567,9 @@ class CardViewModel @Inject constructor(
         super.onCleared()
         ttsPlayer.stop()
         audioPlayer.release()
+    }
+
+    companion object {
+        private const val TAG = "VIBRATE_DEBUG"
     }
 }
