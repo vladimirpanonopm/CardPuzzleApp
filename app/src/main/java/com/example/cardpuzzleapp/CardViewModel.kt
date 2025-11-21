@@ -157,9 +157,11 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    // --- ИСПРАВЛЕНИЕ: Используем правильный метод менеджера ---
     fun resetAllProgress() {
-        progressManager.resetAllProgress()
+        progressManager.resetAllProgressExceptLanguage()
     }
+    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     fun hideResultSheet() {
         uiState = uiState.copy(showResultSheet = false)
@@ -234,9 +236,7 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- НОВАЯ ФУНКЦИЯ: Безопасная загрузка для Карты ---
     suspend fun ensureLevelLoaded(levelId: Int) {
-        // Если уровень уже загружен, не делаем ничего лишнего
         if (currentLevelId == levelId && currentLevelSentences.isNotEmpty()) return
 
         levelRepository.loadLevelDataIfNeeded(levelId)
@@ -251,19 +251,13 @@ class CardViewModel @Inject constructor(
         wordDictionary = levelData
             .filter { !it.hebrew.contains(" ") }
             .associate { it.hebrew to (it.translation ?: "") }
-
-        // Мы НЕ меняем currentRoundIndex и НЕ отправляем событий навигации!
-        // MainActivity сама решит, куда идти.
     }
 
-    // --- СТАРАЯ ФУНКЦИЯ (Для автоматического продолжения) ---
     suspend fun loadLevel(levelId: Int): Boolean {
-        // Используем новую безопасную функцию для загрузки данных
         ensureLevelLoaded(levelId)
 
         if (currentLevelSentences.isEmpty()) return false
 
-        // А вот здесь уже логика "Найти следующий урок"
         val completedRounds = progressManager.getCompletedRounds(levelId)
         val archivedRounds = progressManager.getArchivedRounds(levelId)
         val totalRounds = currentLevelSentences.size
@@ -376,7 +370,6 @@ class CardViewModel @Inject constructor(
         isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
-    // ... (Методы setup без изменений) ...
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
@@ -425,7 +418,6 @@ class CardViewModel @Inject constructor(
         val correctCardsIterator = correctCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (correctCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
-
         val hebrewPrompt = roundData.hebrew
         val promptParts = hebrewPrompt.split("___")
 
@@ -454,19 +446,26 @@ class CardViewModel @Inject constructor(
         }
     }
 
+// ... (imports)
+// ... (class declaration)
+
     private fun endRound(result: GameResult) {
         timerJob?.cancel()
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
         val translation = currentSentence?.translation
 
         if (result == GameResult.WIN) {
+            // 1. Сначала ВСЕГДА сохраняем прогресс и количество ошибок (чтобы обновить цвет кружка)
+            progressManager.saveProgress(currentLevelId, currentRoundIndex, uiState.errorCount)
+
+            // 2. Если это Audition -> Сразу переносим в Архив (Журнал)
+            // (Функция archiveRound уберет его из "активных", но сохраненный выше рекорд ошибок останется в базе)
             if (currentTaskType == TaskType.AUDITION) {
                 progressManager.archiveRound(currentLevelId, currentRoundIndex)
-            } else {
-                progressManager.saveProgress(currentLevelId, currentRoundIndex)
             }
         }
 
+        // ... (остальной код создания snapshot без изменений)
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
@@ -502,6 +501,8 @@ class CardViewModel @Inject constructor(
             }
         }
     }
+
+    // ... (остальные методы без изменений)
 
     fun replayAuditionAudio() {
         playFullAudio()

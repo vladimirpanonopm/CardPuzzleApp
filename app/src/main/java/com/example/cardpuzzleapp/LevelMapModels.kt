@@ -1,30 +1,23 @@
 package com.example.cardpuzzleapp
 
-import java.util.UUID
-
 enum class RoundStatus {
-    LOCKED,     // Серый замок (нельзя нажать)
-    ACTIVE,     // Желтый пульсирующий (текущая цель)
-    COMPLETED   // Зеленый (можно повторить)
+    LOCKED,       // Серый (Закрыто)
+    ACTIVE,       // Желтый (Текущая цель)
+    PERFECT,      // Оранжевый (0 ошибок) - Элита
+    GOOD,         // Зеленый (1-3 ошибки) - Хорошо
+    PASSED        // Салатовый (>3 ошибок) - "Кое-как"
 }
 
-/**
- * Модель одного "Кружка" на карте.
- */
 data class RoundNode(
     val levelId: Int,
     val roundIndex: Int,
     val status: RoundStatus,
-    val label: String // "1", "2" или иконка
+    val label: String
 )
 
-/**
- * Модель целого Уровня (Главы) на карте.
- * Содержит заголовок и список кружков.
- */
 data class LevelMapItem(
     val levelId: Int,
-    val name: String, // "Уровень 1"
+    val name: String,
     val nodes: List<RoundNode>,
-    val isLocked: Boolean // Если true, весь уровень серый
+    val isLocked: Boolean
 )

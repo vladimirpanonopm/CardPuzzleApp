@@ -93,7 +93,7 @@ fun LevelMapScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp) // Отступы между уровнями
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
                         AlefbetHeader(onClick = onAlefbetClick)
@@ -144,26 +144,25 @@ fun AlefbetHeader(onClick: () -> Unit) {
     }
 }
 
+// Хелпер для проверки, пройден ли раунд (любой успешный статус)
+private fun isCompleted(status: RoundStatus): Boolean {
+    return status == RoundStatus.PERFECT || status == RoundStatus.GOOD || status == RoundStatus.PASSED
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpandableLevelSection(
     level: LevelMapItem,
     onRoundClick: (Int, Int) -> Unit
 ) {
-    // Определяем, активен ли уровень (есть ли в нем хоть один желтый или зеленый кружок)
-    // Если уровень заблокирован (серый) - он закрыт по умолчанию.
-    // Если уровень Активен (оранжевый) - он открыт по умолчанию.
     val isLevelActive = !level.isLocked
-
-    // Состояние развернутости (сохраняется при скролле)
     var isExpanded by rememberSaveable { mutableStateOf(isLevelActive) }
 
-    // Цвета заголовка
+    // --- ИСПРАВЛЕНИЕ: Обновленная логика цветов заголовка ---
     val headerColor = when {
         level.isLocked -> Color.LightGray
-        // Если уровень пройден полностью (все зеленые) -> Зеленый заголовок
-        level.nodes.all { it.status == RoundStatus.COMPLETED } -> Color(0xFF4CAF50)
-        // Иначе (в процессе) -> Оранжевый заголовок
+        // Если все раунды имеют любой из статусов "пройдено"
+        level.nodes.all { isCompleted(it.status) } -> Color(0xFF4CAF50)
         else -> Color(0xFFFF9800)
     }
 
@@ -179,7 +178,6 @@ fun ExpandableLevelSection(
         border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f))
     ) {
         Column {
-            // --- ЗАГОЛОВОК (КНОПКА) ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,14 +199,13 @@ fun ExpandableLevelSection(
                     }
 
                     Text(
-                        text = level.name, // "Уровень 1"
+                        text = level.name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = contentColor
                     )
                 }
 
-                // Стрелочка Вверх/Вниз
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
@@ -216,15 +213,14 @@ fun ExpandableLevelSection(
                 )
             }
 
-            // --- ВЫПАДАЮЩАЯ ЧАСТЬ (СЕТКА) ---
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
                 exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Прогресс бар внутри уровня (Опционально, для красоты)
-                    val completedCount = level.nodes.count { it.status == RoundStatus.COMPLETED }
+                    // --- ИСПРАВЛЕНИЕ: Считаем любые пройденные ---
+                    val completedCount = level.nodes.count { isCompleted(it.status) }
                     val totalCount = level.nodes.size
                     val progressText = if (level.isLocked) "Закрыто" else "Пройдено: $completedCount из $totalCount"
 
@@ -260,23 +256,26 @@ fun RoundNodeItem(
     node: RoundNode,
     onClick: () -> Unit
 ) {
+    // Активный кружок чуть больше
     val size = if (node.status == RoundStatus.ACTIVE) 70.dp else 60.dp
     val fontSize = if (node.status == RoundStatus.ACTIVE) 24.sp else 20.sp
 
     val backgroundColor = when (node.status) {
-        RoundStatus.COMPLETED -> Color(0xFF4CAF50) // Зеленый
-        RoundStatus.ACTIVE -> Color(0xFFFF9800)    // Оранжевый
+        RoundStatus.PERFECT -> Color(0xFFFF9800)   // Оранжевый (Золото)
+        RoundStatus.GOOD -> Color(0xFF4CAF50)      // Зеленый
+        RoundStatus.PASSED -> Color(0xFFAED581)    // Салатовый
+        RoundStatus.ACTIVE -> Color(0xFFFFEB3B)    // Желтый (Текущий)
         RoundStatus.LOCKED -> Color.LightGray
     }
 
     val contentColor = when (node.status) {
-        RoundStatus.COMPLETED -> Color.White
-        RoundStatus.ACTIVE -> Color.White
+        RoundStatus.PERFECT, RoundStatus.GOOD -> Color.White
+        RoundStatus.ACTIVE, RoundStatus.PASSED -> StickyNoteText
         RoundStatus.LOCKED -> Color.White
     }
 
     val borderStroke = if (node.status == RoundStatus.ACTIVE) {
-        BorderStroke(3.dp, Color(0xFFF57C00))
+        BorderStroke(3.dp, Color(0xFFFBC02D))
     } else null
 
     Box(
