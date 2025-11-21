@@ -1,0 +1,165 @@
+{
+  "levelId": "3",
+  "cards": [
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "612c39d625a2aae3d98e0e00a7fafc70.mp3",
+      "segments": [
+        {
+          "text": "נוּרִית, אַת מוֹרָה?",
+          "start_ms": 0,
+          "end_ms": 1296
+        },
+        {
+          "text": "לֹא, אֲנִי תַלְמִידָה.",
+          "start_ms": 1796,
+          "end_ms": 3188
+        }
+      ],
+      "uiDisplayTitle": "נוּרִית, אַת מוֹרָה?\nלֹא, אֲנִי תַלְמִידָה.",
+      "translationPrompt": "Нурит, ты учитель(ж)?\nНет, я ученица.",
+      "distractorOptions": [
+        "מוֹרָה",
+        "מוֹרֶה",
+        "תַלְמִיד",
+        "אוֹרָה"
+      ],
+      "taskTargetCards": [
+        "נוּרִית",
+        "אַת",
+        "מוֹרָה",
+        "לֹא",
+        "אֲנִי",
+        "תַלְמִידָה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "612c39d625a2aae3d98e0e00a7fafc70.mp3",
+      "segments": [
+        {
+          "text": "נוּרִית, אַת מוֹרָה?",
+          "start_ms": 0,
+          "end_ms": 1296
+        },
+        {
+          "text": "לֹא, אֲנִי תַלְמִידָה.",
+          "start_ms": 1796,
+          "end_ms": 3188
+        }
+      ],
+      "uiDisplayTitle": "נוּרִית, אַת מוֹרָה?\nלֹא, אֲנִי תַלְמִידָה.",
+      "translationPrompt": "Нурит, ты учитель(ж)?\nНет, я ученица.",
+      "distractorOptions": [
+        "מוֹרָה",
+        "מוֹרֶה",
+        "תַלְמִיד",
+        "אוֹרָה"
+      ],
+      "taskTargetCards": [
+        "נוּרִית",
+        "אַת",
+        "מוֹרָה",
+        "לֹא",
+        "אֲנִי",
+        "תַלְמִידָה"
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "8581acac351aa6add130c5ddb27f5adb.mp3",
+      "segments": [
+        {
+          "text": "אוֹרִית, אַת תַלְמִידָה?",
+          "start_ms": 0,
+          "end_ms": 1488
+        },
+        {
+          "text": "לֹא, אֲנִי מוֹרָה.",
+          "start_ms": 1988,
+          "end_ms": 3212
+        }
+      ],
+      "uiDisplayTitle": "אוֹרִית, אַת תַלְמִידָה?\nלֹא, אֲנִי מוֹרָה.",
+      "translationPrompt": "Орит, ты учиник(ж)?\nНет, я учитель.",
+      "distractorOptions": [
+        "מוֹרֶה",
+        "תַלְמִיד"
+      ],
+      "taskTargetCards": [
+        "אוֹרִית",
+        "אַת",
+        "תַלְמִידָה",
+        "לֹא",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "8581acac351aa6add130c5ddb27f5adb.mp3",
+      "segments": [
+        {
+          "text": "אוֹרִית, אַת תַלְמִידָה?",
+          "start_ms": 0,
+          "end_ms": 1488
+        },
+        {
+          "text": "לֹא, אֲנִי מוֹרָה.",
+          "start_ms": 1988,
+          "end_ms": 3212
+        }
+      ],
+      "uiDisplayTitle": "אוֹרִית, אַת תַלְמִידָה?\nלֹא, אֲנִי מוֹרָה.",
+      "translationPrompt": "Орит, ты учиник(ж)?\nНет, я учитель.",
+      "distractorOptions": [
+        "מוֹרֶה",
+        "תַלְמִיד"
+      ],
+      "taskTargetCards": [
+        "אוֹרִית",
+        "אַת",
+        "תַלְמִידָה",
+        "לֹא",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
+    },
+    {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "מְדַבֵּר",
+          "говорит(он)"
+        ],
+        [
+          "מְדַבֶּרֶת",
+          "говорит(она)"
+        ],
+        [
+          "אַבָּה",
+          "папа"
+        ],
+        [
+          "בָּא",
+          "приходит(он)"
+        ],
+        [
+          "בָּאָה",
+          "приходит(она)"
+        ],
+        [
+          "לוֹמֵד",
+          "учит(он)"
+        ],
+        [
+          "לוֹמֶדֶת",
+          "учит(она)"
+        ]
+      ]
+    }
+  ]
+}

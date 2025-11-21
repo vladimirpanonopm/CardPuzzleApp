@@ -1,0 +1,277 @@
+{
+  "levelId": "2",
+  "cards": [
+    {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "רוּתִי",
+          "Рути"
+        ],
+        [
+          "תוּת",
+          "клубника"
+        ],
+        [
+          "נוּרִית",
+          "Нурит"
+        ],
+        [
+          "אוּרִי",
+          "Юрий"
+        ]
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "963aea997513341cfe09d0d9685d542d.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 816
+        },
+        {
+          "text": "אֲנִי רוּתִי.",
+          "start_ms": 1316,
+          "end_ms": 2252
+        },
+        {
+          "text": "אַתְ מוֹרָה?",
+          "start_ms": 2752,
+          "end_ms": 3544
+        },
+        {
+          "text": "אֲנִי מוֹרָה.",
+          "start_ms": 4044,
+          "end_ms": 4908
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי רוּתִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Рути.\nТы учитель(ж)?\nЯ учитель(ж).",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "רוּתִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "963aea997513341cfe09d0d9685d542d.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 816
+        },
+        {
+          "text": "אֲנִי רוּתִי.",
+          "start_ms": 1316,
+          "end_ms": 2252
+        },
+        {
+          "text": "אַתְ מוֹרָה?",
+          "start_ms": 2752,
+          "end_ms": 3544
+        },
+        {
+          "text": "אֲנִי מוֹרָה.",
+          "start_ms": 4044,
+          "end_ms": 4908
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי רוּתִי.\nאַתְ מוֹרָה?\nאֲנִי מוֹרָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Рути.\nТы учитель(ж)?\nЯ учитель(ж).",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "רוּתִי",
+        "אַתְ",
+        "מוֹרָה",
+        "אֲנִי",
+        "מוֹרָה"
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "fc1d0b724f2db49bccaeeb4a3987395d.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתָה?",
+          "start_ms": 0,
+          "end_ms": 864
+        },
+        {
+          "text": "אֲנִי אוּרִי.",
+          "start_ms": 1364,
+          "end_ms": 2300
+        },
+        {
+          "text": "אַתָה תַלְמִיד?",
+          "start_ms": 2800,
+          "end_ms": 3808
+        },
+        {
+          "text": "לֹא, אֲנִי לֹא תַלְמִיד, אֲנִי מוֹרֶה.",
+          "start_ms": 4308,
+          "end_ms": 6612
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתָה?\nאֲנִי אוּרִי.\nאַתָה תַלְמִיד?\nלֹא, אֲנִי לֹא תַלְמִיד, אֲנִי מוֹרֶה.",
+      "translationPrompt": "Как тебя(м) зовут?\nЯ Юрий.\nТы ученик?\nНет, я не ученик, я учитель.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "אוּרִי",
+        "אַתָה",
+        "תַלְמִיד",
+        "לֹא",
+        "אֲנִי",
+        "לֹא",
+        "תַלְמִיד",
+        "אֲנִי",
+        "מוֹרֶה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "fc1d0b724f2db49bccaeeb4a3987395d.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתָה?",
+          "start_ms": 0,
+          "end_ms": 864
+        },
+        {
+          "text": "אֲנִי אוּרִי.",
+          "start_ms": 1364,
+          "end_ms": 2300
+        },
+        {
+          "text": "אַתָה תַלְמִיד?",
+          "start_ms": 2800,
+          "end_ms": 3808
+        },
+        {
+          "text": "לֹא, אֲנִי לֹא תַלְמִיד, אֲנִי מוֹרֶה.",
+          "start_ms": 4308,
+          "end_ms": 6612
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתָה?\nאֲנִי אוּרִי.\nאַתָה תַלְמִיד?\nלֹא, אֲנִי לֹא תַלְמִיד, אֲנִי מוֹרֶה.",
+      "translationPrompt": "Как тебя(м) зовут?\nЯ Юрий.\nТы ученик?\nНет, я не ученик, я учитель.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתָה",
+        "אֲנִי",
+        "אוּרִי",
+        "אַתָה",
+        "תַלְמִיד",
+        "לֹא",
+        "אֲנִי",
+        "לֹא",
+        "תַלְמִיד",
+        "אֲנִי",
+        "מוֹרֶה"
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "1a921a8266c248570e311be0a1fe52be.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 816
+        },
+        {
+          "text": "אֲנִי נוּרִית,",
+          "start_ms": 1316,
+          "end_ms": 2372
+        },
+        {
+          "text": "אֲנִי לֹא מוֹרָה, אֲנִי תַלְמִידָה.",
+          "start_ms": 2872,
+          "end_ms": 4864
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי נוּרִית,\nאֲנִי לֹא מוֹרָה, אֲנִי תַלְמִידָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Нурит,\nя не учитель, я ученица.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נוּרִית",
+        "אֲנִי",
+        "לֹא",
+        "מוֹרָה",
+        "אֲנִי",
+        "תַלְמִידָה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "1a921a8266c248570e311be0a1fe52be.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 816
+        },
+        {
+          "text": "אֲנִי נוּרִית,",
+          "start_ms": 1316,
+          "end_ms": 2372
+        },
+        {
+          "text": "אֲנִי לֹא מוֹרָה, אֲנִי תַלְמִידָה.",
+          "start_ms": 2872,
+          "end_ms": 4864
+        }
+      ],
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי נוּרִית,\nאֲנִי לֹא מוֹרָה, אֲנִי תַלְמִידָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Нурит,\nя не учитель, я ученица.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נוּרִית",
+        "אֲנִי",
+        "לֹא",
+        "מוֹרָה",
+        "אֲנִי",
+        "תַלְמִידָה"
+      ]
+    },
+    {
+      "taskType": "FILL_IN_BLANK",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "תַלְמִיד\t\t ___\nבָּא\t \t\t ___\nדוֹד\t\t\t ___\nמוֹרֶה\t\t ___",
+      "translationPrompt": "она\t\t\t\tон",
+      "correctOptions": [
+        "תַלְמִידָה",
+        "בָּאַה",
+        "דוֹדָה",
+        "מוֹרָה"
+      ],
+      "distractorOptions": []
+    }
+  ]
+}
