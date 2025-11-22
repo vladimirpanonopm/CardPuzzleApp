@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
-// --- МОДЕЛЬ ДЛЯ ЭЛЕМЕНТА ПАРЫ ---
 data class MatchItem(
     val id: UUID = UUID.randomUUID(),
     val text: String,
@@ -27,7 +26,6 @@ data class MatchItem(
     val isSelected: Boolean = false,
     val isHebrew: Boolean
 )
-// ---------------------------------
 
 private const val TAG = "MATCHING_DEBUG"
 
@@ -38,7 +36,6 @@ class MatchingViewModel @Inject constructor(
     private val ttsPlayer: TtsPlayer
 ) : ViewModel() {
 
-    // --- Игровое поле ---
     var hebrewCards by mutableStateOf<List<MatchItem>>(emptyList())
     var translationCards by mutableStateOf<List<MatchItem>>(emptyList())
 
@@ -49,7 +46,6 @@ class MatchingViewModel @Inject constructor(
     var loadedUid by mutableStateOf(0L)
         private set
 
-    // --- Состояние UI ---
     var currentTaskTitleResId by mutableStateOf(R.string.game_task_new_words)
         private set
     var isGameWon by mutableStateOf(false)
@@ -72,25 +68,19 @@ class MatchingViewModel @Inject constructor(
 
     private var currentLoadJob: Job? = null
 
-    // --- Каналы событий ---
     private val _hapticEventChannel = Channel<HapticEvent>()
     val hapticEvents = _hapticEventChannel.receiveAsFlow()
 
     private val _completionEventChannel = Channel<MatchingCompletionEvent>()
     val completionEvents = _completionEventChannel.receiveAsFlow()
 
-    // --- Состояние текущего раунда ---
     var currentLevelId: Int by mutableStateOf(1)
         private set
     var currentRoundIndex: Int by mutableStateOf(0)
         private set
 
     fun loadLevelAndRound(levelId: Int, roundIndex: Int, uid: Long) {
-        Log.w(TAG, "VM: loadLevelAndRound(uid=$uid) CALLED.")
-
-        if (loadedUid == uid && !isLoading) {
-            return
-        }
+        if (loadedUid == uid && !isLoading) return
 
         currentLoadJob?.cancel()
         isLoading = true
@@ -147,20 +137,13 @@ class MatchingViewModel @Inject constructor(
             originalTranslationCards = newTranslationList
             translationCards = newTranslationList
 
-            updateLastRoundAvailability(allLevelSentences)
+            // --- ИСПРАВЛЕНИЕ: Кнопка доступна, если в уровне >1 карточки ---
+            isLastRoundAvailable = allLevelSentences.size <= 1
+            // ---------------------------------------------------------------
 
             isLoading = false
             loadedUid = uid
         }
-    }
-
-    private fun updateLastRoundAvailability(allLevelSentences: List<SentenceData>) {
-        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
-        val allArchived = progressManager.getArchivedRounds(currentLevelId)
-        val uncompletedRounds = allLevelSentences.indices.filter {
-            !allCompleted.contains(it) && !allArchived.contains(it)
-        }
-        isLastRoundAvailable = uncompletedRounds.size <= 1
     }
 
     fun startExamMode() {
@@ -259,9 +242,7 @@ class MatchingViewModel @Inject constructor(
     private fun handleWin() {
         isGameWon = true
 
-        // --- ИСПРАВЛЕНИЕ: Теперь сохраняем количество ошибок! ---
         progressManager.saveProgress(currentLevelId, currentRoundIndex, errorCount)
-        // -------------------------------------------------------
 
         resultSnapshot = RoundResultSnapshot(
             gameResult = GameResult.WIN,

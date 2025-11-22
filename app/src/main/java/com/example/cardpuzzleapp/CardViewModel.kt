@@ -157,11 +157,9 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИСПРАВЛЕНИЕ: Используем правильный метод менеджера ---
     fun resetAllProgress() {
         progressManager.resetAllProgressExceptLanguage()
     }
-    // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     fun hideResultSheet() {
         uiState = uiState.copy(showResultSheet = false)
@@ -362,14 +360,12 @@ class CardViewModel @Inject constructor(
 
         desiredSegmentIndex = -1
 
-        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
-        val allArchived = progressManager.getArchivedRounds(currentLevelId)
-        val uncompletedRounds = currentLevelSentences.indices.filter {
-            !allCompleted.contains(it) && !allArchived.contains(it)
-        }
-        isLastRoundAvailable = uncompletedRounds.size <= 1
+        // --- ИСПРАВЛЕНИЕ: Кнопка "Далее" доступна, если в уровне >1 карточки ---
+        isLastRoundAvailable = currentLevelSentences.size <= 1
+        // -----------------------------------------------------------------------
     }
 
+    // ... (setup methods same)
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
@@ -446,26 +442,18 @@ class CardViewModel @Inject constructor(
         }
     }
 
-// ... (imports)
-// ... (class declaration)
-
     private fun endRound(result: GameResult) {
         timerJob?.cancel()
         val currentSentence = levelRepository.getSingleSentence(currentLevelId, currentRoundIndex)
         val translation = currentSentence?.translation
 
         if (result == GameResult.WIN) {
-            // 1. Сначала ВСЕГДА сохраняем прогресс и количество ошибок (чтобы обновить цвет кружка)
             progressManager.saveProgress(currentLevelId, currentRoundIndex, uiState.errorCount)
-
-            // 2. Если это Audition -> Сразу переносим в Архив (Журнал)
-            // (Функция archiveRound уберет его из "активных", но сохраненный выше рекорд ошибок останется в базе)
             if (currentTaskType == TaskType.AUDITION) {
                 progressManager.archiveRound(currentLevelId, currentRoundIndex)
             }
         }
 
-        // ... (остальной код создания snapshot без изменений)
         val allCompleted = progressManager.getCompletedRounds(currentLevelId)
         val allArchived = progressManager.getArchivedRounds(currentLevelId)
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
@@ -502,8 +490,6 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // ... (остальные методы без изменений)
-
     fun replayAuditionAudio() {
         playFullAudio()
     }
@@ -537,23 +523,36 @@ class CardViewModel @Inject constructor(
 
     fun skipToNextAvailableRound() {
         ttsPlayer.stop()
+
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
-        val activeRounds = currentLevelSentences.indices.filter { !completedRounds.contains(it) && !archivedRounds.contains(it) }
-        if (activeRounds.isEmpty()) return
-        val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
-        val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
-        val nextRound = activeRounds[nextIndexInActiveList]
-        viewModelScope.launch { _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound)) }
+
+        // 1. Сначала ищем реальные непройденные
+        val activeRounds = currentLevelSentences.indices.filter {
+            !completedRounds.contains(it) && !archivedRounds.contains(it)
+        }
+
+        val nextRound = if (activeRounds.size > 1) {
+            // Есть непройденные - прыгаем по ним
+            val currentIndexInActive = activeRounds.indexOf(currentRoundIndex)
+            val nextIndex = if (currentIndexInActive != -1) (currentIndexInActive + 1) % activeRounds.size else 0
+            activeRounds[nextIndex]
+        } else {
+            // --- ИСПРАВЛЕНИЕ: Если всё пройдено (Review) - просто следующий по порядку ---
+            (currentRoundIndex + 1) % currentLevelSentences.size
+        }
+
+        // Защита от прыжка на самого себя (если вообще всего 1 раунд в уровне)
+        if (nextRound == currentRoundIndex) return
+
+        viewModelScope.launch {
+            _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
         ttsPlayer.stop()
         audioPlayer.release()
-    }
-
-    companion object {
-        private const val TAG = "VIBRATE_DEBUG"
     }
 }

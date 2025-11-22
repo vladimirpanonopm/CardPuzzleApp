@@ -1,4 +1,5 @@
 package com.example.cardpuzzleapp
+
 import androidx.compose.ui.text.style.TextDirection
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
@@ -21,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp // <-- ИСПОЛЬЗУЕМ AutoMirrored
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Speed
@@ -30,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+// import androidx.compose.ui.draw.scale <-- БОЛЬШЕ НЕ НУЖЕН
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -63,7 +65,6 @@ private data class GameRoundState(
     val segments: List<AudioSegment>?
 )
 
-// --- ВАЖНО: ТЕГ ДЛЯ ЛОГОВ ---
 private const val AUDIO_TAG = "AUDIO_DEBUG"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
@@ -295,6 +296,7 @@ private fun GameScreenLayout(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = StickyNoteText),
                             border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.5f))
                         ) {
+                            // --- ИСПРАВЛЕНИЕ: AutoMirrored иконка ---
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = stringResource(R.string.button_listen),
@@ -352,34 +354,36 @@ private fun GameScreenLayout(
                         itemsIndexed(linesOfSlots) { index, lineSlots ->
                             val isPlayingThis = dynamicState.playingSegmentIndex == index
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isPlayingThis) Color.White else Color.Transparent)
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isPlayingThis) Color.White else Color.Transparent)
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
                                     IconButton(
                                         onClick = {
-                                            // --- ЛОГ НАЖАТИЯ ---
                                             Log.d(AUDIO_TAG, "UI: CLICKED speaker [$index]")
                                             viewModel.playAudioSegment(index)
                                         },
                                         enabled = true,
                                         modifier = Modifier.size(36.dp)
                                     ) {
+                                        // --- ИСПРАВЛЕНИЕ: Используем AutoMirrored.Filled.VolumeUp ---
+                                        // В RTL-контейнере она сама повернется влево.
+                                        // Scale больше не нужен.
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                             contentDescription = null,
                                             tint = if (isPlayingThis) Color.Black else StickyNoteText.copy(alpha = 0.6f)
                                         )
                                     }
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
                                     FlowRow(
                                         modifier = Modifier.weight(1f),
                                         horizontalArrangement = Arrangement.Start,
@@ -460,8 +464,8 @@ private fun GameScreenLayout(
                                         fontStyle = fontStyle,
                                         taskType = staticState.taskType,
                                         isInteractionEnabled = isInteractionEnabled,
-                                        isRoundWon = isRoundWon,
-                                        onReturnCardFromSlot = { }
+                                        isRoundWon = isRoundWon
+                                        // onReturnCardFromSlot удален
                                     )
                                 }
                                 else -> {}
@@ -518,8 +522,8 @@ private fun FillInBlankTaskLayout(
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
-    isRoundWon: Boolean,
-    onReturnCardFromSlot: (AssemblySlot) -> Unit
+    isRoundWon: Boolean
+    // --- ИСПРАВЛЕНИЕ: Убран неиспользуемый параметр onReturnCardFromSlot ---
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -547,7 +551,7 @@ private fun FillInBlankTaskLayout(
                             textStyle = textStyle,
                             fontStyle = fontStyle,
                             taskType = taskType,
-                            onReturnCard = { },
+                            onReturnCard = { }, // Здесь можно реализовать возврат, если понадобится
                             isInteractionEnabled = isInteractionEnabled
                         )
                     }
