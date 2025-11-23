@@ -194,26 +194,39 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['taskPairs'] = [list(p) for p in zip(data['HEBREW_CORRECT'], data['RUSSIAN_CORRECT'])]
 
             elif task_type == 'CONJUGATION':
-                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']  # Заголовок
+                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
-
                 raw_pairs = []
                 targets = []
-
                 for line in data['PAIRS']:
                     parts = line.split(',')
                     if len(parts) >= 2:
                         q = parts[0].strip()
                         a = parts[1].strip()
                         raw_pairs.append([q, a])
-
-                        # --- ИЗМЕНЕНИЕ: Разбиваем ответ на слова ---
                         ans_words = re.findall(hebrew_regex, a)
                         targets.extend(ans_words)
-                        # -------------------------------------------
-
                 card_json['taskPairs'] = raw_pairs
                 card_json['taskTargetCards'] = targets
+
+            # --- НОВЫЙ ТИП: MAKE_QUESTION ---
+            elif task_type == 'MAKE_QUESTION':
+                # ИЗМЕНЕНИЕ: Для Журнала и Аудио берем ПОЛНЫЙ текст (HEBREW block)
+                card_json['uiDisplayTitle'] = data['hebrew_display_text']
+
+                # ИЗМЕНЕНИЕ: Для Игры берем только промпт-ответ (HEBREW_PROMPT)
+                card_json['gamePrompt'] = data['hebrew_prompt_text']
+
+                card_json['translationPrompt'] = data['russian_translation_text']
+                card_json['correctOptions'] = data['HEBREW_CORRECT']
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
+
+                full_question = " ".join(data['HEBREW_CORRECT'])
+                card_json['taskTargetCards'] = re.findall(hebrew_regex, full_question)
+
+                audio_lines = data['HEBREW']
+                full_text_hash_source = data['hebrew_display_text']
+            # --------------------------------
 
         except Exception as e:
             print(f"Error: {e}")
@@ -228,6 +241,7 @@ def process_level_file(txt_filepath, assets_path):
             card_json['audioFilename'] = final_filename
 
             if len(audio_lines) != len(voices):
+                print("Mismatch lines/voices")
                 card_json['audioFilename'] = None
             else:
                 combined = AudioSegment.empty()

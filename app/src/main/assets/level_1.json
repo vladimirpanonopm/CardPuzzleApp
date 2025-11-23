@@ -2,6 +2,38 @@
   "levelId": "1",
   "cards": [
     {
+      "taskType": "MAKE_QUESTION",
+      "audioFilename": "8bb72d60b614497759bc1bccdd2a8aee.mp3",
+      "segments": [
+        {
+          "text": "אֵיפֹה אַתָה גָר?",
+          "start_ms": 0,
+          "end_ms": 1272
+        },
+        {
+          "text": "אֲנִי גָר בְּתֵל אָבִיב.",
+          "start_ms": 1772,
+          "end_ms": 3212
+        }
+      ],
+      "uiDisplayTitle": "אֵיפֹה אַתָה גָר?\nאֲנִי גָר בְּתֵל אָבִיב.",
+      "gamePrompt": "אֲנִי גָר בְּתֵל אָבִיב.",
+      "translationPrompt": "Где ты живешь?\nЯ живу в Тель-Авиве.",
+      "correctOptions": [
+        "אֵיפֹה אַתָה גָר?"
+      ],
+      "distractorOptions": [
+        "לָמָה",
+        "מִי",
+        "הוּא"
+      ],
+      "taskTargetCards": [
+        "אֵיפֹה",
+        "אַתָה",
+        "גָר"
+      ]
+    },
+    {
       "taskType": "CONJUGATION",
       "audioFilename": null,
       "segments": [],

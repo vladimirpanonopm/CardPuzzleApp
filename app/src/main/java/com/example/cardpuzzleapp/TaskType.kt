@@ -27,10 +27,13 @@ enum class TaskType {
     @SerialName("MATCHING_PAIRS")
     MATCHING_PAIRS,
 
-    // --- НОВЫЙ ТИП: Спряжение/Грамматика ---
     @SerialName("CONJUGATION")
     CONJUGATION,
-    // --------------------------------------
+
+    // --- НОВЫЙ ТИП: Задай вопрос ---
+    @SerialName("MAKE_QUESTION")
+    MAKE_QUESTION,
+    // ------------------------------
 
     // Тип по умолчанию, если парсинг не удался
     @SerialName("UNKNOWN")

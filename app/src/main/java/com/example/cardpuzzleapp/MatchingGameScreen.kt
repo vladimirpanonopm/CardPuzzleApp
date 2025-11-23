@@ -26,8 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection // Импорт
-import androidx.compose.ui.unit.LayoutDirection // Импорт
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.flow.collectLatest
@@ -68,7 +68,7 @@ fun MatchingGameScreen(
     val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(routeUid) {
-        cardViewModel.updateCurrentRoundIndex(routeRoundIndex)
+        // cardViewModel.updateCurrentRoundIndex(routeRoundIndex) // <-- УДАЛЕНО (MatchingViewModel управляет своим состоянием сам)
         viewModel.loadLevelAndRound(routeLevelId, routeRoundIndex, routeUid)
     }
 
@@ -160,7 +160,6 @@ fun MatchingGameScreen(
                             onItemClick = viewModel::onMatchItemClicked,
                             modifier = Modifier.fillMaxWidth(),
                             isHebrewColumn = false,
-                            roundIndex = viewModel.currentRoundIndex,
                             errorCount = viewModel.errorCount,
                             errorItemId = viewModel.errorItemId,
                             isExamMode = viewModel.isExamMode
@@ -179,7 +178,6 @@ fun MatchingGameScreen(
                             onItemClick = viewModel::onMatchItemClicked,
                             modifier = Modifier.fillMaxWidth(),
                             isHebrewColumn = true,
-                            roundIndex = viewModel.currentRoundIndex,
                             errorCount = viewModel.errorCount,
                             errorItemId = viewModel.errorItemId,
                             isExamMode = viewModel.isExamMode
@@ -234,7 +232,7 @@ private fun MatchColumn(
     onItemClick: (MatchItem) -> Unit,
     modifier: Modifier = Modifier,
     isHebrewColumn: Boolean,
-    roundIndex: Int,
+    // roundIndex удален, он не нужен здесь
     errorCount: Int,
     errorItemId: UUID?,
     isExamMode: Boolean
@@ -293,7 +291,6 @@ private fun MatchLineItem(
 
     val styleConfig = CardStyles.getStyle(FontStyle.REGULAR)
 
-    // --- ЯДЕРНОЕ РЕШЕНИЕ: ЕСЛИ ИВРИТ, ВКЛЮЧАЕМ RTL КОНТЕКСТ ---
     val currentDirection = if (isHebrew) LayoutDirection.Rtl else LayoutDirection.Ltr
 
     CompositionLocalProvider(LocalLayoutDirection provides currentDirection) {
@@ -315,7 +312,7 @@ private fun MatchLineItem(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp, horizontal = 6.dp), // <-- СЖАТЫЕ ОТСТУПЫ
+                    .padding(vertical = 6.dp, horizontal = 6.dp),
                 contentAlignment = if (isHebrew) Alignment.CenterEnd else Alignment.CenterStart
             ) {
                 val textStyle = if (isHebrew) {
@@ -324,14 +321,14 @@ private fun MatchLineItem(
                             FontVariation.weight(styleConfig.fontWeight.roundToInt()),
                             FontVariation.width(styleConfig.fontWidth)
                         ))),
-                        textAlign = TextAlign.Right, // Право
-                        fontSize = 26.sp, // <-- УВЕЛИЧЕННЫЙ ШРИФТ (26sp)
+                        textAlign = TextAlign.Right,
+                        fontSize = 26.sp,
                         color = StickyNoteText
                     )
                 } else {
                     TextStyle(
                         fontFamily = FontFamily.Default,
-                        textAlign = TextAlign.Left, // Лево
+                        textAlign = TextAlign.Left,
                         textDirection = TextDirection.Ltr,
                         fontSize = 20.sp,
                         color = StickyNoteText

@@ -61,11 +61,11 @@ private data class GameRoundState(
     val taskType: TaskType,
     val originalHebrewText: String?,
     val segments: List<AudioSegment>?,
-    // --- НОВОЕ ПОЛЕ ---
     val taskPairs: List<List<String>>?
 )
 
 private const val AUDIO_TAG = "AUDIO_DEBUG"
+private const val UI_TAG = "UI_DEBUG"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -88,6 +88,7 @@ fun GameScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(routeRoundIndex) {
+        Log.d(UI_TAG, "GameScreen: Loaded round $routeRoundIndex")
         viewModel.loadRound(routeRoundIndex)
         if (viewModel.currentTaskType == TaskType.AUDITION) {
             delay(800)
@@ -170,8 +171,6 @@ fun GameScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Извлекаем taskPairs напрямую из viewModel, если в roundState его нет
-            // (Но лучше передать через конструктор state)
             val currentSentence = viewModel.currentLevelSentences.getOrNull(viewModel.currentRoundIndex)
 
             val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.currentHebrewPrompt, viewModel.currentSegments) {
@@ -181,7 +180,6 @@ fun GameScreen(
                     taskType = viewModel.currentTaskType,
                     originalHebrewText = viewModel.currentHebrewPrompt,
                     segments = viewModel.currentSegments,
-                    // --- ДОБАВЛЕНО ---
                     taskPairs = currentSentence?.task_pairs
                 )
             }
@@ -465,9 +463,7 @@ private fun GameScreenLayout(
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                         Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
                             when (staticState.taskType) {
-                                // --- ОТРИСОВКА CONJUGATION ---
                                 TaskType.CONJUGATION -> {
-                                    // Передаем taskPairs, чтобы брать вопросы
                                     ConjugationTaskLayout(
                                         assemblyLine = dynamicState.assemblyLine,
                                         taskPairs = staticState.taskPairs ?: emptyList(),
@@ -478,7 +474,18 @@ private fun GameScreenLayout(
                                         isRoundWon = isRoundWon
                                     )
                                 }
-                                // -----------------------------
+
+                                TaskType.MAKE_QUESTION -> {
+                                    MakeQuestionTaskLayout(
+                                        assemblyLine = dynamicState.assemblyLine,
+                                        answerText = staticState.originalHebrewText ?: "",
+                                        textStyle = hebrewTextStyle,
+                                        fontStyle = fontStyle,
+                                        taskType = staticState.taskType,
+                                        isInteractionEnabled = isInteractionEnabled,
+                                        isRoundWon = isRoundWon
+                                    )
+                                }
 
                                 TaskType.ASSEMBLE_TRANSLATION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
                                     FillInBlankTaskLayout(
@@ -582,29 +589,37 @@ private fun FillInBlankTaskLayout(
     }
 }
 
-// --- ФУНКЦИЯ ОТРИСОВКИ ДЛЯ CONJUGATION ---
+// --- ФУНКЦИЯ ОТРИСОВКИ ДЛЯ CONJUGATION (ИСПРАВЛЕНА) ---
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConjugationTaskLayout(
     assemblyLine: List<AssemblySlot>,
-    taskPairs: List<List<String>>, // Добавлен параметр
+    taskPairs: List<List<String>>,
     textStyle: TextStyle,
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
     isRoundWon: Boolean
 ) {
-    // Итерируем по парам, которые пришли из JSON
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
+        // Итерируемся по списку ПАР, который пришел из JSON
         itemsIndexed(taskPairs) { index, pair ->
+            // Вопрос (статичный текст) - первый элемент пары
             val questionText = pair.getOrNull(0) ?: ""
 
-            // Фильтруем слоты, которые относятся к этой строке (по rowId)
+            // Ответные слоты - фильтруем assemblyLine по rowId
             val rowSlots = assemblyLine.filter { it.rowId == index }
+
+            // Отбрасываем ПЕРВЫЙ слот, если он дублирует вопрос (мы его добавляли в VM)
+            // Во ViewModel мы добавили: questionSlot (index 0) + answerSlots...
+            // Нам нужно нарисовать Question отдельно текстом, а AnswerSlots - во FlowRow
+
+            // Ищем слот-вопрос (он не isBlank)
+            val answerSlots = rowSlots.filter { it.isBlank || it.filledCard != null }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -618,14 +633,14 @@ private fun ConjugationTaskLayout(
                     modifier = Modifier.weight(1f).padding(end = 16.dp)
                 )
 
-                // 2. ОТВЕТ (Слева) - может быть несколько слотов/слов
+                // 2. ОТВЕТЫ (Слева)
                 FlowRow(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.Start,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (isRoundWon) {
-                        rowSlots.forEach { slot ->
+                        answerSlots.forEach { slot ->
                             val textToShow = slot.targetCard?.text ?: slot.text
                             Text(
                                 text = textToShow,
@@ -635,23 +650,15 @@ private fun ConjugationTaskLayout(
                             )
                         }
                     } else {
-                        rowSlots.forEach { slot ->
-                            if (!slot.isBlank) {
-                                Text(
-                                    text = slot.text,
-                                    style = textStyle,
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                )
-                            } else {
-                                AssemblySlotItem(
-                                    slot = slot,
-                                    textStyle = textStyle,
-                                    fontStyle = fontStyle,
-                                    taskType = taskType,
-                                    onReturnCard = { },
-                                    isInteractionEnabled = isInteractionEnabled
-                                )
-                            }
+                        answerSlots.forEach { slot ->
+                            AssemblySlotItem(
+                                slot = slot,
+                                textStyle = textStyle,
+                                fontStyle = fontStyle,
+                                taskType = taskType,
+                                onReturnCard = { },
+                                isInteractionEnabled = isInteractionEnabled
+                            )
                         }
                     }
                 }
@@ -659,6 +666,55 @@ private fun ConjugationTaskLayout(
 
             if (index < taskPairs.size - 1) {
                 HorizontalDivider(color = StickyNoteText.copy(alpha = 0.1f), modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+    }
+}
+// -------------------------------------------------------
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
+@Composable
+private fun MakeQuestionTaskLayout(
+    assemblyLine: List<AssemblySlot>,
+    answerText: String,
+    textStyle: TextStyle,
+    fontStyle: FontStyle,
+    taskType: TaskType,
+    isInteractionEnabled: Boolean,
+    isRoundWon: Boolean
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 1. СЛОТЫ (СВЕРХУ)
+        FillInBlankTaskLayout(
+            assemblyLine = assemblyLine,
+            textStyle = textStyle,
+            fontStyle = fontStyle,
+            taskType = taskType,
+            isInteractionEnabled = isInteractionEnabled,
+            isRoundWon = isRoundWon
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 2. ОТВЕТ (СНИЗУ) - БЕЗ ЗАГОЛОВКА "Тшува"
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White.copy(alpha = 0.8f),
+            modifier = Modifier.fillMaxWidth(),
+            shadowElevation = 2.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = answerText,
+                    style = textStyle,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
