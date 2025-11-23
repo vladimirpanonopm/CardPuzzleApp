@@ -1,5 +1,4 @@
 package com.example.cardpuzzleapp
-
 import androidx.compose.ui.text.style.TextDirection
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
@@ -22,7 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
-import androidx.compose.material.icons.automirrored.filled.VolumeUp // <-- ИСПОЛЬЗУЕМ AutoMirrored
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Speed
@@ -31,7 +30,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-// import androidx.compose.ui.draw.scale <-- БОЛЬШЕ НЕ НУЖЕН
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -62,7 +60,9 @@ private data class GameRoundState(
     val taskPrompt: String?,
     val taskType: TaskType,
     val originalHebrewText: String?,
-    val segments: List<AudioSegment>?
+    val segments: List<AudioSegment>?,
+    // --- НОВОЕ ПОЛЕ ---
+    val taskPairs: List<List<String>>?
 )
 
 private const val AUDIO_TAG = "AUDIO_DEBUG"
@@ -170,13 +170,19 @@ fun GameScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Извлекаем taskPairs напрямую из viewModel, если в roundState его нет
+            // (Но лучше передать через конструктор state)
+            val currentSentence = viewModel.currentLevelSentences.getOrNull(viewModel.currentRoundIndex)
+
             val roundState = remember(viewModel.currentRoundIndex, viewModel.currentTaskPrompt, viewModel.currentTaskType, viewModel.currentHebrewPrompt, viewModel.currentSegments) {
                 GameRoundState(
                     roundIndex = viewModel.currentRoundIndex,
                     taskPrompt = viewModel.currentTaskPrompt,
                     taskType = viewModel.currentTaskType,
                     originalHebrewText = viewModel.currentHebrewPrompt,
-                    segments = viewModel.currentSegments
+                    segments = viewModel.currentSegments,
+                    // --- ДОБАВЛЕНО ---
+                    taskPairs = currentSentence?.task_pairs
                 )
             }
 
@@ -296,7 +302,6 @@ private fun GameScreenLayout(
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = StickyNoteText),
                             border = BorderStroke(1.dp, StickyNoteText.copy(alpha = 0.5f))
                         ) {
-                            // --- ИСПРАВЛЕНИЕ: AutoMirrored иконка ---
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = stringResource(R.string.button_listen),
@@ -372,9 +377,6 @@ private fun GameScreenLayout(
                                         enabled = true,
                                         modifier = Modifier.size(36.dp)
                                     ) {
-                                        // --- ИСПРАВЛЕНИЕ: Используем AutoMirrored.Filled.VolumeUp ---
-                                        // В RTL-контейнере она сама повернется влево.
-                                        // Scale больше не нужен.
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                             contentDescription = null,
@@ -425,14 +427,20 @@ private fun GameScreenLayout(
 
                 } else {
                     if (!staticState.taskPrompt.isNullOrBlank()) {
+                        val isHebrewPrompt = staticState.taskType == TaskType.CONJUGATION
+                        val textDirection = if (isHebrewPrompt) TextDirection.Rtl else TextDirection.Ltr
+                        val textAlign = if (isHebrewPrompt) TextAlign.Right else TextAlign.Start
+
                         Text(
                             text = staticState.taskPrompt,
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 color = StickyNoteText.copy(alpha = 0.8f),
-                                textAlign = TextAlign.Start,
-                                textDirection = TextDirection.Ltr
+                                textAlign = textAlign,
+                                textDirection = textDirection
                             ),
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            modifier = Modifier
+                                .padding(bottom = 16.dp)
+                                .fillMaxWidth()
                         )
                     }
 
@@ -457,6 +465,21 @@ private fun GameScreenLayout(
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                         Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
                             when (staticState.taskType) {
+                                // --- ОТРИСОВКА CONJUGATION ---
+                                TaskType.CONJUGATION -> {
+                                    // Передаем taskPairs, чтобы брать вопросы
+                                    ConjugationTaskLayout(
+                                        assemblyLine = dynamicState.assemblyLine,
+                                        taskPairs = staticState.taskPairs ?: emptyList(),
+                                        textStyle = hebrewTextStyle,
+                                        fontStyle = fontStyle,
+                                        taskType = staticState.taskType,
+                                        isInteractionEnabled = isInteractionEnabled,
+                                        isRoundWon = isRoundWon
+                                    )
+                                }
+                                // -----------------------------
+
                                 TaskType.ASSEMBLE_TRANSLATION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
                                     FillInBlankTaskLayout(
                                         assemblyLine = dynamicState.assemblyLine,
@@ -465,7 +488,6 @@ private fun GameScreenLayout(
                                         taskType = staticState.taskType,
                                         isInteractionEnabled = isInteractionEnabled,
                                         isRoundWon = isRoundWon
-                                        // onReturnCardFromSlot удален
                                     )
                                 }
                                 else -> {}
@@ -523,7 +545,6 @@ private fun FillInBlankTaskLayout(
     taskType: TaskType,
     isInteractionEnabled: Boolean,
     isRoundWon: Boolean
-    // --- ИСПРАВЛЕНИЕ: Убран неиспользуемый параметр onReturnCardFromSlot ---
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -551,11 +572,93 @@ private fun FillInBlankTaskLayout(
                             textStyle = textStyle,
                             fontStyle = fontStyle,
                             taskType = taskType,
-                            onReturnCard = { }, // Здесь можно реализовать возврат, если понадобится
+                            onReturnCard = { },
                             isInteractionEnabled = isInteractionEnabled
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// --- ФУНКЦИЯ ОТРИСОВКИ ДЛЯ CONJUGATION ---
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ConjugationTaskLayout(
+    assemblyLine: List<AssemblySlot>,
+    taskPairs: List<List<String>>, // Добавлен параметр
+    textStyle: TextStyle,
+    fontStyle: FontStyle,
+    taskType: TaskType,
+    isInteractionEnabled: Boolean,
+    isRoundWon: Boolean
+) {
+    // Итерируем по парам, которые пришли из JSON
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 16.dp)
+    ) {
+        itemsIndexed(taskPairs) { index, pair ->
+            val questionText = pair.getOrNull(0) ?: ""
+
+            // Фильтруем слоты, которые относятся к этой строке (по rowId)
+            val rowSlots = assemblyLine.filter { it.rowId == index }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start
+            ) {
+                // 1. ВОПРОС (Справа)
+                Text(
+                    text = questionText,
+                    style = textStyle,
+                    modifier = Modifier.weight(1f).padding(end = 16.dp)
+                )
+
+                // 2. ОТВЕТ (Слева) - может быть несколько слотов/слов
+                FlowRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isRoundWon) {
+                        rowSlots.forEach { slot ->
+                            val textToShow = slot.targetCard?.text ?: slot.text
+                            Text(
+                                text = textToShow,
+                                style = textStyle,
+                                color = Color(0xFF4CAF50),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        rowSlots.forEach { slot ->
+                            if (!slot.isBlank) {
+                                Text(
+                                    text = slot.text,
+                                    style = textStyle,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            } else {
+                                AssemblySlotItem(
+                                    slot = slot,
+                                    textStyle = textStyle,
+                                    fontStyle = fontStyle,
+                                    taskType = taskType,
+                                    onReturnCard = { },
+                                    isInteractionEnabled = isInteractionEnabled
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (index < taskPairs.size - 1) {
+                HorizontalDivider(color = StickyNoteText.copy(alpha = 0.1f), modifier = Modifier.padding(top = 8.dp))
             }
         }
     }

@@ -21,13 +21,16 @@ enum class TaskType {
     @SerialName("AUDITION")
     AUDITION,
 
-    // --- ДОБАВЛЕНО ---
     @SerialName("QUIZ")
     QUIZ,
-    // --- КОНЕЦ ---
 
     @SerialName("MATCHING_PAIRS")
     MATCHING_PAIRS,
+
+    // --- НОВЫЙ ТИП: Спряжение/Грамматика ---
+    @SerialName("CONJUGATION")
+    CONJUGATION,
+    // --------------------------------------
 
     // Тип по умолчанию, если парсинг не удался
     @SerialName("UNKNOWN")

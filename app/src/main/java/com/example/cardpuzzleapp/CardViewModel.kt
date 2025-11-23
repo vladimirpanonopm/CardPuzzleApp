@@ -17,7 +17,6 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 
-// ЕДИНЫЙ ТЕГ ДЛЯ ОТЛАДКИ ЗВУКА
 private const val TAG = "AUDIO_DEBUG"
 
 data class AssemblySlot(
@@ -25,7 +24,10 @@ data class AssemblySlot(
     val text: String,
     val isBlank: Boolean,
     var filledCard: Card? = null,
-    val targetCard: Card? = null
+    val targetCard: Card? = null,
+    // --- НОВОЕ ПОЛЕ: ID строки для группировки в таблице ---
+    val rowId: Int = -1
+    // ------------------------------------------------------
 )
 
 @HiltViewModel
@@ -179,7 +181,7 @@ class CardViewModel @Inject constructor(
         var targetSlotIndex = -1
 
         when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION -> {
                 targetSlotIndex = uiState.assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
                 if (targetSlotIndex != -1) {
                     val targetSlot = uiState.assemblyLine[targetSlotIndex]
@@ -198,7 +200,7 @@ class CardViewModel @Inject constructor(
             }
 
             when (currentTaskType) {
-                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
+                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION -> {
                     val newAssemblyLine = uiState.assemblyLine.toMutableList()
                     if (targetSlotIndex != -1) {
                         newAssemblyLine[targetSlotIndex] = newAssemblyLine[targetSlotIndex].copy(filledCard = card)
@@ -223,7 +225,7 @@ class CardViewModel @Inject constructor(
 
     private fun checkWinCondition() {
         val didWin = when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION -> {
                 uiState.assemblyLine.none { it.isBlank && it.filledCard == null }
             }
             else -> false
@@ -332,6 +334,14 @@ class CardViewModel @Inject constructor(
                 newAvailableCards = available
                 newAssemblyLine = assembly
             }
+            TaskType.CONJUGATION -> {
+                newTaskTitleResId = R.string.game_task_fill_in_blank
+                newCurrentTaskPrompt = roundData.hebrew
+                val (target, available, assembly) = setupConjugationTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
+                newAssemblyLine = assembly
+            }
             TaskType.MATCHING_PAIRS -> {
                 newTaskTitleResId = R.string.game_task_matching
                 this.targetCards = emptyList()
@@ -360,12 +370,65 @@ class CardViewModel @Inject constructor(
 
         desiredSegmentIndex = -1
 
-        // --- ИСПРАВЛЕНИЕ: Кнопка "Далее" доступна, если в уровне >1 карточки ---
+        val allCompleted = progressManager.getCompletedRounds(currentLevelId)
+        val allArchived = progressManager.getArchivedRounds(currentLevelId)
         isLastRoundAvailable = currentLevelSentences.size <= 1
-        // -----------------------------------------------------------------------
     }
 
-    // ... (setup methods same)
+    private fun setupConjugationTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
+        val newAssemblyLine = mutableListOf<AssemblySlot>()
+
+        val targetWordsList = roundData.task_target_cards ?: emptyList()
+        val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
+        val targetCardsIterator = targetCards.iterator()
+
+        val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
+
+        val newAvailableCards = (targetCards + distractors).shuffled().map {
+            AvailableCardSlot(card = it, isVisible = true)
+        }
+
+        // --- ИЗМЕНЕНИЕ: Поддержка нескольких слотов в ответе ---
+        roundData.task_pairs?.forEachIndexed { index, pair ->
+            // Вопрос мы не добавляем в assemblyLine (он будет нарисован отдельно из taskPairs)
+
+            val answerText = pair.getOrNull(1) ?: ""
+
+            // Парсим ответ на токены
+            partsRegex.findAll(answerText).forEach { match ->
+                val token = match.value
+
+                // Если токен - целевое слово, это слот
+                // (Проверяем, есть ли он в списке таргетов)
+                // Важно: Мы не проверяем contains в set, потому что слова могут повторяться.
+                // Мы доверяем порядку targetCardsIterator, так как Python собрал targets в правильном порядке.
+
+                // Простая эвристика: если это ивритское слово, то это слот
+                if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
+                    newAssemblyLine.add(AssemblySlot(
+                        text = "___",
+                        isBlank = true,
+                        filledCard = null,
+                        targetCard = targetCardsIterator.next(),
+                        rowId = index // Привязываем к строке
+                    ))
+                } else {
+                    // Знаки препинания или пробелы
+                    newAssemblyLine.add(AssemblySlot(
+                        text = token,
+                        isBlank = false,
+                        filledCard = null,
+                        targetCard = null,
+                        rowId = index
+                    ))
+                }
+            }
+        }
+        // -------------------------------------------------------
+
+        return Triple(targetCards, newAvailableCards, newAssemblyLine)
+    }
+
     private fun setupAssemblyTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
@@ -459,7 +522,7 @@ class CardViewModel @Inject constructor(
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
         val completedCardsList = when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION -> {
                 uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
             }
             else -> emptyList()
@@ -523,36 +586,23 @@ class CardViewModel @Inject constructor(
 
     fun skipToNextAvailableRound() {
         ttsPlayer.stop()
-
         val completedRounds = progressManager.getCompletedRounds(currentLevelId)
         val archivedRounds = progressManager.getArchivedRounds(currentLevelId)
-
-        // 1. Сначала ищем реальные непройденные
-        val activeRounds = currentLevelSentences.indices.filter {
-            !completedRounds.contains(it) && !archivedRounds.contains(it)
-        }
-
-        val nextRound = if (activeRounds.size > 1) {
-            // Есть непройденные - прыгаем по ним
-            val currentIndexInActive = activeRounds.indexOf(currentRoundIndex)
-            val nextIndex = if (currentIndexInActive != -1) (currentIndexInActive + 1) % activeRounds.size else 0
-            activeRounds[nextIndex]
-        } else {
-            // --- ИСПРАВЛЕНИЕ: Если всё пройдено (Review) - просто следующий по порядку ---
-            (currentRoundIndex + 1) % currentLevelSentences.size
-        }
-
-        // Защита от прыжка на самого себя (если вообще всего 1 раунд в уровне)
-        if (nextRound == currentRoundIndex) return
-
-        viewModelScope.launch {
-            _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound))
-        }
+        val activeRounds = currentLevelSentences.indices.filter { !completedRounds.contains(it) && !archivedRounds.contains(it) }
+        if (activeRounds.isEmpty()) return
+        val currentIndexInActiveList = activeRounds.indexOf(currentRoundIndex)
+        val nextIndexInActiveList = if(currentIndexInActiveList != -1) (currentIndexInActiveList + 1) % activeRounds.size else 0
+        val nextRound = activeRounds[nextIndexInActiveList]
+        viewModelScope.launch { _navigationEvent.send(NavigationEvent.ShowRound(currentLevelId, nextRound)) }
     }
 
     override fun onCleared() {
         super.onCleared()
         ttsPlayer.stop()
         audioPlayer.release()
+    }
+
+    companion object {
+        private const val TAG = "VIBRATE_DEBUG"
     }
 }

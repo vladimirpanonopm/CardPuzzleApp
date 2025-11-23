@@ -2,6 +2,41 @@
   "levelId": "1",
   "cards": [
     {
+      "taskType": "CONJUGATION",
+      "audioFilename": null,
+      "segments": [],
+      "uiDisplayTitle": "תַלְמִיד /  תַלִמִדָה",
+      "distractorOptions": [
+        "מוֹרוֹת",
+        "יַלְדָה"
+      ],
+      "taskPairs": [
+        [
+          "תַלְמִיד",
+          "תַלְמִידִים"
+        ],
+        [
+          "מוֹרֶה",
+          "מוֹרִים"
+        ],
+        [
+          "יֶלֶד",
+          "יְלָדִים"
+        ],
+        [
+          "הוא מורה",
+          "היא מורה"
+        ]
+      ],
+      "taskTargetCards": [
+        "תַלְמִידִים",
+        "מוֹרִים",
+        "יְלָדִים",
+        "היא",
+        "מורה"
+      ]
+    },
+    {
       "taskType": "MATCHING_PAIRS",
       "audioFilename": null,
       "segments": [],

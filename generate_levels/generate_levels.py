@@ -7,12 +7,11 @@ import glob
 import re
 
 # --- 1. Настройки ---
-BASE_PROJECT_PATH = "/Users/vladimirrapoport/Debugging"  # <-- ПРОВЕРЬ СВОЙ ПУТЬ
+BASE_PROJECT_PATH = "/Users/vladimirrapoport/Debugging"
 SOURCE_DIR = os.path.join(BASE_PROJECT_PATH, "source_files/_source_files")
 ASSETS_DIR = os.path.join(BASE_PROJECT_PATH, "app/src/main/assets")
-
-# НОВАЯ ПАПКА ДЛЯ КЭША (Не удаляется скриптом!)
 CACHE_DIR = os.path.join(BASE_PROJECT_PATH, "source_files/_audio_cache")
+TEMP_DIR = os.path.join(BASE_PROJECT_PATH, "source_files/_temp_audio")
 
 # Пауза по умолчанию
 DEFAULT_SAFETY_PAUSE_MS = 500
@@ -26,7 +25,7 @@ VOICE_MAP = {
 }
 
 
-# --- 3. Google API (Низкоуровневая функция) ---
+# --- 3. Google API ---
 def call_google_tts(text_to_speak, voice_name, output_filename):
     try:
         client = texttospeech.TextToSpeechClient()
@@ -53,44 +52,35 @@ def call_google_tts(text_to_speak, voice_name, output_filename):
         return False
 
 
-# --- 3.1 УМНЫЙ МЕНЕДЖЕР АУДИО ---
 def get_audio_segment(text, voice_key):
-    """
-    Возвращает AudioSegment.
-    Сначала ищет в кэше. Если нет - звонит в Google.
-    """
     google_voice_name = VOICE_MAP.get(voice_key)
     if not google_voice_name:
         print(f"      !!! Voice not found: {voice_key}")
         return None
 
-    # Генерируем уникальное имя для кэша: Хеш от (Текст + Голос)
-    # Если поменять голос или текст хоть на букву - хеш изменится
     unique_string = f"{text}_{google_voice_name}"
     file_hash = hashlib.md5(unique_string.encode('utf-8')).hexdigest()
     cached_filename = os.path.join(CACHE_DIR, f"{file_hash}.mp3")
 
-    # 1. Проверяем кэш
     if os.path.exists(cached_filename):
-        # print(f"      📦 Cache hit: '{text}'") # Можно раскомментировать
         try:
             return AudioSegment.from_mp3(cached_filename)
         except Exception as e:
             print(f"      !!! Corrupted cache file: {cached_filename}. Deleting.")
             os.remove(cached_filename)
 
-    # 2. Если нет в кэше - генерируем
     if call_google_tts(text, google_voice_name, cached_filename):
         return AudioSegment.from_mp3(cached_filename)
 
     return None
 
 
-# --- 4. Парсер (Без изменений) ---
+# --- 4. Парсер ---
 def parse_card_block(block_text):
     data = {
         "HEBREW": [], "HEBREW_PROMPT": [], "HEBREW_CORRECT": [],
-        "HEBREW_DISTRACTORS": [], "RUSSIAN_CORRECT": [], "RUSSIAN": [], "VOICES": []
+        "HEBREW_DISTRACTORS": [], "RUSSIAN_CORRECT": [], "RUSSIAN": [],
+        "VOICES": [], "PAIRS": []
     }
     current_key = None
 
@@ -117,6 +107,8 @@ def parse_card_block(block_text):
             current_key = "RUSSIAN"; is_tag = True
         elif line.startswith("VOICES:"):
             current_key = "VOICES"; is_tag = True
+        elif line.startswith("PAIRS:"):
+            current_key = "PAIRS"; is_tag = True
 
         if is_tag:
             content = line.split(":", 1)[1].strip()
@@ -145,11 +137,8 @@ def process_level_file(txt_filepath, assets_path):
     level_id = base_name.replace("level_", "").replace(".txt", "")
     cards_list = []
 
-    # Папки
     audio_output_dir = os.path.join(assets_path, "audio")
     if not os.path.exists(audio_output_dir): os.makedirs(audio_output_dir)
-
-    # Создаем кэш, если нет
     if not os.path.exists(CACHE_DIR): os.makedirs(CACHE_DIR)
 
     with open(txt_filepath, 'r', encoding='utf-8') as f:
@@ -171,7 +160,6 @@ def process_level_file(txt_filepath, assets_path):
             "segments": []
         }
 
-        # --- Заполнение полей JSON (сокращено, логика та же) ---
         hebrew_regex = r'[\u0590-\u05FF\']+'
         audio_lines = []
         full_text_hash_source = ""
@@ -205,13 +193,34 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['uiDisplayTitle'] = data['russian_translation_text']
                 card_json['taskPairs'] = [list(p) for p in zip(data['HEBREW_CORRECT'], data['RUSSIAN_CORRECT'])]
 
+            elif task_type == 'CONJUGATION':
+                card_json['uiDisplayTitle'] = data['hebrew_prompt_text']  # Заголовок
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
+
+                raw_pairs = []
+                targets = []
+
+                for line in data['PAIRS']:
+                    parts = line.split(',')
+                    if len(parts) >= 2:
+                        q = parts[0].strip()
+                        a = parts[1].strip()
+                        raw_pairs.append([q, a])
+
+                        # --- ИЗМЕНЕНИЕ: Разбиваем ответ на слова ---
+                        ans_words = re.findall(hebrew_regex, a)
+                        targets.extend(ans_words)
+                        # -------------------------------------------
+
+                card_json['taskPairs'] = raw_pairs
+                card_json['taskTargetCards'] = targets
+
         except Exception as e:
             print(f"Error: {e}")
             continue
 
-        # --- СБОРКА АУДИО (ИЗ КЭША) ---
+        # --- Аудио ---
         if full_text_hash_source and voices:
-            # Хеш для имени финального файла (в assets)
             base_hash = hashlib.md5(full_text_hash_source.strip().encode('utf-8')).hexdigest()
             final_filename = f"{base_hash}.mp3"
             final_path = os.path.join(audio_output_dir, final_filename)
@@ -219,34 +228,26 @@ def process_level_file(txt_filepath, assets_path):
             card_json['audioFilename'] = final_filename
 
             if len(audio_lines) != len(voices):
-                print("Mismatch lines/voices")
                 card_json['audioFilename'] = None
             else:
-                # Собираем файл ЗАНОВО (в памяти), но используя готовые куски из кэша
-                # Это быстро и гарантирует правильные тайм-коды
                 combined = AudioSegment.empty()
                 segments_meta = []
                 curr_ms = 0
                 success = True
 
                 for line_idx, (line, v_info) in enumerate(zip(audio_lines, voices)):
-                    # 1. Достаем кусочек (из кэша или API)
                     segment_audio = get_audio_segment(line.strip(), v_info["key"])
-
                     if not segment_audio:
                         success = False;
                         break
 
                     duration = len(segment_audio)
-
-                    # 2. Пишем метрики
                     segments_meta.append({
                         "text": line.strip(),
                         "start_ms": curr_ms,
                         "end_ms": curr_ms + duration
                     })
 
-                    # 3. Добавляем в общий поток
                     manual_pause = v_info["pause_ms"]
                     pause = manual_pause if manual_pause > 0 else DEFAULT_SAFETY_PAUSE_MS
 
@@ -255,12 +256,10 @@ def process_level_file(txt_filepath, assets_path):
                     curr_ms += duration + pause
 
                 if success:
-                    # Сохраняем итоговый склеенный файл в assets
                     combined.export(final_path, format="mp3")
                     card_json['segments'] = segments_meta
-                    print(f"✅ Audio OK ({len(segments_meta)} segments)")
+                    print(f"✅ Audio OK ({len(segments_meta)})")
                 else:
-                    print("❌ Audio Fail")
                     card_json['audioFilename'] = None
 
         cards_list.append(card_json)
@@ -270,10 +269,8 @@ def process_level_file(txt_filepath, assets_path):
             cards_list.append(twin)
         print("")
 
-    # Сохранение JSON
     final_data = {"levelId": level_id, "cards": cards_list}
     json_path = os.path.join(assets_path, f"level_{level_id}.json")
-    # Удаляем старый (если был)
     if os.path.exists(json_path): os.remove(json_path)
 
     with open(json_path, 'w', encoding='utf-8') as f:
@@ -282,25 +279,15 @@ def process_level_file(txt_filepath, assets_path):
 
 
 def main():
-    if not os.path.exists(ASSETS_DIR):
-        print(f"Create folder: {ASSETS_DIR}")
-        os.makedirs(ASSETS_DIR)
+    if not os.path.exists(ASSETS_DIR): os.makedirs(ASSETS_DIR)
 
-    # Очищаем папку назначения (Assets), чтобы не копилось мусора
-    # Но НЕ трогаем кэш!
     audio_dest = os.path.join(ASSETS_DIR, "audio")
     if os.path.exists(audio_dest):
-        print("🧹 Cleaning assets/audio...")
-        for f in os.listdir(audio_dest):
-            os.remove(os.path.join(audio_dest, f))
+        for f in os.listdir(audio_dest): os.remove(os.path.join(audio_dest, f))
 
-    found = False
     for f in os.listdir(SOURCE_DIR):
         if f.startswith("level_") and f.endswith(".txt"):
-            found = True
             process_level_file(os.path.join(SOURCE_DIR, f), ASSETS_DIR)
-
-    if not found: print("No level_*.txt files found!")
 
 
 if __name__ == "__main__":
