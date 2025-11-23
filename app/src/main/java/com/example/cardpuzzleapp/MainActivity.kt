@@ -65,28 +65,22 @@ fun AppNavigation(
     dictionaryViewModel: DictionaryViewModel
 ) {
     val coroutineScope = rememberCoroutineScope()
-    // Стартуем всегда с Карты (Home)
     val startDestination = "home"
 
     LaunchedEffect(Unit) {
         cardViewModel.navigationEvent.collectLatest { event ->
+            val currentRoute = navController.currentDestination?.route
             when (event) {
                 is NavigationEvent.ShowRoundTrack -> {
-                    // Возврат на карту после прохождения уровня
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
                 }
                 is NavigationEvent.ShowRound -> {
-                    val taskType = cardViewModel.getTaskTypeForRound(event.roundIndex)
-                    val route = if (taskType == TaskType.MATCHING_PAIRS) {
-                        "matching_game/${event.levelId}/${event.roundIndex}?uid=${System.currentTimeMillis()}"
-                    } else {
-                        "game/${event.levelId}/${event.roundIndex}"
-                    }
+                    val route = "game/${event.levelId}/${event.roundIndex}"
                     navController.navigate(route) {
-                        if (navController.currentDestination?.route != route) {
-                            popUpTo("home") { inclusive = false }
+                        if (currentRoute != null && currentRoute.startsWith("game")) {
+                            popUpTo(currentRoute) { inclusive = true }
                         }
                     }
                 }
@@ -110,8 +104,6 @@ fun AppNavigation(
             LevelMapScreen(
                 onAlefbetClick = { navController.navigate("alefbet") },
                 onSettingsClick = { navController.navigate("settings") },
-
-                // Глобальный журнал
                 onJournalClick = { navController.navigate("journal") },
 
                 onRoundClick = { levelId, roundIndex ->
@@ -120,17 +112,13 @@ fun AppNavigation(
                         val taskType = cardViewModel.getTaskTypeForRound(roundIndex)
 
                         if (taskType != TaskType.UNKNOWN) {
-                            val route = if (taskType == TaskType.MATCHING_PAIRS) {
-                                "matching_game/$levelId/$roundIndex?uid=${System.currentTimeMillis()}"
-                            } else {
-                                "game/$levelId/$roundIndex"
-                            }
-                            navController.navigate(route)
+                            navController.navigate("game/$levelId/$roundIndex")
                         } else {
                             Log.e(AppDebug.TAG, "Nav: Error - Unknown task type")
                         }
                     }
                 }
+                // onRewardClick УДАЛЕН
             )
         }
 
@@ -144,7 +132,6 @@ fun AppNavigation(
         composable("settings") {
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
-                // Удален параметр onLanguageChange, так как в SettingsScreen его больше нет
                 onResetProgress = {
                     cardViewModel.resetAllProgress()
                     navController.navigate("home") {
@@ -172,34 +159,6 @@ fun AppNavigation(
                 onJournalClick = { navController.navigate("journal") },
                 onTrackClick = { levelIdNav -> navController.navigate("round_track/$levelIdNav") },
                 onSkipClick = { cardViewModel.skipToNextAvailableRound() },
-                onDictionaryClick = { navController.navigate("dictionary") }
-            )
-        }
-
-        composable(
-            route = "matching_game/{levelId}/{roundIndex}?uid={uid}",
-            arguments = listOf(
-                navArgument("levelId") { type = NavType.IntType },
-                navArgument("roundIndex") { type = NavType.IntType },
-                navArgument("uid") { type = NavType.LongType; defaultValue = 0L }
-            ),
-            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(330)) },
-            exitTransition = { slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(330)) },
-            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(330)) }
-        ) { backStackEntry ->
-            val levelId = backStackEntry.arguments?.getInt("levelId") ?: 1
-            val roundIndex = backStackEntry.arguments?.getInt("roundIndex") ?: 0
-            val uid = backStackEntry.arguments?.getLong("uid") ?: 0L
-
-            MatchingGameScreen(
-                cardViewModel = cardViewModel,
-                viewModel = matchingViewModel,
-                routeLevelId = levelId,
-                routeRoundIndex = roundIndex,
-                routeUid = uid,
-                onBackClick = { navController.popBackStack() },
-                onJournalClick = { navController.navigate("journal") },
-                onTrackClick = { navController.navigate("round_track/${matchingViewModel.currentLevelId}") },
                 onDictionaryClick = { navController.navigate("dictionary") }
             )
         }

@@ -246,6 +246,8 @@ private fun GameScreenLayout(
     val isInteractionEnabled = !dynamicState.isAudioPlaying
     val isSlowMode = dynamicState.isSlowMode
     val styleConfig = CardStyles.getStyle(fontStyle)
+    val isPreGameLearning = dynamicState.isPreGameLearning
+    val displayPairs = dynamicState.displayPairs
 
     val baseFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
     val animatedFontSize by animateFloatAsState(
@@ -425,7 +427,7 @@ private fun GameScreenLayout(
 
                 } else {
                     if (!staticState.taskPrompt.isNullOrBlank()) {
-                        val isHebrewPrompt = staticState.taskType == TaskType.CONJUGATION
+                        val isHebrewPrompt = staticState.taskType == TaskType.CONJUGATION || staticState.taskType == TaskType.MATCHING_PAIRS
                         val textDirection = if (isHebrewPrompt) TextDirection.Rtl else TextDirection.Ltr
                         val textAlign = if (isHebrewPrompt) TextAlign.Right else TextAlign.Start
 
@@ -463,15 +465,18 @@ private fun GameScreenLayout(
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                         Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
                             when (staticState.taskType) {
-                                TaskType.CONJUGATION -> {
+                                TaskType.CONJUGATION, TaskType.MATCHING_PAIRS -> {
                                     ConjugationTaskLayout(
                                         assemblyLine = dynamicState.assemblyLine,
-                                        taskPairs = staticState.taskPairs ?: emptyList(),
+                                        taskPairs = displayPairs,
                                         textStyle = hebrewTextStyle,
                                         fontStyle = fontStyle,
                                         taskType = staticState.taskType,
                                         isInteractionEnabled = isInteractionEnabled,
-                                        isRoundWon = isRoundWon
+                                        isRoundWon = isRoundWon,
+                                        isPreGameLearning = isPreGameLearning,
+                                        onCardClickInLearning = { cardText -> viewModel.speakWord(cardText) },
+                                        swapColumns = (staticState.taskType == TaskType.MATCHING_PAIRS)
                                     )
                                 }
 
@@ -506,34 +511,54 @@ private fun GameScreenLayout(
         }
 
         if (!isRoundWon) {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                FlowRow(
+            if (isPreGameLearning) {
+                Box(
                     modifier = Modifier
                         .weight(0.3f)
                         .fillMaxSize()
-                        .background(Color.White)
-                        .verticalScroll(rememberScrollState())
-                        .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
                 ) {
-                    dynamicState.availableCards.forEach { slot ->
-                        key(slot.id) {
-                            Shakeable(
-                                trigger = dynamicState.errorCount,
-                                errorCardId = dynamicState.errorCardId,
-                                currentCardId = slot.card.id
-                            ) { shakeModifier ->
-                                SelectableCard(
-                                    modifier = shakeModifier,
-                                    card = slot.card,
-                                    onSelect = { viewModel.selectCard(slot) },
-                                    fontStyle = fontStyle,
-                                    taskType = staticState.taskType,
-                                    isAssembledCard = false,
-                                    isVisible = slot.isVisible,
-                                    isInteractionEnabled = isInteractionEnabled
-                                )
+                    Button(
+                        onClick = { viewModel.startGame() },
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(60.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    ) {
+                        Text("Я запомнил, начать!", fontSize = 24.sp)
+                    }
+                }
+            } else {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    FlowRow(
+                        modifier = Modifier
+                            .weight(0.3f)
+                            .fillMaxSize()
+                            .background(Color.White)
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        dynamicState.availableCards.forEach { slot ->
+                            key(slot.id) {
+                                Shakeable(
+                                    trigger = dynamicState.errorCount,
+                                    errorCardId = dynamicState.errorCardId,
+                                    currentCardId = slot.card.id
+                                ) { shakeModifier ->
+                                    SelectableCard(
+                                        modifier = shakeModifier,
+                                        card = slot.card,
+                                        onSelect = { viewModel.selectCard(slot) },
+                                        fontStyle = fontStyle,
+                                        taskType = staticState.taskType,
+                                        isAssembledCard = false,
+                                        isVisible = slot.isVisible,
+                                        isInteractionEnabled = isInteractionEnabled
+                                    )
+                                }
                             }
                         }
                     }
@@ -543,6 +568,7 @@ private fun GameScreenLayout(
     }
 }
 
+// ... (FillInBlankTaskLayout без изменений) ...
 @OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
 @Composable
 private fun FillInBlankTaskLayout(
@@ -589,7 +615,7 @@ private fun FillInBlankTaskLayout(
     }
 }
 
-// --- ФУНКЦИЯ ОТРИСОВКИ ДЛЯ CONJUGATION (ИСПРАВЛЕНА) ---
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ CONJUGATION / MATCHING ---
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConjugationTaskLayout(
@@ -599,67 +625,74 @@ private fun ConjugationTaskLayout(
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
-    isRoundWon: Boolean
+    isRoundWon: Boolean,
+    isPreGameLearning: Boolean,
+    onCardClickInLearning: (String) -> Unit,
+    swapColumns: Boolean
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // Итерируемся по списку ПАР, который пришел из JSON
         itemsIndexed(taskPairs) { index, pair ->
-            // Вопрос (статичный текст) - первый элемент пары
-            val questionText = pair.getOrNull(0) ?: ""
-
-            // Ответные слоты - фильтруем assemblyLine по rowId
+            // --- ИСПРАВЛЕНИЕ: Берем текст из слотов, а не из pair[0] ---
             val rowSlots = assemblyLine.filter { it.rowId == index }
 
-            // Отбрасываем ПЕРВЫЙ слот, если он дублирует вопрос (мы его добавляли в VM)
-            // Во ViewModel мы добавили: questionSlot (index 0) + answerSlots...
-            // Нам нужно нарисовать Question отдельно текстом, а AnswerSlots - во FlowRow
-
             // Ищем слот-вопрос (он не isBlank)
-            val answerSlots = rowSlots.filter { it.isBlank || it.filledCard != null }
+            val staticSlot = rowSlots.find { !it.isBlank }
+            val staticText = staticSlot?.text ?: "" // <-- ВОТ ЗДЕСЬ ТЕПЕРЬ ПРАВИЛЬНЫЙ ТЕКСТ (Русский для Matching)
+
+            // Ищем слоты-ответы
+            // Важно: Включаем в ответ ВСЁ, что не является статическим вопросом (включая пробелы/запятые)
+            // (Для Matching это будет только слот с карточкой, для Conjugation - слова + знаки)
+            val answerParts = rowSlots.filter { it != staticSlot }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
-                // 1. ВОПРОС (Справа)
-                Text(
-                    text = questionText,
-                    style = textStyle,
-                    modifier = Modifier.weight(1f).padding(end = 16.dp)
-                )
+                // БЛОК 1 (Справа в RTL)
+                if (swapColumns) {
+                    // MATCHING: Справа - ОТВЕТ (Слот Иврит)
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning)
+                    }
+                } else {
+                    // CONJUGATION: Справа - ВОПРОС (Текст Иврит)
+                    Text(
+                        text = staticText,
+                        style = textStyle,
+                        modifier = Modifier.weight(1f).padding(end = 16.dp)
+                    )
+                }
 
-                // 2. ОТВЕТЫ (Слева)
-                FlowRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (isRoundWon) {
-                        answerSlots.forEach { slot ->
-                            val textToShow = slot.targetCard?.text ?: slot.text
-                            Text(
-                                text = textToShow,
-                                style = textStyle,
-                                color = Color(0xFF4CAF50),
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            )
-                        }
-                    } else {
-                        answerSlots.forEach { slot ->
-                            AssemblySlotItem(
-                                slot = slot,
-                                textStyle = textStyle,
-                                fontStyle = fontStyle,
-                                taskType = taskType,
-                                onReturnCard = { },
-                                isInteractionEnabled = isInteractionEnabled
-                            )
-                        }
+                // БЛОК 2 (Слева в RTL)
+                if (swapColumns) {
+                    // MATCHING: Слева - ВОПРОС (Текст Русский)
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Text(
+                            text = staticText,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 20.sp,
+                                textAlign = TextAlign.Start
+                            ),
+                            modifier = Modifier.weight(1f).padding(start = 16.dp)
+                        )
+                    }
+                } else {
+                    // CONJUGATION: Слева - ОТВЕТ (Слоты Иврит)
+                    FlowRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning)
                     }
                 }
             }
@@ -670,7 +703,55 @@ private fun ConjugationTaskLayout(
         }
     }
 }
-// -------------------------------------------------------
+
+// ... (RenderAnswerSlots и MakeQuestionTaskLayout без изменений) ...
+@OptIn(ExperimentalTextApi::class, ExperimentalLayoutApi::class)
+@Composable
+private fun RenderAnswerSlots(
+    isRoundWon: Boolean,
+    answerSlots: List<AssemblySlot>,
+    textStyle: TextStyle,
+    fontStyle: FontStyle,
+    taskType: TaskType,
+    isInteractionEnabled: Boolean,
+    isPreGameLearning: Boolean,
+    onCardClickInLearning: (String) -> Unit
+) {
+    if (isRoundWon) {
+        answerSlots.forEach { slot ->
+            val textToShow = slot.targetCard?.text ?: slot.text
+            Text(
+                text = textToShow,
+                style = textStyle,
+                color = Color(0xFF4CAF50),
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+    } else {
+        answerSlots.forEach { slot ->
+            if (isPreGameLearning && slot.filledCard != null) {
+                SelectableCard(
+                    card = slot.filledCard!!,
+                    onSelect = { onCardClickInLearning(slot.filledCard!!.text) },
+                    fontStyle = fontStyle,
+                    taskType = taskType,
+                    isAssembledCard = false,
+                    isVisible = true,
+                    isInteractionEnabled = true
+                )
+            } else {
+                AssemblySlotItem(
+                    slot = slot,
+                    textStyle = textStyle,
+                    fontStyle = fontStyle,
+                    taskType = taskType,
+                    onReturnCard = { },
+                    isInteractionEnabled = isInteractionEnabled
+                )
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
 @Composable
@@ -687,7 +768,6 @@ private fun MakeQuestionTaskLayout(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 1. СЛОТЫ (СВЕРХУ)
         FillInBlankTaskLayout(
             assemblyLine = assemblyLine,
             textStyle = textStyle,
@@ -699,7 +779,6 @@ private fun MakeQuestionTaskLayout(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 2. ОТВЕТ (СНИЗУ) - БЕЗ ЗАГОЛОВКА "Тшува"
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = Color.White.copy(alpha = 0.8f),
