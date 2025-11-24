@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cardpuzzleapp.ui.theme.BorderGray
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 
 data class CardStyleConfig(
@@ -19,28 +20,28 @@ data class CardStyleConfig(
 
 object CardStyles {
     private val regularStyle = CardStyleConfig(
-        fontSize = 22.sp, // Было 28.sp
-        horizontalPadding = 7.dp, // <-- ИЗМЕНЕНИЕ (Было 8.dp)
-        verticalPadding = 2.dp, // (Оставляем)
-        cornerRadius = 10.dp, // Было 12.dp
-        borderWidth = 1.1.dp, // Было 1.4.dp
+        fontSize = 22.sp,
+        horizontalPadding = 7.dp,
+        verticalPadding = 2.dp,
+        cornerRadius = 10.dp,
+        borderWidth = 1.dp,
         fontWeight = 520f,
         fontWidth = 110f,
-        borderColor = StickyNoteText.copy(alpha = 0.6f)
+        borderColor = BorderGray
     )
 
     private val cursiveStyle = CardStyleConfig(
-        fontSize = 22.sp, // Было 28.sp
-        horizontalPadding = 9.dp, // <-- ИЗМЕНЕНИЕ (Было 10.dp)
-        verticalPadding = 3.dp, // <-- ИЗМЕНЕНИЕ (Было 4.dp)
-        cornerRadius = 10.dp, // Было 12.dp
-        borderWidth = 1.1.dp, // Было 1.4.dp
+        fontSize = 22.sp,
+        horizontalPadding = 10.dp,
+        // Увеличенный отступ для рукописного шрифта, чтобы не обрезались буквы
+        verticalPadding = 8.dp,
+        cornerRadius = 10.dp,
+        borderWidth = 1.dp,
         fontWeight = 400f,
         fontWidth = 100f,
-        borderColor = StickyNoteText.copy(alpha = 0.6f)
+        borderColor = BorderGray
     )
 
-    // ИЗМЕНЕНИЕ: Тип возвращаемого значения исправлен на CardStyleConfig
     fun getStyle(fontStyle: FontStyle): CardStyleConfig {
         return when (fontStyle) {
             FontStyle.REGULAR -> regularStyle

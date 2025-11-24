@@ -11,6 +11,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,13 +20,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.PlaylistAddCheck
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,18 +45,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.example.cardpuzzleapp.ui.theme.StickyNoteText
-import com.example.cardpuzzleapp.ui.theme.StickyNoteYellow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.unit.LayoutDirection
 
 private data class GameRoundState(
     val roundIndex: Int,
@@ -116,7 +116,7 @@ fun GameScreen(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(StickyNoteYellow, RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                                 .clickable(
                                     onClick = { viewModel.toggleGameFontStyle() },
                                     interactionSource = remember { MutableInteractionSource() },
@@ -281,9 +281,14 @@ private fun GameScreenLayout(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // --- ВЕРХНЯЯ ЗОНА (РАБОЧАЯ) ---
         Surface(
-            modifier = Modifier.fillMaxWidth().weight(0.7f),
-            color = StickyNoteYellow,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.7f)
+                .zIndex(1f), // Тень
+            color = MaterialTheme.colorScheme.background, // Кремовый фон
+            shadowElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
@@ -510,13 +515,18 @@ private fun GameScreenLayout(
             }
         }
 
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = Color.LightGray
+        )
+
         if (!isRoundWon) {
             if (isPreGameLearning) {
                 Box(
                     modifier = Modifier
                         .weight(0.3f)
                         .fillMaxSize()
-                        .background(Color.White),
+                        .background(MaterialTheme.colorScheme.surface), // White
                     contentAlignment = Alignment.Center
                 ) {
                     Button(
@@ -535,7 +545,7 @@ private fun GameScreenLayout(
                         modifier = Modifier
                             .weight(0.3f)
                             .fillMaxSize()
-                            .background(Color.White)
+                            .background(MaterialTheme.colorScheme.surface) // White
                             .verticalScroll(rememberScrollState())
                             .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -568,7 +578,6 @@ private fun GameScreenLayout(
     }
 }
 
-// ... (FillInBlankTaskLayout без изменений) ...
 @OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
 @Composable
 private fun FillInBlankTaskLayout(
@@ -615,7 +624,6 @@ private fun FillInBlankTaskLayout(
     }
 }
 
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ CONJUGATION / MATCHING ---
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConjugationTaskLayout(
@@ -636,26 +644,22 @@ private fun ConjugationTaskLayout(
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         itemsIndexed(taskPairs) { index, pair ->
-            // --- ИСПРАВЛЕНИЕ: Берем текст из слотов, а не из pair[0] ---
+            val questionText = pair.getOrNull(0) ?: ""
+
             val rowSlots = assemblyLine.filter { it.rowId == index }
 
-            // Ищем слот-вопрос (он не isBlank)
             val staticSlot = rowSlots.find { !it.isBlank }
-            val staticText = staticSlot?.text ?: "" // <-- ВОТ ЗДЕСЬ ТЕПЕРЬ ПРАВИЛЬНЫЙ ТЕКСТ (Русский для Matching)
+            val staticText = staticSlot?.text ?: ""
 
-            // Ищем слоты-ответы
-            // Важно: Включаем в ответ ВСЁ, что не является статическим вопросом (включая пробелы/запятые)
-            // (Для Matching это будет только слот с карточкой, для Conjugation - слова + знаки)
-            val answerParts = rowSlots.filter { it != staticSlot }
+            // --- ИСПРАВЛЕНИЕ: Используем drop(1), чтобы не терять пробелы/запятые ---
+            val answerParts = rowSlots.drop(1)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
-                // БЛОК 1 (Справа в RTL)
                 if (swapColumns) {
-                    // MATCHING: Справа - ОТВЕТ (Слот Иврит)
                     FlowRow(
                         modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.Start,
@@ -664,7 +668,6 @@ private fun ConjugationTaskLayout(
                         RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning)
                     }
                 } else {
-                    // CONJUGATION: Справа - ВОПРОС (Текст Иврит)
                     Text(
                         text = staticText,
                         style = textStyle,
@@ -672,9 +675,7 @@ private fun ConjugationTaskLayout(
                     )
                 }
 
-                // БЛОК 2 (Слева в RTL)
                 if (swapColumns) {
-                    // MATCHING: Слева - ВОПРОС (Текст Русский)
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                         Text(
                             text = staticText,
@@ -686,7 +687,6 @@ private fun ConjugationTaskLayout(
                         )
                     }
                 } else {
-                    // CONJUGATION: Слева - ОТВЕТ (Слоты Иврит)
                     FlowRow(
                         modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.Start,
@@ -704,7 +704,6 @@ private fun ConjugationTaskLayout(
     }
 }
 
-// ... (RenderAnswerSlots и MakeQuestionTaskLayout без изменений) ...
 @OptIn(ExperimentalTextApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun RenderAnswerSlots(
@@ -779,22 +778,14 @@ private fun MakeQuestionTaskLayout(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White.copy(alpha = 0.8f),
-            modifier = Modifier.fillMaxWidth(),
-            shadowElevation = 2.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = answerText,
-                    style = textStyle,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
+        // Убрали рамку (Surface), оставили чистый текст RTL
+        Text(
+            text = answerText,
+            style = textStyle.copy(
+                textDirection = TextDirection.Rtl,
+                textAlign = TextAlign.Right
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

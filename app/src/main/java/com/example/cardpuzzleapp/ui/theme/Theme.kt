@@ -10,46 +10,48 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColorPalette = lightColorScheme(
-    primary = DarkBlueText,
-    onPrimary = AppWhite,
-    background = StickyNoteYellow,
-    onBackground = DarkBlueText,
-    surface = AppWhite,
-    onSurface = DarkBlueText,
-    surfaceVariant = LinenBg,
-    onSurfaceVariant = DarkBlueText,
-    secondaryContainer = AppWhite,
-    onSecondaryContainer = DarkBlueText,
-    outline = LightGrayBorder,
-    error = Color(0xFFB00020),
-    errorContainer = Color(0xFFFCDADC),
-    onErrorContainer = Color(0xFF410002)
-    // surfaceContainer будет взят из стандартной палитры Material3 - это и есть наш "серый"
+private val BookColorScheme = lightColorScheme(
+    primary = InkBlack,
+    onPrimary = CardWhite,
+
+    background = PaperBg,          // Кремовый фон всего экрана
+    onBackground = InkBlack,
+
+    surface = CardWhite,           // Белый фон компонентов
+    onSurface = InkBlack,
+
+    surfaceVariant = PaperBg,      // Чтобы альтернативные фоны тоже были кремовыми
+    onSurfaceVariant = InkBlack,
+
+    // ВАЖНО: Красим контейнеры меню в цвет фона, чтобы не было серых полос
+    surfaceContainer = PaperBg,
+
+    outline = BorderGray,
+    error = Color(0xFFB3261E),
+    onError = Color.White
 )
 
 @Composable
 fun CardPuzzleAppTheme(
     content: @Composable () -> Unit
 ) {
-    val colorScheme = LightColorPalette
+    val colorScheme = BookColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             val insetsController = WindowCompat.getInsetsController(window, view)
 
-            // --- ИЗМЕНЕНИЯ ЗДЕСЬ ---
-            // 1. Устанавливаем для статус-бара серый цвет меню
-            window.statusBarColor = colorScheme.surfaceContainer.toArgb()
-            // 2. Устанавливаем для панели навигации тот же серый цвет
-            window.navigationBarColor = colorScheme.surfaceContainer.toArgb()
+            // Статус бар и навигация — кремовые
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
 
-            // 3. Делаем иконки в обоих барах темными для лучшей читаемости
+            // Иконки темные
             insetsController.isAppearanceLightStatusBars = true
             insetsController.isAppearanceLightNavigationBars = true
         }
     }
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

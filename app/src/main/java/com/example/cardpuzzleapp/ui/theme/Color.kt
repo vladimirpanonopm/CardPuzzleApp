@@ -2,21 +2,34 @@ package com.example.cardpuzzleapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Старые цвета
-val LightBlueBg = Color(0xFFF0F8FF)
-val BlueAccent = Color(0xFF4A90E2)
-val LightGrayBorder = Color(0xFFDDEEFF)
+// === ПАЛИТРА "ДОРОГОЙ УЧЕБНИК" ===
 
-// ИЗМЕНЕНИЕ: Новый теплый фон, который теперь станет фоном всего приложения
-val LinenBg = Color(0xFFFAF0E6)
+// 1. ФОН: "Слоновая Кость" (Теплый кремовый)
+val PaperBg = Color(0xFFF7F5F0)
 
-// Основные цвета темы
-val DarkBlueText = Color(0xFF003366)
-val AppBlack = Color(0xFF121212)
-val AppWhite = Color(0xFFFFFFFF)
-val LineColor = Color(0xFF4A4A4A)
+// 2. ТЕКСТ: "Глубокий Графит"
+val InkBlack = Color(0xFF202124)
 
-// Цвета для стикеров
-val StickyNoteYellow = Color(0xFFFFFACD)
-// ИЗМЕНЕНИЕ: Коричневый стал темнее для лучшего контраста
-val StickyNoteText = Color(0xFF3E2723)
+// 3. КАРТОЧКИ: "Белоснежный"
+val CardWhite = Color(0xFFFFFFFF)
+
+// 4. ОБВОДКИ
+val BorderGray = Color(0xFFE0E0E0)
+
+// 5. СТАТУСЫ
+val StatusGreen = Color(0xFF4CAF50)
+val StatusOrange = Color(0xFFFF9800)
+val StatusYellow = Color(0xFFFFEB3B)
+val StatusGray = Color.LightGray
+
+// --- MAPPING для совместимости ---
+val StickyNoteText = InkBlack
+val StickyNoteYellow = CardWhite // Теперь это БЕЛЫЙ
+val LightGrayBorder = BorderGray
+val LinenBg = PaperBg
+val DarkBlueText = InkBlack
+val AppWhite = CardWhite
+val AppBlack = InkBlack
+val LineColor = InkBlack
+val LightBlueBg = PaperBg
+val BlueAccent = StatusOrange
