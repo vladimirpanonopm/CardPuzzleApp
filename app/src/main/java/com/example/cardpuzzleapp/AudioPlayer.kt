@@ -60,12 +60,6 @@ class AudioPlayer(private val context: Context) {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(assetFileDescriptor.fileDescriptor, assetFileDescriptor.startOffset, assetFileDescriptor.length)
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    try {
-                        playbackParams = playbackParams.setSpeed(speed)
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
-
                 setOnCompletionListener {
                     Log.d(TAG, "Player: onCompletionListener -> Stop immediately")
                     _isPlaying.value = false
@@ -79,11 +73,28 @@ class AudioPlayer(private val context: Context) {
                     true
                 }
 
+                // 1. Сначала ГОТОВИМ плеер (Загружаем файл)
                 prepare()
+
+                // 2. И только когда он ГОТОВ (Prepared), меняем скорость
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    try {
+                        // Важно: создаем новый объект params, меняем скорость, и присваиваем обратно
+                        val params = playbackParams
+                        params.speed = speed
+                        playbackParams = params
+                        Log.d(TAG, "Player: Speed set to $speed success")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Player: Failed to set speed (device limitation?)", e)
+                    }
+                }
+
                 if (startMs > 0) {
                     seekTo(startMs)
                     Log.d(TAG, "Player: SeekTo $startMs")
                 }
+
+                // 3. Запускаем
                 start()
             }
             assetFileDescriptor.close()
@@ -94,7 +105,7 @@ class AudioPlayer(private val context: Context) {
             if (endMs > startMs) {
                 val durationMs = endMs - startMs
                 val timeToWait = (durationMs / speed).toLong()
-                Log.d(TAG, "Player: Timer set for $timeToWait ms")
+                Log.d(TAG, "Player: Timer set for $timeToWait ms (speed=$speed)")
 
                 playbackJob = scope.launch {
                     delay(timeToWait)
