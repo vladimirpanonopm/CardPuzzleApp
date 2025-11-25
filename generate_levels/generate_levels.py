@@ -1,4 +1,3 @@
-
 import os
 import json
 import hashlib
@@ -25,9 +24,8 @@ VOICE_MAP = {
     "male_d": "he-IL-Wavenet-D",
 }
 
+
 # --- 3. Google API ---
-
-
 def call_google_tts(text_to_speak, voice_name, output_filename):
     try:
         client = texttospeech.TextToSpeechClient()
@@ -84,15 +82,25 @@ def parse_card_block(block_text):
         "HEBREW_DISTRACTORS": [], "RUSSIAN_CORRECT": [], "RUSSIAN": [],
         "VOICES": [], "PAIRS": []
     }
+    data['swap_columns'] = False
+
     current_key = None
 
     for line in block_text.splitlines():
         line = line.strip()
-        if not line or line.startswith("#"): continue
+
+        # Пропускаем строки с метаданными в начале
+        if line.startswith("из середины строки, если есть"):
+            line = re.sub(r'\\', '', line).strip()
+        # ------------------------------
+
+        if not line:
+            continue
 
         is_tag = False
         if line.startswith("TASK:"):
-            data['taskType'] = line.split(":", 1)[1].strip();
+            raw_type = line.split(":", 1)[1].strip()
+            data['taskType'] = raw_type.rstrip(':')
             current_key = None;
             is_tag = True
         elif line.startswith("HEBREW_PROMPT:"):
@@ -119,10 +127,19 @@ def parse_card_block(block_text):
         elif line.startswith("PAIRS:"):
             current_key = "PAIRS";
             is_tag = True
+        elif line.startswith("SWAP_COLUMNS:"):
+            val = line.split(":", 1)[1].strip().lower()
+            if val == "true":
+                data['swap_columns'] = True
+            is_tag = True
+            current_key = None
 
         if is_tag:
-            content = line.split(":", 1)[1].strip()
-            if content and current_key: data[current_key].append(content)
+            try:
+                content = line.split(":", 1)[1].strip()
+                if content and current_key: data[current_key].append(content)
+            except IndexError:
+                pass
             continue
         if current_key: data[current_key].append(line)
 
@@ -153,21 +170,37 @@ def process_level_file(txt_filepath, assets_path):
 
     with open(txt_filepath, 'r', encoding='utf-8') as f:
         full_content = f.read()
-    entry_blocks = full_content.split('===')
+
+    # Разбивка по разделителю === или ====
+    entry_blocks = re.split(r'={3,}', full_content)
 
     for i, block in enumerate(entry_blocks):
-        clean_block = "\n".join([l for l in block.splitlines() if not l.strip().startswith("#")])
-        if not clean_block.strip(): continue
+        clean_lines = []
+        for l in block.splitlines():
+            # Очистка от тегов
+            l_clean = re.sub(r'\\', '', l).strip()
+            if not l_clean.startswith("#"):
+                clean_lines.append(l_clean)
+
+            clean_block = "\n".join(clean_lines)
+            if not clean_block.strip():
+                continue
 
         print(f"  Card {i}...", end=" ")
         data = parse_card_block(clean_block)
         task_type = data.get('taskType')
-        if not task_type: continue
+
+        if not task_type:
+            print("SKIP (No Task Type)")
+            continue
+
+        print(f"[{task_type}]", end=" ")
 
         card_json = {
             "taskType": task_type,
             "audioFilename": None,
-            "segments": []
+            "segments": [],
+            "swapColumns": data['swap_columns']
         }
 
         hebrew_regex = r'[\u0590-\u05FF\']+'
@@ -214,16 +247,21 @@ def process_level_file(txt_filepath, assets_path):
                         q = parts[0].strip()
                         a = parts[1].strip()
                         raw_pairs.append([q, a])
-                        ans_words = re.findall(hebrew_regex, a)
-                        targets.extend(ans_words)
+
+                        # --- ВАЖНО: ЛОГИКА ЦЕЛЕВЫХ СЛОВ ПРИ SWAP ---
+                        if data['swap_columns']:
+                            # Если SWAP: Цель - ПЕРВОЕ слово (q)
+                            target_words = re.findall(hebrew_regex, q)
+                        else:
+                            # Если НЕТ: Цель - ВТОРОЕ слово (a)
+                            target_words = re.findall(hebrew_regex, a)
+
+                        targets.extend(target_words)
                 card_json['taskPairs'] = raw_pairs
                 card_json['taskTargetCards'] = targets
 
-            # --- ТИП: MAKE_QUESTION ---
             elif task_type == 'MAKE_QUESTION':
-                # Для Журнала и Аудио берем ПОЛНЫЙ текст (HEBREW block)
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
-                # Для Игры берем только промпт-ответ (HEBREW_PROMPT)
                 card_json['gamePrompt'] = data['hebrew_prompt_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
                 card_json['correctOptions'] = data['HEBREW_CORRECT']
@@ -233,29 +271,21 @@ def process_level_file(txt_filepath, assets_path):
                 audio_lines = data['HEBREW']
                 full_text_hash_source = data['hebrew_display_text']
 
-            # --- НОВЫЙ ТИП: MAKE_ANSWER ---
             elif task_type == 'MAKE_ANSWER':
-                # Полный текст для журнала
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
-                # Для игры берем Вопрос (Prompt)
                 card_json['gamePrompt'] = data['hebrew_prompt_text']
                 card_json['translationPrompt'] = data['russian_translation_text']
-                # Собираем Ответ (Correct)
                 card_json['correctOptions'] = data['HEBREW_CORRECT']
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
-
                 full_answer = " ".join(data['HEBREW_CORRECT'])
                 card_json['taskTargetCards'] = re.findall(hebrew_regex, full_answer)
-
                 audio_lines = data['HEBREW']
                 full_text_hash_source = data['hebrew_display_text']
-            # --------------------------------
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error parsing logic: {e}")
             continue
 
-        # --- Аудио ---
         if full_text_hash_source and voices:
             base_hash = hashlib.md5(full_text_hash_source.strip().encode('utf-8')).hexdigest()
             final_filename = f"{base_hash}.mp3"
@@ -264,14 +294,12 @@ def process_level_file(txt_filepath, assets_path):
             card_json['audioFilename'] = final_filename
 
             if len(audio_lines) != len(voices):
-                print("Mismatch lines/voices")
-                card_json['audioFilename'] = None
+                pass
             else:
                 combined = AudioSegment.empty()
-                segments_meta = []
-                curr_ms = 0
                 success = True
-
+                curr_ms = 0
+                segments_meta = []
                 for line_idx, (line, v_info) in enumerate(zip(audio_lines, voices)):
                     segment_audio = get_audio_segment(line.strip(), v_info["key"])
                     if not segment_audio:
@@ -295,7 +323,7 @@ def process_level_file(txt_filepath, assets_path):
                 if success:
                     combined.export(final_path, format="mp3")
                     card_json['segments'] = segments_meta
-                    print(f"✅ Audio OK ({len(segments_meta)})")
+                    print(f"✅ Audio OK")
                 else:
                     card_json['audioFilename'] = None
 
@@ -319,8 +347,9 @@ def main():
     if not os.path.exists(ASSETS_DIR): os.makedirs(ASSETS_DIR)
 
     audio_dest = os.path.join(ASSETS_DIR, "audio")
-    if os.path.exists(audio_dest):
-        for f in os.listdir(audio_dest): os.remove(os.path.join(audio_dest, f))
+    # Очистка папки аудио (опционально)
+    # if os.path.exists(audio_dest):
+    #     for f in os.listdir(audio_dest): os.remove(os.path.join(audio_dest, f))
 
     for f in os.listdir(SOURCE_DIR):
         if f.startswith("level_") and f.endswith(".txt"):

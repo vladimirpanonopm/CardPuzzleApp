@@ -16,6 +16,7 @@
           "end_ms": 3188
         }
       ],
+      "swapColumns": false,
       "uiDisplayTitle": "נוּרִית, אַת מוֹרָה?\nלֹא, אֲנִי תַלְמִידָה.",
       "translationPrompt": "Нурит, ты учитель(ж)?\nНет, я ученица.",
       "distractorOptions": [
@@ -48,6 +49,7 @@
           "end_ms": 3188
         }
       ],
+      "swapColumns": false,
       "uiDisplayTitle": "נוּרִית, אַת מוֹרָה?\nלֹא, אֲנִי תַלְמִידָה.",
       "translationPrompt": "Нурит, ты учитель(ж)?\nНет, я ученица.",
       "distractorOptions": [
@@ -80,8 +82,9 @@
           "end_ms": 3212
         }
       ],
+      "swapColumns": false,
       "uiDisplayTitle": "אוֹרִית, אַת תַלְמִידָה?\nלֹא, אֲנִי מוֹרָה.",
-      "translationPrompt": "Орит, ты учиник(ж)?\nНет, я учитель.",
+      "translationPrompt": "Орит, ты ученик(ж)?\nНет, я учитель.",
       "distractorOptions": [
         "מוֹרֶה",
         "תַלְמִיד"
@@ -110,8 +113,9 @@
           "end_ms": 3212
         }
       ],
+      "swapColumns": false,
       "uiDisplayTitle": "אוֹרִית, אַת תַלְמִידָה?\nלֹא, אֲנִי מוֹרָה.",
-      "translationPrompt": "Орит, ты учиник(ж)?\nНет, я учитель.",
+      "translationPrompt": "Орит, ты ученик(ж)?\nНет, я учитель.",
       "distractorOptions": [
         "מוֹרֶה",
         "תַלְמִיד"
@@ -129,6 +133,44 @@
       "taskType": "MATCHING_PAIRS",
       "audioFilename": null,
       "segments": [],
+      "swapColumns": false,
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "מְדַבֵּר",
+          "говорит(он)"
+        ],
+        [
+          "מְדַבֶּרֶת",
+          "говорит(она)"
+        ],
+        [
+          "אַבָּא",
+          "папа"
+        ],
+        [
+          "בָּא",
+          "приходит(он)"
+        ],
+        [
+          "בָּאָה",
+          "приходит(она)"
+        ],
+        [
+          "לוֹמֵד",
+          "учит(он)"
+        ],
+        [
+          "לוֹמֶדֶת",
+          "учит(она)"
+        ]
+      ]
+    },
+    {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "segments": [],
+      "swapColumns": false,
       "uiDisplayTitle": "",
       "taskPairs": [
         [

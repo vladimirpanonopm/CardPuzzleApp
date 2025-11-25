@@ -18,7 +18,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 
 private const val TAG = "AUDIO_DEBUG"
-private const val LOGIC_TAG = "GAME_DEBUG" // --- НОВЫЙ ТЕГ ДЛЯ ЛОГОВ ---
+private const val LOGIC_TAG = "GAME_DEBUG"
 
 data class AssemblySlot(
     val id: UUID = UUID.randomUUID(),
@@ -406,17 +406,9 @@ class CardViewModel @Inject constructor(
                 newAssemblyLine = assembly
             }
             TaskType.MAKE_ANSWER -> {
-                Log.d(LOGIC_TAG, "Initializing MAKE_ANSWER...")
                 newTaskTitleResId = R.string.game_task_make_answer
                 newCurrentTaskPrompt = null
-
-                val prompt = if (!roundData.gamePrompt.isNullOrBlank()) roundData.gamePrompt else roundData.hebrew
-                newCurrentHebrewPrompt = prompt
-
-                Log.d(LOGIC_TAG, "Set HebrewPrompt (Question) to: '$newCurrentHebrewPrompt'")
-                Log.d(LOGIC_TAG, "Raw gamePrompt from JSON: '${roundData.gamePrompt}'")
-                Log.d(LOGIC_TAG, "Raw hebrew from JSON: '${roundData.hebrew}'")
-
+                newCurrentHebrewPrompt = if (!roundData.gamePrompt.isNullOrBlank()) roundData.gamePrompt else roundData.hebrew
                 val (target, available, assembly) = setupMakeAnswerTask(roundData)
                 this.targetCards = target
                 newAvailableCards = available
@@ -498,42 +490,25 @@ class CardViewModel @Inject constructor(
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
 
-    // --- НОВАЯ ФУНКЦИЯ С ЛОГАМИ: MAKE_ANSWER ---
     private fun setupMakeAnswerTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
-        Log.d(LOGIC_TAG, "setupMakeAnswerTask STARTED")
-
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val fullAnswerText = roundData.task_correct_cards?.joinToString(" ") ?: ""
-        Log.d(LOGIC_TAG, "Full Answer Text (to assemble): '$fullAnswerText'")
-
         val targetWordsList = roundData.task_target_cards ?: emptyList()
-        Log.d(LOGIC_TAG, "Target Words List: $targetWordsList")
-
         val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
         val targetCardsIterator = targetCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
         val targetWordsSet = targetWordsList.toSet()
-
-        var slotCount = 0
-
         partsRegex.findAll(fullAnswerText).forEach { match ->
             val token = match.value
-            val isTarget = targetWordsSet.contains(token)
-            // Log.d(LOGIC_TAG, "Token: '$token', isTarget: $isTarget")
-
-            if (isTarget && targetCardsIterator.hasNext()) {
+            if (targetWordsSet.contains(token) && targetCardsIterator.hasNext()) {
                 newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next()))
-                slotCount++
             } else {
                 newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null))
             }
         }
-
-        Log.d(LOGIC_TAG, "setupMakeAnswerTask FINISHED. Created $slotCount slots.")
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
-    // -----------------------------------------------------------
 
     private fun setupConjugationTask(roundData: SentenceData, pairsList: List<List<String>>): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
@@ -542,17 +517,48 @@ class CardViewModel @Inject constructor(
         val targetCardsIterator = targetCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
+
+        val isSwap = roundData.swapColumns
+
         pairsList.forEachIndexed { index, pair ->
-            val questionText = pair.getOrNull(0) ?: ""
-            val answerText = pair.getOrNull(1) ?: ""
-            newAssemblyLine.add(AssemblySlot(text = questionText, isBlank = false, filledCard = null, targetCard = null, rowId = index))
-            partsRegex.findAll(answerText).forEach { match ->
-                val token = match.value
-                if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
-                    newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next(), rowId = index))
-                } else {
-                    newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+            // --- РЕАЛИЗАЦИЯ УТВЕРЖДЕННОЙ ЛОГИКИ (RTL) ---
+            // pair[0] = Правая колонка (изначально)
+            // pair[1] = Левая колонка (изначально)
+
+            if (!isSwap) {
+                // Normal:
+                // Правая (pair[0]) = Статика
+                // Левая (pair[1]) = Слот (парсим на слова)
+
+                // 1. Правый элемент (Статика)
+                newAssemblyLine.add(AssemblySlot(text = pair.getOrNull(0) ?: "", isBlank = false, filledCard = null, targetCard = null, rowId = index))
+
+                // 2. Левый элемент (Слот)
+                partsRegex.findAll(pair.getOrNull(1) ?: "").forEach { match ->
+                    val token = match.value
+                    if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
+                        newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next(), rowId = index))
+                    } else {
+                        newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                    }
                 }
+            } else {
+                // SWAP:
+                // Правая (pair[0]) = Слот
+                // Левая (pair[1]) = Статика
+
+                // 1. Правый элемент (Слот)
+                partsRegex.findAll(pair.getOrNull(0) ?: "").forEach { match ->
+                    val token = match.value
+                    if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
+                        newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next(), rowId = index))
+                    } else {
+                        newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                    }
+                }
+
+                // 2. Левый элемент (Статика)
+                newAssemblyLine.add(AssemblySlot(text = pair.getOrNull(1) ?: "", isBlank = false, filledCard = null, targetCard = null, rowId = index))
             }
         }
         return Triple(targetCards, newAvailableCards, newAssemblyLine)

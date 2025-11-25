@@ -21,11 +21,8 @@ data class SentenceData(
     @SerialName("uiDisplayTitle")
     val hebrew: String,
 
-    // --- НОВОЕ ПОЛЕ: Специальный заголовок для игры ---
-    // (Если отличается от того, что в Журнале)
     @SerialName("gamePrompt")
     val gamePrompt: String? = null,
-    // -------------------------------------------------
 
     @SerialName("translationPrompt")
     val translation: String? = null,
@@ -37,6 +34,11 @@ data class SentenceData(
     val taskType: TaskType = TaskType.UNKNOWN,
 
     val voice: String? = null,
+
+    // --- Флаг инверсии логики (но не колонок!) ---
+    @SerialName("swapColumns")
+    val swapColumns: Boolean = false,
+    // ---------------------------------------------
 
     @SerialName("correctOptions")
     val task_correct_cards: List<String>? = null,

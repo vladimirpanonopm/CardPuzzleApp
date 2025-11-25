@@ -1,0 +1,217 @@
+{
+  "levelId": "4",
+  "cards": [
+    {
+      "taskType": "MAKE_ANSWER",
+      "audioFilename": "0149cdf82b27ae28dca9b4041c86fcbd.mp3",
+      "segments": [
+        {
+          "text": "אֵיפֹה אַת גָרה?",
+          "start_ms": 0,
+          "end_ms": 1176
+        },
+        {
+          "text": "אֲנִי גָרה בְּתֵל אָבִיב.",
+          "start_ms": 1676,
+          "end_ms": 3356
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "אֵיפֹה אַת גָרה?\nאֲנִי גָרה בְּתֵל אָבִיב.",
+      "gamePrompt": "אֵיפֹה אַת גָרה?",
+      "translationPrompt": "Где ты живешь?\nЯ живу в Тель-Авиве.",
+      "correctOptions": [
+        "אֲנִי גָרה בְּתֵל אָבִיב."
+      ],
+      "distractorOptions": [
+        "לָמָה",
+        "מִי",
+        "הוּא"
+      ],
+      "taskTargetCards": [
+        "אֲנִי",
+        "גָרה",
+        "בְּתֵל",
+        "אָבִיב"
+      ]
+    },
+    {
+      "taskType": "MAKE_QUESTION",
+      "audioFilename": "8bb72d60b614497759bc1bccdd2a8aee.mp3",
+      "segments": [
+        {
+          "text": "אֵיפֹה אַתָה גָר?",
+          "start_ms": 0,
+          "end_ms": 1272
+        },
+        {
+          "text": "אֲנִי גָר בְּתֵל אָבִיב.",
+          "start_ms": 1772,
+          "end_ms": 3212
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "אֵיפֹה אַתָה גָר?\nאֲנִי גָר בְּתֵל אָבִיב.",
+      "gamePrompt": "אֲנִי גָר בְּתֵל אָבִיב.",
+      "translationPrompt": "Где ты живешь?\nЯ живу в Тель-Авиве.",
+      "correctOptions": [
+        "אֵיפֹה אַתָה גָר?"
+      ],
+      "distractorOptions": [
+        "לָמָה",
+        "מִי",
+        "הוּא"
+      ],
+      "taskTargetCards": [
+        "אֵיפֹה",
+        "אַתָה",
+        "גָר"
+      ]
+    },
+    {
+      "taskType": "CONJUGATION",
+      "audioFilename": null,
+      "segments": [],
+      "swapColumns": false,
+      "uiDisplayTitle": "תַלְמִיד /  תַלִמִדָה",
+      "distractorOptions": [
+        "מוֹרוֹת",
+        "יַלְדָה"
+      ],
+      "taskPairs": [
+        [
+          "תַלְמִיד",
+          "תַלְמִידִים"
+        ],
+        [
+          "מוֹרֶה",
+          "מוֹרִים"
+        ],
+        [
+          "יֶלֶד",
+          "יְלָדִים"
+        ],
+        [
+          "הוא מורה",
+          "היא מורה"
+        ]
+      ],
+      "taskTargetCards": [
+        "תַלְמִידִים",
+        "מוֹרִים",
+        "יְלָדִים",
+        "היא",
+        "מורה"
+      ]
+    },
+    {
+      "taskType": "MATCHING_PAIRS",
+      "audioFilename": null,
+      "segments": [],
+      "swapColumns": false,
+      "uiDisplayTitle": "",
+      "taskPairs": [
+        [
+          "אֲנִי",
+          "я"
+        ],
+        [
+          "אַתְ",
+          "ты(ж)"
+        ],
+        [
+          "מִי?",
+          "кто?"
+        ],
+        [
+          "אַנָה",
+          "Анна"
+        ],
+        [
+          "נִינָה",
+          "Нина"
+        ]
+      ]
+    },
+    {
+      "taskType": "AUDITION",
+      "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 864
+        },
+        {
+          "text": "אֲנִי אַנָה.",
+          "start_ms": 1364,
+          "end_ms": 2228
+        },
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 2728,
+          "end_ms": 3544
+        },
+        {
+          "text": "אֲנִי נִינָה.",
+          "start_ms": 4044,
+          "end_ms": 5076
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
+      "segments": [
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 0,
+          "end_ms": 864
+        },
+        {
+          "text": "אֲנִי אַנָה.",
+          "start_ms": 1364,
+          "end_ms": 2228
+        },
+        {
+          "text": "מִי אַתְ?",
+          "start_ms": 2728,
+          "end_ms": 3544
+        },
+        {
+          "text": "אֲנִי נִינָה.",
+          "start_ms": 4044,
+          "end_ms": 5076
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
+      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
+      "distractorOptions": [],
+      "taskTargetCards": [
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "אַנָה",
+        "מִי",
+        "אַתְ",
+        "אֲנִי",
+        "נִינָה"
+      ]
+    }
+  ]
+}

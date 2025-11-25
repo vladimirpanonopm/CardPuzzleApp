@@ -2,209 +2,275 @@
   "levelId": "1",
   "cards": [
     {
-      "taskType": "MAKE_ANSWER",
-      "audioFilename": "0149cdf82b27ae28dca9b4041c86fcbd.mp3",
+      "taskType": "AUDITION",
+      "audioFilename": "9b132ee9cf3b81a2f8351ba42adb1ddf.mp3",
       "segments": [
         {
-          "text": "אֵיפֹה אַת גָרה?",
+          "text": "שָלוֹם, אֲנִי יוֹסֵף.",
           "start_ms": 0,
-          "end_ms": 1176
-        },
-        {
-          "text": "אֲנִי גָרה בְּתֵל אָבִיב.",
-          "start_ms": 1676,
-          "end_ms": 3356
+          "end_ms": 1632
         }
       ],
-      "uiDisplayTitle": "אֵיפֹה אַת גָרה?\nאֲנִי גָרה בְּתֵל אָבִיב.",
-      "gamePrompt": "אֵיפֹה אַת גָרה?",
-      "translationPrompt": "Где ты живешь?\nЯ живу в Тель-Авиве.",
-      "correctOptions": [
-        "אֲנִי גָרה בְּתֵל אָבִיב."
-      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "שָלוֹם, אֲנִי יוֹסֵף.",
+      "translationPrompt": "Привет, я Йосеф.",
       "distractorOptions": [
-        "לָמָה",
-        "מִי",
-        "הוּא"
+        "דָוִד",
+        "אַתָה"
       ],
       "taskTargetCards": [
+        "שָלוֹם",
         "אֲנִי",
-        "גָרה",
-        "בְּתֵל",
-        "אָבִיב"
+        "יוֹסֵף"
       ]
     },
     {
-      "taskType": "MAKE_QUESTION",
-      "audioFilename": "8bb72d60b614497759bc1bccdd2a8aee.mp3",
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "9b132ee9cf3b81a2f8351ba42adb1ddf.mp3",
       "segments": [
         {
-          "text": "אֵיפֹה אַתָה גָר?",
+          "text": "שָלוֹם, אֲנִי יוֹסֵף.",
           "start_ms": 0,
-          "end_ms": 1272
-        },
-        {
-          "text": "אֲנִי גָר בְּתֵל אָבִיב.",
-          "start_ms": 1772,
-          "end_ms": 3212
+          "end_ms": 1632
         }
       ],
-      "uiDisplayTitle": "אֵיפֹה אַתָה גָר?\nאֲנִי גָר בְּתֵל אָבִיב.",
-      "gamePrompt": "אֲנִי גָר בְּתֵל אָבִיב.",
-      "translationPrompt": "Где ты живешь?\nЯ живу в Тель-Авиве.",
-      "correctOptions": [
-        "אֵיפֹה אַתָה גָר?"
-      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "שָלוֹם, אֲנִי יוֹסֵף.",
+      "translationPrompt": "Привет, я Йосеф.",
       "distractorOptions": [
-        "לָמָה",
-        "מִי",
-        "הוּא"
+        "דָוִד",
+        "אַתָה"
       ],
       "taskTargetCards": [
-        "אֵיפֹה",
-        "אַתָה",
-        "גָר"
+        "שָלוֹם",
+        "אֲנִי",
+        "יוֹסֵף"
+      ]
+    },
+    {
+      "taskType": "ASSEMBLE_TRANSLATION",
+      "audioFilename": "da58d07dcd4bec9345ad37216fcb89d9.mp3",
+      "segments": [
+        {
+          "text": "אֲנִי תַלְמִיד חָדָש.",
+          "start_ms": 0,
+          "end_ms": 1416
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "אֲנִי תַלְמִיד חָדָש.",
+      "translationPrompt": "Я новый ученик.",
+      "distractorOptions": [
+        "מוֹרָה",
+        "יָשָן"
+      ],
+      "taskTargetCards": [
+        "אֲנִי",
+        "תַלְמִיד",
+        "חָדָש"
+      ]
+    },
+    {
+      "taskType": "FILL_IN_BLANK",
+      "audioFilename": "9be9a1709d8a5bcfd7bc09a27b8626b1.mp3",
+      "segments": [
+        {
+          "text": "דָוִד הוּא תַלְמִיד, שָרָה הִיא תַלְמִידָה.",
+          "start_ms": 0,
+          "end_ms": 2760
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "דָוִד הוּא ___, שָרָה הִיא ___.",
+      "translationPrompt": "Давид - ученик, Сара - ученица.",
+      "correctOptions": [
+        "תַלְמִיד",
+        "תַלְמִידָה"
+      ],
+      "distractorOptions": [
+        "מוֹרֶה",
+        "רוֹפֵא"
       ]
     },
     {
       "taskType": "CONJUGATION",
       "audioFilename": null,
       "segments": [],
-      "uiDisplayTitle": "תַלְמִיד /  תַלִמִדָה",
+      "swapColumns": false,
+      "uiDisplayTitle": "גּוּף / פּוֹעַל",
       "distractorOptions": [
-        "מוֹרוֹת",
-        "יַלְדָה"
+        "לָמַד",
+        "יִלְמַד"
       ],
       "taskPairs": [
         [
-          "תַלְמִיד",
-          "תַלְמִידִים"
+          "הוּא",
+          "לוֹמֵד"
         ],
         [
-          "מוֹרֶה",
-          "מוֹרִים"
+          "הִיא",
+          "לוֹמֶדֶת"
         ],
         [
-          "יֶלֶד",
-          "יְלָדִים"
+          "הֵם",
+          "לוֹמְדִים"
         ],
         [
-          "הוא מורה",
-          "היא מורה"
+          "הֵן",
+          "לוֹמְדוֹת"
         ]
       ],
       "taskTargetCards": [
-        "תַלְמִידִים",
-        "מוֹרִים",
-        "יְלָדִים",
-        "היא",
-        "מורה"
+        "לוֹמֵד",
+        "לוֹמֶדֶת",
+        "לוֹמְדִים",
+        "לוֹמְדוֹת"
+      ]
+    },
+    {
+      "taskType": "CONJUGATION",
+      "audioFilename": null,
+      "segments": [],
+      "swapColumns": true,
+      "uiDisplayTitle": "גּוּף / פּוֹעַל",
+      "distractorOptions": [
+        "לָמַד",
+        "יִלְמַד"
+      ],
+      "taskPairs": [
+        [
+          "הוּא",
+          "לוֹמֵד"
+        ],
+        [
+          "הִיא",
+          "לוֹמֶדֶת"
+        ],
+        [
+          "הֵם",
+          "לוֹמְדִים"
+        ],
+        [
+          "הֵן",
+          "לוֹמְדוֹת"
+        ]
+      ],
+      "taskTargetCards": [
+        "הוּא",
+        "הִיא",
+        "הֵם",
+        "הֵן"
       ]
     },
     {
       "taskType": "MATCHING_PAIRS",
       "audioFilename": null,
       "segments": [],
+      "swapColumns": false,
       "uiDisplayTitle": "",
       "taskPairs": [
         [
-          "אֲנִי",
-          "я"
+          "אָב",
+          "отец"
         ],
         [
-          "אַתְ",
-          "ты(ж)"
+          "אֵם",
+          "мать"
         ],
         [
-          "מִי?",
-          "кто?"
+          "יֶלֶד",
+          "мальчик"
         ],
         [
-          "אַנָה",
-          "Анна"
-        ],
-        [
-          "נִינָה",
-          "Нина"
+          "יַלְדָה",
+          "девочка"
         ]
       ]
     },
     {
-      "taskType": "AUDITION",
-      "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
-      "segments": [
-        {
-          "text": "מִי אַתְ?",
-          "start_ms": 0,
-          "end_ms": 864
-        },
-        {
-          "text": "אֲנִי אַנָה.",
-          "start_ms": 1364,
-          "end_ms": 2228
-        },
-        {
-          "text": "מִי אַתְ?",
-          "start_ms": 2728,
-          "end_ms": 3544
-        },
-        {
-          "text": "אֲנִי נִינָה.",
-          "start_ms": 4044,
-          "end_ms": 5076
-        }
+      "taskType": "QUIZ",
+      "audioFilename": null,
+      "segments": [],
+      "swapColumns": false,
+      "uiDisplayTitle": "אֲנִי גָר בְּתֵל אָבִיב. אֵיפֹה אֲנִי גָר?",
+      "translationPrompt": "Я живу в Тель-Авиве. Где я живу?",
+      "correctOptions": [
+        "בְּתֵל אָבִיב"
       ],
-      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
-      "distractorOptions": [],
+      "distractorOptions": [
+        "בִּירוּשָלַיִם",
+        "בְּחֵיפָה"
+      ],
       "taskTargetCards": [
-        "מִי",
-        "אַתְ",
-        "אֲנִי",
-        "אַנָה",
-        "מִי",
-        "אַתְ",
-        "אֲנִי",
-        "נִינָה"
+        "בְּתֵל",
+        "אָבִיב"
       ]
     },
     {
-      "taskType": "ASSEMBLE_TRANSLATION",
-      "audioFilename": "62eaf6cf30f7f0c1bb5ae98f5bd0fd11.mp3",
+      "taskType": "MAKE_QUESTION",
+      "audioFilename": "5b66561d2f133c4ea5956b48d317b02c.mp3",
       "segments": [
         {
-          "text": "מִי אַתְ?",
+          "text": "אֵיךְ אַתָה מַרְגִיש?",
           "start_ms": 0,
-          "end_ms": 864
+          "end_ms": 1296
         },
         {
-          "text": "אֲנִי אַנָה.",
-          "start_ms": 1364,
-          "end_ms": 2228
-        },
-        {
-          "text": "מִי אַתְ?",
-          "start_ms": 2728,
-          "end_ms": 3544
-        },
-        {
-          "text": "אֲנִי נִינָה.",
-          "start_ms": 4044,
-          "end_ms": 5076
+          "text": "אֲנִי מַרְגִיש טוֹב.",
+          "start_ms": 1796,
+          "end_ms": 3044
         }
       ],
-      "uiDisplayTitle": "מִי אַתְ?\nאֲנִי אַנָה.\nמִי אַתְ?\nאֲנִי נִינָה.",
-      "translationPrompt": "Как тебя(ж) зовут?\nЯ Анна.\nКак тебя(ж) зовут?\nЯ Нина.",
-      "distractorOptions": [],
+      "swapColumns": false,
+      "uiDisplayTitle": "אֵיךְ אַתָה מַרְגִיש?\nאֲנִי מַרְגִיש טוֹב.",
+      "gamePrompt": "אֲנִי מַרְגִיש טוֹב.",
+      "translationPrompt": "Я чувствую себя хорошо. (Как ты себя чувствуешь?)",
+      "correctOptions": [
+        "אֵיךְ אַתָה מַרְגִיש?"
+      ],
+      "distractorOptions": [
+        "מָה",
+        "מִי",
+        "הוּא"
+      ],
       "taskTargetCards": [
-        "מִי",
-        "אַתְ",
+        "אֵיךְ",
+        "אַתָה",
+        "מַרְגִיש"
+      ]
+    },
+    {
+      "taskType": "MAKE_ANSWER",
+      "audioFilename": "c1ec2c12f9dead12b93a60550bb7ad73.mp3",
+      "segments": [
+        {
+          "text": "הַאִם אַתָה מְדַבֵּר עִבְרִית?",
+          "start_ms": 0,
+          "end_ms": 1704
+        },
+        {
+          "text": "כֵּן, אֲנִי מְדַבֵּר עִבְרִית.",
+          "start_ms": 2204,
+          "end_ms": 4220
+        }
+      ],
+      "swapColumns": false,
+      "uiDisplayTitle": "הַאִם אַתָה מְדַבֵּר עִבְרִית?\nכֵּן, אֲנִי מְדַבֵּר עִבְרִית.",
+      "gamePrompt": "הַאִם אַתָה מְדַבֵּר עִבְרִית?",
+      "translationPrompt": "Ты говоришь на иврите? (Да, я говорю на иврите.)",
+      "correctOptions": [
+        "כֵּן, אֲנִי מְדַבֵּר עִבְרִית."
+      ],
+      "distractorOptions": [
+        "לֹא",
+        "אַנְגְלִית",
+        "הִיא"
+      ],
+      "taskTargetCards": [
+        "כֵּן",
         "אֲנִי",
-        "אַנָה",
-        "מִי",
-        "אַתְ",
-        "אֲנִי",
-        "נִינָה"
+        "מְדַבֵּר",
+        "עִבְרִית"
       ]
     }
   ]
