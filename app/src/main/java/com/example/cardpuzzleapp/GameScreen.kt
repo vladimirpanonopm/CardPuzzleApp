@@ -249,7 +249,6 @@ private fun GameScreenLayout(
     val styleConfig = CardStyles.getStyle(fontStyle)
     val isPreGameLearning = dynamicState.isPreGameLearning
     val displayPairs = dynamicState.displayPairs
-    // --- НОВОЕ: ID активного слота ---
     val activeSlotId = dynamicState.activeSlotId
 
     val baseFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
@@ -509,6 +508,22 @@ private fun GameScreenLayout(
                                     )
                                 }
 
+                                // --- ИСПРАВЛЕНИЕ: ДОБАВЛЕНА ВЕТКА MAKE_ANSWER ---
+                                TaskType.MAKE_ANSWER -> {
+                                    MakeAnswerTaskLayout(
+                                        assemblyLine = dynamicState.assemblyLine,
+                                        questionText = staticState.originalHebrewText ?: "",
+                                        textStyle = hebrewTextStyle,
+                                        fontStyle = fontStyle,
+                                        taskType = staticState.taskType,
+                                        isInteractionEnabled = isInteractionEnabled,
+                                        isRoundWon = isRoundWon,
+                                        activeSlotId = activeSlotId,
+                                        onSlotClick = { viewModel.onAssemblySlotClicked(it) }
+                                    )
+                                }
+                                // ------------------------------------------------
+
                                 TaskType.ASSEMBLE_TRANSLATION, TaskType.FILL_IN_BLANK, TaskType.QUIZ -> {
                                     FillInBlankTaskLayout(
                                         assemblyLine = dynamicState.assemblyLine,
@@ -521,7 +536,9 @@ private fun GameScreenLayout(
                                         onSlotClick = { viewModel.onAssemblySlotClicked(it) }
                                     )
                                 }
-                                else -> {}
+                                else -> {
+                                    // fallback
+                                }
                             }
                         }
                     }
@@ -846,6 +863,50 @@ private fun MakeQuestionTaskLayout(
                 textAlign = TextAlign.Right
             ),
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// --- ИСПРАВЛЕНИЕ: ДОБАВЛЕНА НЕДОСТАЮЩАЯ ФУНКЦИЯ ---
+@OptIn(ExperimentalLayoutApi::class, ExperimentalTextApi::class)
+@Composable
+private fun MakeAnswerTaskLayout(
+    assemblyLine: List<AssemblySlot>,
+    questionText: String,
+    textStyle: TextStyle,
+    fontStyle: FontStyle,
+    taskType: TaskType,
+    isInteractionEnabled: Boolean,
+    isRoundWon: Boolean,
+    activeSlotId: UUID?,
+    onSlotClick: (AssemblySlot) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // 1. Статический текст (Вопрос) - СВЕРХУ
+        Text(
+            text = questionText,
+            style = textStyle.copy(
+                textDirection = TextDirection.Rtl,
+                textAlign = TextAlign.Right
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 2. Слоты для сборки (Ответ) - СНИЗУ
+        FillInBlankTaskLayout(
+            assemblyLine = assemblyLine,
+            textStyle = textStyle,
+            fontStyle = fontStyle,
+            taskType = taskType,
+            isInteractionEnabled = isInteractionEnabled,
+            isRoundWon = isRoundWon,
+            activeSlotId = activeSlotId,
+            onSlotClick = onSlotClick
         )
     }
 }

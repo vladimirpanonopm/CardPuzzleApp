@@ -2,7 +2,7 @@ TASK: MAKE_ANSWER
 
 # 1. То, что видит пользователь (Ответ)
 HEBREW_PROMPT:
-אֵיפֹה אַת גָר?
+אֵיפֹה אַת גָרה?
 
 # 2. То, что нужно собрать (Вопрос)
 HEBREW_CORRECT:
@@ -25,8 +25,9 @@ RUSSIAN:
 Я живу в Тель-Авиве.
 
 VOICES:
-female_a,500
 male_b
+female_a,500
+
 ===
 TASK: MAKE_QUESTION
 
