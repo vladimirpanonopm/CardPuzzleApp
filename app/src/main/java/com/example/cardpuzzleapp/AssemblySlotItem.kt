@@ -2,10 +2,14 @@ package com.example.cardpuzzleapp
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,9 +26,10 @@ fun AssemblySlotItem(
     fontStyle: FontStyle,
     taskType: TaskType,
     onReturnCard: () -> Unit,
-    // --- ИЗМЕНЕНИЕ: Добавлен isInteractionEnabled ---
-    // (Этот параметр был утерян при загрузке старого файла)
-    isInteractionEnabled: Boolean
+    isInteractionEnabled: Boolean,
+    // --- НОВОЕ: Параметры для активного слота ---
+    isActive: Boolean = false,
+    onClick: () -> Unit = {}
 ) {
     val filledCard = slot.filledCard
 
@@ -42,14 +47,26 @@ fun AssemblySlotItem(
     } else if (slot.isBlank) {
         // --- Слот ПУСТОЙ (___) ---
         val styleConfig = CardStyles.getStyle(fontStyle)
+
+        // Меняем цвет и толщину рамки, если слот активен
+        val borderColor = if (isActive) MaterialTheme.colorScheme.primary else StickyNoteText.copy(alpha = 0.4f)
+        val borderWidth = if (isActive) 2.dp else 1.dp
+
         Box(
             modifier = Modifier
                 .height(intrinsicSize = IntrinsicSize.Min)
                 .widthIn(min = 51.dp)
                 .border(
-                    width = 1.dp,
-                    color = StickyNoteText.copy(alpha = 0.4f),
+                    width = borderWidth,
+                    color = borderColor,
                     shape = RoundedCornerShape(styleConfig.cornerRadius)
+                )
+                // Делаем кликабельным, только если взаимодействие разрешено
+                .clickable(
+                    enabled = isInteractionEnabled,
+                    onClick = onClick,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null // Убираем ripple эффект для чистоты
                 )
                 .padding(vertical = styleConfig.verticalPadding, horizontal = styleConfig.horizontalPadding),
             contentAlignment = Alignment.Center
@@ -57,9 +74,9 @@ fun AssemblySlotItem(
             Text(
                 text = "___",
                 style = textStyle.copy(
-                    fontSize = 26.sp, // <-- ИЗМЕНЕНИЕ (Было 29.sp)
+                    fontSize = 26.sp,
                     color = StickyNoteText.copy(alpha = 0.3f),
-                    textDirection = TextDirection.Ltr // (Символы '___' всегда LTR)
+                    textDirection = TextDirection.Ltr
                 )
             )
         }

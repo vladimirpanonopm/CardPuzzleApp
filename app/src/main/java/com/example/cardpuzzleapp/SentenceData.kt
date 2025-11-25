@@ -1,9 +1,11 @@
 package com.example.cardpuzzleapp
 
+import android.annotation.SuppressLint
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
+@SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class AudioSegment(
     val text: String,

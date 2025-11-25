@@ -53,6 +53,7 @@ import com.example.cardpuzzleapp.ui.theme.StickyNoteText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlin.math.roundToInt
 
 private data class GameRoundState(
@@ -248,6 +249,8 @@ private fun GameScreenLayout(
     val styleConfig = CardStyles.getStyle(fontStyle)
     val isPreGameLearning = dynamicState.isPreGameLearning
     val displayPairs = dynamicState.displayPairs
+    // --- НОВОЕ: ID активного слота ---
+    val activeSlotId = dynamicState.activeSlotId
 
     val baseFontSize = if (fontStyle == FontStyle.CURSIVE) 32.sp else 28.sp
     val animatedFontSize by animateFloatAsState(
@@ -418,7 +421,9 @@ private fun GameScreenLayout(
                                                         fontStyle = fontStyle,
                                                         taskType = staticState.taskType,
                                                         onReturnCard = { },
-                                                        isInteractionEnabled = isInteractionEnabled
+                                                        isInteractionEnabled = isInteractionEnabled,
+                                                        isActive = (slot.id == activeSlotId),
+                                                        onClick = { viewModel.onAssemblySlotClicked(slot) }
                                                     )
                                                 }
                                             }
@@ -431,8 +436,8 @@ private fun GameScreenLayout(
                     }
 
                 } else {
-                    if (!staticState.taskPrompt.isNullOrBlank()) {
-                        val isHebrewPrompt = staticState.taskType == TaskType.CONJUGATION || staticState.taskType == TaskType.MATCHING_PAIRS
+                    if (!staticState.taskPrompt.isNullOrBlank() && staticState.taskType != TaskType.CONJUGATION) {
+                        val isHebrewPrompt = staticState.taskType == TaskType.MATCHING_PAIRS
                         val textDirection = if (isHebrewPrompt) TextDirection.Rtl else TextDirection.Ltr
                         val textAlign = if (isHebrewPrompt) TextAlign.Right else TextAlign.Start
 
@@ -471,6 +476,8 @@ private fun GameScreenLayout(
                         Box(modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 100.dp)) {
                             when (staticState.taskType) {
                                 TaskType.CONJUGATION, TaskType.MATCHING_PAIRS -> {
+                                    val headerPrompt = if (staticState.taskType == TaskType.CONJUGATION) staticState.taskPrompt else null
+
                                     ConjugationTaskLayout(
                                         assemblyLine = dynamicState.assemblyLine,
                                         taskPairs = displayPairs,
@@ -481,7 +488,10 @@ private fun GameScreenLayout(
                                         isRoundWon = isRoundWon,
                                         isPreGameLearning = isPreGameLearning,
                                         onCardClickInLearning = { cardText -> viewModel.speakWord(cardText) },
-                                        swapColumns = (staticState.taskType == TaskType.MATCHING_PAIRS)
+                                        swapColumns = (staticState.taskType == TaskType.MATCHING_PAIRS),
+                                        headerPrompt = headerPrompt,
+                                        activeSlotId = activeSlotId,
+                                        onSlotClick = { viewModel.onAssemblySlotClicked(it) }
                                     )
                                 }
 
@@ -493,7 +503,9 @@ private fun GameScreenLayout(
                                         fontStyle = fontStyle,
                                         taskType = staticState.taskType,
                                         isInteractionEnabled = isInteractionEnabled,
-                                        isRoundWon = isRoundWon
+                                        isRoundWon = isRoundWon,
+                                        activeSlotId = activeSlotId,
+                                        onSlotClick = { viewModel.onAssemblySlotClicked(it) }
                                     )
                                 }
 
@@ -504,7 +516,9 @@ private fun GameScreenLayout(
                                         fontStyle = fontStyle,
                                         taskType = staticState.taskType,
                                         isInteractionEnabled = isInteractionEnabled,
-                                        isRoundWon = isRoundWon
+                                        isRoundWon = isRoundWon,
+                                        activeSlotId = activeSlotId,
+                                        onSlotClick = { viewModel.onAssemblySlotClicked(it) }
                                     )
                                 }
                                 else -> {}
@@ -586,7 +600,9 @@ private fun FillInBlankTaskLayout(
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
-    isRoundWon: Boolean
+    isRoundWon: Boolean,
+    activeSlotId: UUID?,
+    onSlotClick: (AssemblySlot) -> Unit
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -615,7 +631,9 @@ private fun FillInBlankTaskLayout(
                             fontStyle = fontStyle,
                             taskType = taskType,
                             onReturnCard = { },
-                            isInteractionEnabled = isInteractionEnabled
+                            isInteractionEnabled = isInteractionEnabled,
+                            isActive = (slot.id == activeSlotId),
+                            onClick = { onSlotClick(slot) }
                         )
                     }
                 }
@@ -636,69 +654,103 @@ private fun ConjugationTaskLayout(
     isRoundWon: Boolean,
     isPreGameLearning: Boolean,
     onCardClickInLearning: (String) -> Unit,
-    swapColumns: Boolean
+    swapColumns: Boolean,
+    headerPrompt: String?,
+    activeSlotId: UUID?,
+    onSlotClick: (AssemblySlot) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 16.dp)
-    ) {
-        itemsIndexed(taskPairs) { index, pair ->
-            val questionText = pair.getOrNull(0) ?: ""
+    Column(modifier = Modifier.fillMaxWidth()) {
 
-            val rowSlots = assemblyLine.filter { it.rowId == index }
-
-            val staticSlot = rowSlots.find { !it.isBlank }
-            val staticText = staticSlot?.text ?: ""
-
-            // --- ИСПРАВЛЕНИЕ: Используем drop(1), чтобы не терять пробелы/запятые ---
-            val answerParts = rowSlots.drop(1)
+        if (!headerPrompt.isNullOrBlank()) {
+            val parts = headerPrompt.split("/").map { it.trim() }
+            val rightText = parts.getOrNull(0) ?: ""
+            val leftText = parts.getOrNull(1) ?: ""
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (swapColumns) {
-                    FlowRow(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning)
-                    }
-                } else {
-                    Text(
-                        text = staticText,
-                        style = textStyle,
-                        modifier = Modifier.weight(1f).padding(end = 16.dp)
-                    )
-                }
+                Text(
+                    text = rightText,
+                    style = textStyle,
+                    modifier = Modifier.weight(1f).padding(end = 16.dp),
+                    textAlign = TextAlign.Start
+                )
 
-                if (swapColumns) {
-                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Text(
+                    text = leftText,
+                    style = textStyle,
+                    modifier = Modifier.weight(1f).padding(start = 16.dp),
+                    textAlign = TextAlign.Start
+                )
+            }
+            HorizontalDivider(thickness = 2.dp, color = StickyNoteText)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            itemsIndexed(taskPairs) { index, pair ->
+                val questionText = pair.getOrNull(0) ?: ""
+
+                val rowSlots = assemblyLine.filter { it.rowId == index }
+
+                val staticSlot = rowSlots.find { !it.isBlank }
+                val staticText = staticSlot?.text ?: ""
+
+                val answerParts = rowSlots.drop(1)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    if (swapColumns) {
+                        FlowRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning, activeSlotId, onSlotClick)
+                        }
+                    } else {
                         Text(
                             text = staticText,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 20.sp,
-                                textAlign = TextAlign.Start
-                            ),
-                            modifier = Modifier.weight(1f).padding(start = 16.dp)
+                            style = textStyle,
+                            modifier = Modifier.weight(1f).padding(end = 16.dp)
                         )
                     }
-                } else {
-                    FlowRow(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning)
+
+                    if (swapColumns) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            Text(
+                                text = staticText,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = 20.sp,
+                                    textAlign = TextAlign.Start
+                                ),
+                                modifier = Modifier.weight(1f).padding(start = 16.dp)
+                            )
+                        }
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            RenderAnswerSlots(isRoundWon, answerParts, textStyle, fontStyle, taskType, isInteractionEnabled, isPreGameLearning, onCardClickInLearning, activeSlotId, onSlotClick)
+                        }
                     }
                 }
-            }
 
-            if (index < taskPairs.size - 1) {
-                HorizontalDivider(color = StickyNoteText.copy(alpha = 0.1f), modifier = Modifier.padding(top = 8.dp))
+                if (index < taskPairs.size - 1) {
+                    HorizontalDivider(color = StickyNoteText.copy(alpha = 0.1f), modifier = Modifier.padding(top = 8.dp))
+                }
             }
         }
     }
@@ -714,7 +766,9 @@ private fun RenderAnswerSlots(
     taskType: TaskType,
     isInteractionEnabled: Boolean,
     isPreGameLearning: Boolean,
-    onCardClickInLearning: (String) -> Unit
+    onCardClickInLearning: (String) -> Unit,
+    activeSlotId: UUID?,
+    onSlotClick: (AssemblySlot) -> Unit
 ) {
     if (isRoundWon) {
         answerSlots.forEach { slot ->
@@ -745,7 +799,9 @@ private fun RenderAnswerSlots(
                     fontStyle = fontStyle,
                     taskType = taskType,
                     onReturnCard = { },
-                    isInteractionEnabled = isInteractionEnabled
+                    isInteractionEnabled = isInteractionEnabled,
+                    isActive = (slot.id == activeSlotId),
+                    onClick = { onSlotClick(slot) }
                 )
             }
         }
@@ -761,7 +817,9 @@ private fun MakeQuestionTaskLayout(
     fontStyle: FontStyle,
     taskType: TaskType,
     isInteractionEnabled: Boolean,
-    isRoundWon: Boolean
+    isRoundWon: Boolean,
+    activeSlotId: UUID?,
+    onSlotClick: (AssemblySlot) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -773,7 +831,9 @@ private fun MakeQuestionTaskLayout(
             fontStyle = fontStyle,
             taskType = taskType,
             isInteractionEnabled = isInteractionEnabled,
-            isRoundWon = isRoundWon
+            isRoundWon = isRoundWon,
+            activeSlotId = activeSlotId,
+            onSlotClick = onSlotClick
         )
 
         Spacer(modifier = Modifier.height(32.dp))

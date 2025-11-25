@@ -1,3 +1,4 @@
+
 import os
 import json
 import hashlib
@@ -24,8 +25,9 @@ VOICE_MAP = {
     "male_d": "he-IL-Wavenet-D",
 }
 
-
 # --- 3. Google API ---
+
+
 def call_google_tts(text_to_speak, voice_name, output_filename):
     try:
         client = texttospeech.TextToSpeechClient()
@@ -94,21 +96,29 @@ def parse_card_block(block_text):
             current_key = None;
             is_tag = True
         elif line.startswith("HEBREW_PROMPT:"):
-            current_key = "HEBREW_PROMPT"; is_tag = True
+            current_key = "HEBREW_PROMPT";
+            is_tag = True
         elif line.startswith("HEBREW_CORRECT:"):
-            current_key = "HEBREW_CORRECT"; is_tag = True
+            current_key = "HEBREW_CORRECT";
+            is_tag = True
         elif line.startswith("RUSSIAN_CORRECT:"):
-            current_key = "RUSSIAN_CORRECT"; is_tag = True
+            current_key = "RUSSIAN_CORRECT";
+            is_tag = True
         elif line.startswith("HEBREW_DISTRACTORS:"):
-            current_key = "HEBREW_DISTRACTORS"; is_tag = True
+            current_key = "HEBREW_DISTRACTORS";
+            is_tag = True
         elif line.startswith("HEBREW:"):
-            current_key = "HEBREW"; is_tag = True
+            current_key = "HEBREW";
+            is_tag = True
         elif line.startswith("RUSSIAN:"):
-            current_key = "RUSSIAN"; is_tag = True
+            current_key = "RUSSIAN";
+            is_tag = True
         elif line.startswith("VOICES:"):
-            current_key = "VOICES"; is_tag = True
+            current_key = "VOICES";
+            is_tag = True
         elif line.startswith("PAIRS:"):
-            current_key = "PAIRS"; is_tag = True
+            current_key = "PAIRS";
+            is_tag = True
 
         if is_tag:
             content = line.split(":", 1)[1].strip()
@@ -209,20 +219,33 @@ def process_level_file(txt_filepath, assets_path):
                 card_json['taskPairs'] = raw_pairs
                 card_json['taskTargetCards'] = targets
 
-            # --- НОВЫЙ ТИП: MAKE_QUESTION ---
+            # --- ТИП: MAKE_QUESTION ---
             elif task_type == 'MAKE_QUESTION':
-                # ИЗМЕНЕНИЕ: Для Журнала и Аудио берем ПОЛНЫЙ текст (HEBREW block)
+                # Для Журнала и Аудио берем ПОЛНЫЙ текст (HEBREW block)
                 card_json['uiDisplayTitle'] = data['hebrew_display_text']
-
-                # ИЗМЕНЕНИЕ: Для Игры берем только промпт-ответ (HEBREW_PROMPT)
+                # Для Игры берем только промпт-ответ (HEBREW_PROMPT)
                 card_json['gamePrompt'] = data['hebrew_prompt_text']
-
                 card_json['translationPrompt'] = data['russian_translation_text']
                 card_json['correctOptions'] = data['HEBREW_CORRECT']
                 card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
-
                 full_question = " ".join(data['HEBREW_CORRECT'])
                 card_json['taskTargetCards'] = re.findall(hebrew_regex, full_question)
+                audio_lines = data['HEBREW']
+                full_text_hash_source = data['hebrew_display_text']
+
+            # --- НОВЫЙ ТИП: MAKE_ANSWER ---
+            elif task_type == 'MAKE_ANSWER':
+                # Полный текст для журнала
+                card_json['uiDisplayTitle'] = data['hebrew_display_text']
+                # Для игры берем Вопрос (Prompt)
+                card_json['gamePrompt'] = data['hebrew_prompt_text']
+                card_json['translationPrompt'] = data['russian_translation_text']
+                # Собираем Ответ (Correct)
+                card_json['correctOptions'] = data['HEBREW_CORRECT']
+                card_json['distractorOptions'] = data['HEBREW_DISTRACTORS']
+
+                full_answer = " ".join(data['HEBREW_CORRECT'])
+                card_json['taskTargetCards'] = re.findall(hebrew_regex, full_answer)
 
                 audio_lines = data['HEBREW']
                 full_text_hash_source = data['hebrew_display_text']

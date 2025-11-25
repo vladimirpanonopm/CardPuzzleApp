@@ -15,7 +15,9 @@
     <string name="game_task_quiz">Выберите правильный ответ</string>
     <string name="game_task_matching">Найди пары</string>
     <string name="game_task_new_words">Новые слова</string>
-    <string name="game_task_make_question">Задай вопрос</string> <string name="game_task_unknown">Задание</string>
+    <string name="game_task_make_question">Задай вопрос</string>
+    <string name="game_task_make_answer">Собери ответ</string>
+    <string name="game_task_unknown">Задание</string>
 
     <string name="button_check">Проверить</string>
     <string name="button_continue">Продолжить</string>

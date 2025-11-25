@@ -17,7 +17,6 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 
-// ЕДИНЫЙ ТЕГ ДЛЯ ОТЛАДКИ ЗВУКА
 private const val TAG = "AUDIO_DEBUG"
 
 data class AssemblySlot(
@@ -52,7 +51,8 @@ class CardViewModel @Inject constructor(
         val playingSegmentIndex: Int = -1,
         val isSlowMode: Boolean = false,
         val isPreGameLearning: Boolean = false,
-        val displayPairs: List<List<String>> = emptyList()
+        val displayPairs: List<List<String>> = emptyList(),
+        val activeSlotId: UUID? = null
     )
 
     var uiState by mutableStateOf(GameUiState())
@@ -110,44 +110,34 @@ class CardViewModel @Inject constructor(
         }
     }
 
-    // --- ИСПРАВЛЕНО: Полный ре-шаффл при старте игры ---
     fun startGame() {
-        // 1. Получаем данные текущего раунда
         val roundData = currentLevelSentences.getOrNull(currentRoundIndex) ?: return
 
-        // 2. Если это Matching Pairs, генерируем новую случайную раскладку
         if (currentTaskType == TaskType.MATCHING_PAIRS) {
-            // Перемешиваем пары заново
             val newDisplayPairs = roundData.task_pairs?.shuffled() ?: emptyList()
-
-            // Генерируем слоты (они создаются заполненными в setupMatchingPairsTask)
             val (targets, available, assembly) = setupMatchingPairsTask(roundData, newDisplayPairs)
-
-            // Очищаем слоты (удаляем filledCard), чтобы пользователь собирал их сам
             val clearedAssembly = assembly.map { slot ->
                 if (slot.isBlank) slot.copy(filledCard = null) else slot
             }
-
-            // Обновляем состояние
             this.targetCards = targets
             uiState = uiState.copy(
                 assemblyLine = clearedAssembly,
-                availableCards = available, // Банк карточек тоже обновлен и перемешан
-                displayPairs = newDisplayPairs, // Обновляем порядок строк в таблице
-                isPreGameLearning = false
+                availableCards = available,
+                displayPairs = newDisplayPairs,
+                isPreGameLearning = false,
+                activeSlotId = null
             )
         } else {
-            // Для других типов (если вдруг используем) просто снимаем флаг
             val clearedLine = uiState.assemblyLine.map { slot ->
                 if (slot.isBlank) slot.copy(filledCard = null) else slot
             }
             uiState = uiState.copy(
                 assemblyLine = clearedLine,
-                isPreGameLearning = false
+                isPreGameLearning = false,
+                activeSlotId = null
             )
         }
     }
-    // ---------------------------------------------------
 
     fun toggleSlowMode() {
         uiState = uiState.copy(isSlowMode = !uiState.isSlowMode)
@@ -217,6 +207,12 @@ class CardViewModel @Inject constructor(
         }
     }
 
+    fun onAssemblySlotClicked(slot: AssemblySlot) {
+        if (slot.isBlank && slot.filledCard == null) {
+            uiState = uiState.copy(activeSlotId = slot.id)
+        }
+    }
+
     fun selectCard(slot: AvailableCardSlot) {
         if (!slot.isVisible) return
 
@@ -225,8 +221,15 @@ class CardViewModel @Inject constructor(
         var targetSlotIndex = -1
 
         when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MAKE_QUESTION, TaskType.MATCHING_PAIRS -> {
-                targetSlotIndex = uiState.assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MATCHING_PAIRS, TaskType.MAKE_QUESTION, TaskType.MAKE_ANSWER -> {
+                if (uiState.activeSlotId != null) {
+                    targetSlotIndex = uiState.assemblyLine.indexOfFirst {
+                        it.id == uiState.activeSlotId && it.isBlank && it.filledCard == null
+                    }
+                }
+                if (targetSlotIndex == -1) {
+                    targetSlotIndex = uiState.assemblyLine.indexOfFirst { it.isBlank && it.filledCard == null }
+                }
                 if (targetSlotIndex != -1) {
                     val targetSlot = uiState.assemblyLine[targetSlotIndex]
                     isCorrect = (targetSlot.targetCard?.text?.trim() == card.text.trim())
@@ -244,14 +247,15 @@ class CardViewModel @Inject constructor(
             }
 
             when (currentTaskType) {
-                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MAKE_QUESTION, TaskType.MATCHING_PAIRS -> {
+                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MATCHING_PAIRS, TaskType.MAKE_QUESTION, TaskType.MAKE_ANSWER -> {
                     val newAssemblyLine = uiState.assemblyLine.toMutableList()
                     if (targetSlotIndex != -1) {
                         newAssemblyLine[targetSlotIndex] = newAssemblyLine[targetSlotIndex].copy(filledCard = card)
                     }
                     uiState = uiState.copy(
                         availableCards = newAvailableCards,
-                        assemblyLine = newAssemblyLine
+                        assemblyLine = newAssemblyLine,
+                        activeSlotId = null
                     )
                 }
                 else -> uiState = uiState.copy(availableCards = newAvailableCards)
@@ -269,7 +273,7 @@ class CardViewModel @Inject constructor(
 
     private fun checkWinCondition() {
         val didWin = when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MAKE_QUESTION, TaskType.MATCHING_PAIRS -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MATCHING_PAIRS, TaskType.MAKE_QUESTION, TaskType.MAKE_ANSWER -> {
                 uiState.assemblyLine.none { it.isBlank && it.filledCard == null }
             }
             else -> false
@@ -398,13 +402,22 @@ class CardViewModel @Inject constructor(
                 newAvailableCards = available
                 newAssemblyLine = assembly
             }
+            TaskType.MAKE_ANSWER -> {
+                newTaskTitleResId = R.string.game_task_make_answer
+                newCurrentTaskPrompt = null
+                // Принудительно используем gamePrompt или hebrew, если первое null
+                newCurrentHebrewPrompt = if (!roundData.gamePrompt.isNullOrBlank()) roundData.gamePrompt else roundData.hebrew
+
+                // Используем отдельную функцию для инициализации, чтобы избежать ошибок
+                val (target, available, assembly) = setupMakeAnswerTask(roundData)
+                this.targetCards = target
+                newAvailableCards = available
+                newAssemblyLine = assembly
+            }
             TaskType.MATCHING_PAIRS -> {
                 newTaskTitleResId = R.string.game_task_matching
                 newCurrentTaskPrompt = roundData.hebrew
-
-                // Шаффл при первом входе (для Обучения)
                 displayPairsList = roundData.task_pairs?.shuffled() ?: emptyList()
-
                 val (target, available, assembly) = setupMatchingPairsTask(roundData, displayPairsList)
                 this.targetCards = target
                 newAvailableCards = available
@@ -432,7 +445,8 @@ class CardViewModel @Inject constructor(
             playingSegmentIndex = -1,
             isSlowMode = false,
             isPreGameLearning = isLearning,
-            displayPairs = displayPairsList
+            displayPairs = displayPairsList,
+            activeSlotId = null
         )
 
         desiredSegmentIndex = -1
@@ -442,52 +456,33 @@ class CardViewModel @Inject constructor(
     private fun setupMatchingPairsTask(roundData: SentenceData, pairsList: List<List<String>>): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetCards = mutableListOf<Card>()
-
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
 
         pairsList.forEachIndexed { index, pair ->
             val hebrewText = pair.getOrNull(0) ?: ""
             val russianText = pair.getOrNull(1) ?: ""
-
             val card = Card(text = hebrewText, translation = "")
             targetCards.add(card)
-
-            // СТАТИКА (Русский) - СЛЕВА
-            newAssemblyLine.add(AssemblySlot(
-                text = russianText,
-                isBlank = false,
-                filledCard = null,
-                targetCard = null,
-                rowId = index
-            ))
-
-            // СЛОТ (Иврит) - СПРАВА (Заполнен для обучения)
-            newAssemblyLine.add(AssemblySlot(
-                text = "___",
-                isBlank = true,
-                filledCard = card,
-                targetCard = card,
-                rowId = index
-            ))
+            newAssemblyLine.add(AssemblySlot(text = russianText, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+            newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = card, targetCard = card, rowId = index))
         }
-
-        val newAvailableCards = (targetCards + distractors).shuffled().map {
-            AvailableCardSlot(card = it, isVisible = true)
-        }
-
+        val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
 
-    // ... (Остальные setup... методы без изменений) ...
     private fun setupMakeQuestionTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val fullQuestionText = roundData.task_correct_cards?.joinToString(" ") ?: ""
         val targetWordsList = roundData.task_target_cards ?: emptyList()
+
+        // Безопасное получение перевода (fallback на пустую строку)
         val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
+
         val targetCardsIterator = targetCards.iterator()
         val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
         val targetWordsSet = targetWordsList.toSet()
+
         partsRegex.findAll(fullQuestionText).forEach { match ->
             val token = match.value
             if (targetWordsSet.contains(token) && targetCardsIterator.hasNext()) {
@@ -498,6 +493,33 @@ class CardViewModel @Inject constructor(
         }
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
+
+    // --- НОВАЯ ФУНКЦИЯ: Изолированная логика для MAKE_ANSWER ---
+    private fun setupMakeAnswerTask(roundData: SentenceData): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
+        val newAssemblyLine = mutableListOf<AssemblySlot>()
+        // Для MAKE_ANSWER "правильный ответ" лежит в correctOptions (это строка которую собираем)
+        val fullAnswerText = roundData.task_correct_cards?.joinToString(" ") ?: ""
+        val targetWordsList = roundData.task_target_cards ?: emptyList()
+
+        val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
+        val targetCardsIterator = targetCards.iterator()
+        val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
+        val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
+        val targetWordsSet = targetWordsList.toSet()
+
+        partsRegex.findAll(fullAnswerText).forEach { match ->
+            val token = match.value
+            // Если токен есть в списке целевых карточек - создаем слот
+            if (targetWordsSet.contains(token) && targetCardsIterator.hasNext()) {
+                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next()))
+            } else {
+                // Иначе (знаки препинания или слова не из списка) - просто текст
+                newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null))
+            }
+        }
+        return Triple(targetCards, newAvailableCards, newAssemblyLine)
+    }
+    // -----------------------------------------------------------
 
     private fun setupConjugationTask(roundData: SentenceData, pairsList: List<List<String>>): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
         val newAssemblyLine = mutableListOf<AssemblySlot>()
@@ -612,7 +634,7 @@ class CardViewModel @Inject constructor(
         val hasMoreRounds = (allCompleted.size + allArchived.size) < currentLevelSentences.size
 
         val completedCardsList = when (currentTaskType) {
-            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MAKE_QUESTION, TaskType.MATCHING_PAIRS -> {
+            TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MATCHING_PAIRS, TaskType.MAKE_QUESTION, TaskType.MAKE_ANSWER -> {
                 uiState.assemblyLine.mapNotNull { it.filledCard ?: it.targetCard }
             }
             else -> emptyList()
@@ -621,7 +643,7 @@ class CardViewModel @Inject constructor(
         val newSnapshot = RoundResultSnapshot(
             gameResult = result,
             completedCards = completedCardsList,
-            translationText = if (currentTaskType == TaskType.AUDITION || currentTaskType == TaskType.MAKE_QUESTION) translation else null,
+            translationText = if (currentTaskType == TaskType.AUDITION || currentTaskType == TaskType.MAKE_QUESTION || currentTaskType == TaskType.MAKE_ANSWER) translation else null,
             errorCount = this.uiState.errorCount,
             timeSpent = this.timeSpent,
             levelId = this.currentLevelId,
