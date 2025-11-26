@@ -56,6 +56,9 @@ PAIRS:
 HEBREW_DISTRACTORS:
 לָמַד
 יִלְמַד
+
+הוּה לוֹמֵד בְּלוֹד, הִיא לוֹמֶדֶת בְּלוֹד 
+
 VOICES:
 male_b
 

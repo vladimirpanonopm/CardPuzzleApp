@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// TAG для фильтрации
 private const val TAG = "AUDIO_DEBUG"
 
 class AudioPlayer(private val context: Context) {
@@ -28,24 +27,28 @@ class AudioPlayer(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main)
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // --- ИЗМЕНЕНИЕ: Флаг для предотвращения работы после уничтожения ---
+    @Volatile
+    private var isDestroyed = false
+
     fun play(filename: String, speed: Float = 1.0f) {
-        Log.d(TAG, "Player: play($filename, speed=$speed)")
+        if (isDestroyed) return
         stop()
         startPlayback(filename, 0, -1, speed)
     }
 
     fun playSegment(filename: String, startMs: Long, endMs: Long, speed: Float = 1.0f) {
-        Log.d(TAG, "Player: playSegment($filename, $startMs-$endMs, speed=$speed)")
+        if (isDestroyed) return
         stop()
         startPlayback(filename, startMs.toInt(), endMs.toInt(), speed)
     }
 
     suspend fun playAndAwaitCompletion(filename: String, speed: Float = 1.0f) {
-        Log.d(TAG, "Player: playAndAwaitCompletion")
+        if (isDestroyed) return
         stop()
         play(filename, speed)
         delay(100)
-        while (_isPlaying.value) {
+        while (_isPlaying.value && !isDestroyed) {
             delay(100)
         }
     }
@@ -54,6 +57,9 @@ class AudioPlayer(private val context: Context) {
         try {
             releaseMediaPlayer()
 
+            // Если плеер уже уничтожен пока мы тут думали — выход
+            if (isDestroyed) return
+
             Log.d(TAG, "Player: Creating MediaPlayer for $filename")
             val assetFileDescriptor = context.assets.openFd("audio/$filename")
 
@@ -61,56 +67,50 @@ class AudioPlayer(private val context: Context) {
                 setDataSource(assetFileDescriptor.fileDescriptor, assetFileDescriptor.startOffset, assetFileDescriptor.length)
 
                 setOnCompletionListener {
-                    Log.d(TAG, "Player: onCompletionListener -> Stop immediately")
                     _isPlaying.value = false
+                    // Используем post, чтобы не блокировать UI поток листенера
                     mainHandler.post { stop() }
                 }
 
-                setOnErrorListener { _, what, extra ->
-                    Log.e(TAG, "Player: onError ($what, $extra)")
+                setOnErrorListener { _, _, _ ->
                     _isPlaying.value = false
                     mainHandler.post { stop() }
                     true
                 }
 
-                // 1. Сначала ГОТОВИМ плеер (Загружаем файл)
                 prepare()
 
-                // 2. И только когда он ГОТОВ (Prepared), меняем скорость
+                // Еще одна проверка перед стартом
+                if (isDestroyed) {
+                    release()
+                    return@apply
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     try {
-                        // Важно: создаем новый объект params, меняем скорость, и присваиваем обратно
                         val params = playbackParams
                         params.speed = speed
                         playbackParams = params
-                        Log.d(TAG, "Player: Speed set to $speed success")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Player: Failed to set speed (device limitation?)", e)
-                    }
+                    } catch (e: Exception) { }
                 }
 
                 if (startMs > 0) {
                     seekTo(startMs)
-                    Log.d(TAG, "Player: SeekTo $startMs")
                 }
 
-                // 3. Запускаем
                 start()
             }
             assetFileDescriptor.close()
 
             _isPlaying.value = true
-            Log.d(TAG, "Player: START SUCCESS. isPlaying=true")
 
             if (endMs > startMs) {
                 val durationMs = endMs - startMs
                 val timeToWait = (durationMs / speed).toLong()
-                Log.d(TAG, "Player: Timer set for $timeToWait ms (speed=$speed)")
 
                 playbackJob = scope.launch {
                     delay(timeToWait)
-                    if (_isPlaying.value) {
-                        Log.d(TAG, "Player: Timer FINISHED. Force pausing.")
+                    if (_isPlaying.value && !isDestroyed) {
                         try { mediaPlayer?.pause() } catch (e: Exception) { }
                         stop()
                     }
@@ -119,14 +119,11 @@ class AudioPlayer(private val context: Context) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Player: EXCEPTION: $e")
-            e.printStackTrace()
             stop()
         }
     }
 
     fun stop() {
-        Log.d(TAG, "Player: stop() called")
-
         mainHandler.removeCallbacksAndMessages(null)
         playbackJob?.cancel()
         playbackJob = null
@@ -135,7 +132,6 @@ class AudioPlayer(private val context: Context) {
 
         if (_isPlaying.value) {
             _isPlaying.value = false
-            Log.d(TAG, "Player: isPlaying forcibly set to false")
         }
     }
 
@@ -151,6 +147,7 @@ class AudioPlayer(private val context: Context) {
     }
 
     fun release() {
+        isDestroyed = true // Блокируем любые новые запуски
         stop()
     }
 }

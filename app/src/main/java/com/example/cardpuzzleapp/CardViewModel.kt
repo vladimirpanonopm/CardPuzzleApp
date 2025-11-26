@@ -233,6 +233,7 @@ class CardViewModel @Inject constructor(
                 }
                 if (targetSlotIndex != -1) {
                     val targetSlot = uiState.assemblyLine[targetSlotIndex]
+                    // Для CONJUGATION и других типов важен trim(), чтобы убрать случайные пробелы
                     isCorrect = (targetSlot.targetCard?.text?.trim() == card.text.trim())
                 }
             }
@@ -240,29 +241,58 @@ class CardViewModel @Inject constructor(
         }
 
         if (isCorrect) {
-            ttsPlayer.speak(card.text.trim())
+            // --- УСПЕХ ---
             viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Success) }
 
             val newAvailableCards = uiState.availableCards.map {
                 if (it.id == slot.id) it.copy(isVisible = false) else it
             }
 
-            when (currentTaskType) {
-                TaskType.ASSEMBLE_TRANSLATION, TaskType.AUDITION, TaskType.FILL_IN_BLANK, TaskType.QUIZ, TaskType.CONJUGATION, TaskType.MATCHING_PAIRS, TaskType.MAKE_QUESTION, TaskType.MAKE_ANSWER -> {
-                    val newAssemblyLine = uiState.assemblyLine.toMutableList()
-                    if (targetSlotIndex != -1) {
-                        newAssemblyLine[targetSlotIndex] = newAssemblyLine[targetSlotIndex].copy(filledCard = card)
-                    }
-                    uiState = uiState.copy(
-                        availableCards = newAvailableCards,
-                        assemblyLine = newAssemblyLine,
-                        activeSlotId = null
-                    )
-                }
-                else -> uiState = uiState.copy(availableCards = newAvailableCards)
+            val newAssemblyLine = uiState.assemblyLine.toMutableList()
+            if (targetSlotIndex != -1) {
+                newAssemblyLine[targetSlotIndex] = newAssemblyLine[targetSlotIndex].copy(filledCard = card)
             }
+            uiState = uiState.copy(
+                availableCards = newAvailableCards,
+                assemblyLine = newAssemblyLine,
+                activeSlotId = null
+            )
+
+            // --- АУДИО ЛОГИКА ---
+            viewModelScope.launch {
+                // 1. Моментальный фидбек (нажатое слово)
+                ttsPlayer.speakAndAwait(card.text.trim())
+
+                // 2. Если это CONJUGATION — читаем всю пару
+                if (currentTaskType == TaskType.CONJUGATION && targetSlotIndex != -1) {
+                    // Пауза 800мс перед началом чтения пары
+                    delay(800)
+
+                    val currentRowId = newAssemblyLine[targetSlotIndex].rowId
+                    val rowSlots = newAssemblyLine.filter { it.rowId == currentRowId }
+
+                    // RTL порядок: index 0 = Правая, index 1 = Левая
+                    val rightPart = rowSlots.getOrNull(0)?.let { it.filledCard?.text ?: it.text } ?: ""
+                    val leftPart = rowSlots.getOrNull(1)?.let { it.filledCard?.text ?: it.text } ?: ""
+
+                    // Читаем ПРАВУЮ часть
+                    if (rightPart.isNotBlank()) {
+                        ttsPlayer.speakAndAwait(rightPart)
+                    }
+
+                    // Пауза 400мс МЕЖДУ словами пары
+                    delay(400)
+
+                    // Читаем ЛЕВУЮ часть
+                    if (leftPart.isNotBlank()) {
+                        ttsPlayer.speak(leftPart)
+                    }
+                }
+            }
+
             checkWinCondition()
         } else {
+            // --- ОШИБКА ---
             viewModelScope.launch { _hapticEventChannel.send(HapticEvent.Failure) }
             uiState = uiState.copy(
                 errorCount = uiState.errorCount + 1,
@@ -390,7 +420,8 @@ class CardViewModel @Inject constructor(
             TaskType.CONJUGATION -> {
                 newTaskTitleResId = R.string.game_task_fill_in_blank
                 newCurrentTaskPrompt = roundData.hebrew
-                displayPairsList = roundData.task_pairs ?: emptyList()
+                // ПЕРЕМЕШИВАЕМ СТРОКИ
+                displayPairsList = roundData.task_pairs?.shuffled() ?: emptyList()
                 val (target, available, assembly) = setupConjugationTask(roundData, displayPairsList)
                 this.targetCards = target
                 newAvailableCards = available
@@ -451,6 +482,37 @@ class CardViewModel @Inject constructor(
 
         desiredSegmentIndex = -1
         isLastRoundAvailable = currentLevelSentences.size <= 1
+
+        // --- НОВОЕ: Авто-озвучка бонусной строки (если это CONJUGATION) ---
+        if (newTaskType == TaskType.CONJUGATION) {
+            viewModelScope.launch {
+                // 1. Даем пользователю осмотреться (1.5 сек)
+                delay(1500)
+
+                // 2. Ищем заполненную строку (бонусную)
+                val bonusSlot = newAssemblyLine.find { it.filledCard != null }
+
+                if (bonusSlot != null) {
+                    val rowId = bonusSlot.rowId
+                    val rowSlots = newAssemblyLine.filter { it.rowId == rowId }
+
+                    // RTL порядок
+                    val rightPart = rowSlots.getOrNull(0)?.let { it.filledCard?.text ?: it.text } ?: ""
+                    val leftPart = rowSlots.getOrNull(1)?.let { it.filledCard?.text ?: it.text } ?: ""
+
+                    if (rightPart.isNotBlank()) {
+                        ttsPlayer.speakAndAwait(rightPart)
+                    }
+
+                    // Пауза 400мс между частями бонусной пары
+                    delay(400)
+
+                    if (leftPart.isNotBlank()) {
+                        ttsPlayer.speak(leftPart)
+                    }
+                }
+            }
+        }
     }
 
     private fun setupMatchingPairsTask(roundData: SentenceData, pairsList: List<List<String>>): Triple<List<Card>, List<AvailableCardSlot>, List<AssemblySlot>> {
@@ -514,53 +576,98 @@ class CardViewModel @Inject constructor(
         val newAssemblyLine = mutableListOf<AssemblySlot>()
         val targetWordsList = roundData.task_target_cards ?: emptyList()
         val targetCards = targetWordsList.map { word -> Card(text = word, translation = wordDictionary[word] ?: "") }
-        val targetCardsIterator = targetCards.iterator()
-        val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
-        val newAvailableCards = (targetCards + distractors).shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
 
+        // Копия списка для отслеживания доступных карточек
+        val targetCardsMutable = targetCards.toMutableList()
+
+        val distractors = roundData.task_distractor_cards?.map { Card(text = it.trim(), translation = "") } ?: emptyList<Card>()
         val isSwap = roundData.swapColumns
 
+        // Выбираем случайную строку для бонуса
+        val bonusRowIndex = if (pairsList.isNotEmpty()) (pairsList.indices).random() else -1
+
+        Log.d("CONJ_DEBUG", "--- START SETUP ---")
+        Log.d("CONJ_DEBUG", "Total Pairs: ${pairsList.size}, Bonus Row Index: $bonusRowIndex")
+        Log.d("CONJ_DEBUG", "Initial Target Cards: ${targetCards.map { it.text }}")
+
         pairsList.forEachIndexed { index, pair ->
-            // --- РЕАЛИЗАЦИЯ УТВЕРЖДЕННОЙ ЛОГИКИ (RTL) ---
-            // pair[0] = Правая колонка (изначально)
-            // pair[1] = Левая колонка (изначально)
+            val isBonusRow = (index == bonusRowIndex)
 
+            // RTL Логика
             if (!isSwap) {
-                // Normal:
-                // Правая (pair[0]) = Статика
-                // Левая (pair[1]) = Слот (парсим на слова)
+                // NORMAL: Правая (0) = Статика, Левая (1) = Слот
+                val staticText = pair.getOrNull(0) ?: ""
+                val slotTextFull = pair.getOrNull(1) ?: ""
 
-                // 1. Правый элемент (Статика)
-                newAssemblyLine.add(AssemblySlot(text = pair.getOrNull(0) ?: "", isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                // 1. Добавляем Статику (Правая колонка)
+                newAssemblyLine.add(AssemblySlot(text = staticText, isBlank = false, filledCard = null, targetCard = null, rowId = index))
 
-                // 2. Левый элемент (Слот)
-                partsRegex.findAll(pair.getOrNull(1) ?: "").forEach { match ->
+                // 2. Парсим Слот (Левая колонка)
+                partsRegex.findAll(slotTextFull).forEach { match ->
                     val token = match.value
-                    if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
-                        newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next(), rowId = index))
+                    if (token.matches(Regex("""[\u0590-\u05FF\']+"""))) {
+                        // Ищем карточку
+                        val cardIndex = targetCardsMutable.indexOfFirst { it.text == token }
+
+                        if (cardIndex != -1) {
+                            val card = targetCardsMutable[cardIndex]
+
+                            if (isBonusRow) {
+                                // БОНУС: Удаляем из пула
+                                targetCardsMutable.removeAt(cardIndex)
+                                Log.d("CONJ_DEBUG", "Row $index (Bonus): Filled '$token', removed from pool.")
+                                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = card, targetCard = card, rowId = index))
+                            } else {
+                                // ОБЫЧНО: Оставляем в пуле
+                                Log.d("CONJ_DEBUG", "Row $index (Empty): Expecting '$token', KEEPING in pool.")
+                                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = card, rowId = index))
+                            }
+                        } else {
+                            newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                        }
                     } else {
                         newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
                     }
                 }
             } else {
-                // SWAP:
-                // Правая (pair[0]) = Слот
-                // Левая (pair[1]) = Статика
+                // SWAP: Правая (0) = Слот, Левая (1) = Статика
+                val slotTextFull = pair.getOrNull(0) ?: ""
+                val staticText = pair.getOrNull(1) ?: ""
 
-                // 1. Правый элемент (Слот)
-                partsRegex.findAll(pair.getOrNull(0) ?: "").forEach { match ->
+                // 1. Парсим Слот (Правая колонка)
+                partsRegex.findAll(slotTextFull).forEach { match ->
                     val token = match.value
-                    if (token.matches(Regex("""[\u0590-\u05FF\']+""")) && targetCardsIterator.hasNext()) {
-                        newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = targetCardsIterator.next(), rowId = index))
+                    if (token.matches(Regex("""[\u0590-\u05FF\']+"""))) {
+                        val cardIndex = targetCardsMutable.indexOfFirst { it.text == token }
+
+                        if (cardIndex != -1) {
+                            val card = targetCardsMutable[cardIndex]
+
+                            if (isBonusRow) {
+                                targetCardsMutable.removeAt(cardIndex)
+                                Log.d("CONJ_DEBUG", "Row $index (Bonus): Filled '$token', removed from pool.")
+                                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = card, targetCard = card, rowId = index))
+                            } else {
+                                Log.d("CONJ_DEBUG", "Row $index (Empty): Expecting '$token', KEEPING in pool.")
+                                newAssemblyLine.add(AssemblySlot(text = "___", isBlank = true, filledCard = null, targetCard = card, rowId = index))
+                            }
+                        } else {
+                            newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                        }
                     } else {
                         newAssemblyLine.add(AssemblySlot(text = token, isBlank = false, filledCard = null, targetCard = null, rowId = index))
                     }
                 }
 
-                // 2. Левый элемент (Статика)
-                newAssemblyLine.add(AssemblySlot(text = pair.getOrNull(1) ?: "", isBlank = false, filledCard = null, targetCard = null, rowId = index))
+                // 2. Добавляем Статику (Левая колонка)
+                newAssemblyLine.add(AssemblySlot(text = staticText, isBlank = false, filledCard = null, targetCard = null, rowId = index))
             }
         }
+
+        // Формируем пул: Оставшиеся цели + Дистракторы
+        val finalPool = targetCardsMutable + distractors
+        val newAvailableCards = finalPool.shuffled().map { AvailableCardSlot(card = it, isVisible = true) }
+
         return Triple(targetCards, newAvailableCards, newAssemblyLine)
     }
 
